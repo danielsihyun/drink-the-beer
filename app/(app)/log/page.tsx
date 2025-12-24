@@ -1,81 +1,61 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import Image from "next/image";
-import { Camera, Loader2, X } from "lucide-react";
+import * as React from "react"
+import Image from "next/image"
+import { Camera, Loader2, X } from "lucide-react"
 
-type DrinkType =
-  | "Beer"
-  | "Seltzer"
-  | "Wine"
-  | "Cocktail"
-  | "Shot"
-  | "Spirit"
-  | "Other";
+type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
-const DRINK_TYPES: DrinkType[] = [
-  "Beer",
-  "Seltzer",
-  "Wine",
-  "Cocktail",
-  "Shot",
-  "Spirit",
-  "Other",
-];
+const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
-export default function LogDrinkPage() {
-  const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null);
-  const [caption, setCaption] = React.useState("");
-  const [file, setFile] = React.useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+function LogDrinkPage() {
+  const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
+  const [caption, setCaption] = React.useState("")
+  const [file, setFile] = React.useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
 
-  const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [success, setSuccess] = React.useState<string | null>(null)
 
-  const canPost = Boolean(file && drinkType && !submitting);
+  const canPost = Boolean(file && drinkType && !submitting)
 
   React.useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
 
   function resetForm() {
-    setDrinkType(null);
-    setCaption("");
-    setFile(null);
-    setPreviewUrl(null);
+    setDrinkType(null)
+    setCaption("")
+    setFile(null)
+    setPreviewUrl(null)
   }
 
   async function onSubmit() {
-    setError(null);
-    setSuccess(null);
+    setError(null)
+    setSuccess(null)
 
-    if (!file) return setError("Please take or upload a photo.");
-    if (!drinkType) return setError("Please select a drink type.");
+    if (!file) return setError("Please take or upload a photo.")
+    if (!drinkType) return setError("Please select a drink type.")
 
-    setSubmitting(true);
+    setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 900));
-      setSuccess("Posted! (mock)");
-      resetForm();
+      await new Promise((r) => setTimeout(r, 900))
+      setSuccess("Posted! (mock)")
+      resetForm()
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Something went wrong. Please try again.")
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-[calc(84px+env(safe-area-inset-bottom))] pt-4">
-      <header className="mb-4">
-        <h1 className="text-xl font-semibold">Log a drink</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Snap a photo, pick a type, and post it.
-        </p>
-      </header>
+    <div className="container max-w-2xl px-4 py-6">
+      <h2 className="mb-4 text-2xl font-bold">Log a drink</h2>
 
       {error ? (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -95,8 +75,8 @@ export default function LogDrinkPage() {
             <button
               type="button"
               onClick={() => {
-                setFile(null);
-                setPreviewUrl(null);
+                setFile(null)
+                setPreviewUrl(null)
               }}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
             >
@@ -110,7 +90,7 @@ export default function LogDrinkPage() {
           {previewUrl ? (
             <div className="relative overflow-hidden rounded-xl border">
               <Image
-                src={previewUrl}
+                src={previewUrl || "/placeholder.svg"}
                 alt="Drink preview"
                 width={900}
                 height={1200}
@@ -125,9 +105,7 @@ export default function LogDrinkPage() {
               </div>
               <div>
                 <p className="text-sm font-medium">Take a photo</p>
-                <p className="mt-1 text-xs opacity-70">
-                  Or upload from your camera roll
-                </p>
+                <p className="mt-1 text-xs opacity-70">Or upload from your camera roll</p>
               </div>
 
               <input
@@ -136,10 +114,10 @@ export default function LogDrinkPage() {
                 capture="environment"
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  setFile(f);
-                  setError(null);
-                  setSuccess(null);
+                  const f = e.target.files?.[0] ?? null
+                  setFile(f)
+                  setError(null)
+                  setSuccess(null)
                 }}
               />
             </label>
@@ -151,28 +129,26 @@ export default function LogDrinkPage() {
         <h2 className="text-sm font-medium">Drink type</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {DRINK_TYPES.map((t) => {
-            const selected = t === drinkType;
+            const selected = t === drinkType
             return (
               <button
                 key={t}
                 type="button"
                 onClick={() => {
-                  setDrinkType(t);
-                  setError(null);
-                  setSuccess(null);
+                  setDrinkType(t)
+                  setError(null)
+                  setSuccess(null)
                 }}
                 className={[
                   "rounded-full border px-4 py-2 text-sm",
                   "active:scale-[0.99]",
-                  selected
-                    ? "border-black bg-black text-white"
-                    : "bg-transparent hover:bg-black/5",
+                  selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-bg/5",
                 ].join(" ")}
                 aria-pressed={selected}
               >
                 {t}
               </button>
-            );
+            )
           })}
         </div>
       </section>
@@ -182,27 +158,25 @@ export default function LogDrinkPage() {
         <textarea
           value={caption}
           onChange={(e) => {
-            setCaption(e.target.value);
-            setError(null);
-            setSuccess(null);
+            setCaption(e.target.value)
+            setError(null)
+            setSuccess(null)
           }}
           placeholder="Who are you with? What are you doing?"
           className="mt-3 h-24 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
           maxLength={200}
         />
-        <div className="mt-2 text-right text-xs opacity-60">
-          {caption.length}/200
-        </div>
+        <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
       </section>
 
       <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 right-0 z-50">
-        <div className="mx-auto max-w-md px-4">
+        <div className="container mx-auto max-w-2xl px-36">
           <button
             type="button"
             onClick={onSubmit}
             disabled={!canPost}
             className={[
-              "w-full rounded-2xl px-4 py-3 text-sm font-medium shadow-sm",
+              "w-full rounded-2xl px-2 py-3 text-sm font-medium shadow-sm",
               canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
             ].join(" ")}
           >
@@ -220,6 +194,8 @@ export default function LogDrinkPage() {
           </p>
         </div>
       </div>
-    </main>
-  );
+    </div>
+  )
 }
+
+export default LogDrinkPage
