@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Plus, Edit2, Shield, ArrowUpDown } from "lucide-react"
+import { Plus, Edit2, Shield, ArrowUpDown, X, Camera } from "lucide-react"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
@@ -24,58 +24,59 @@ const MOCK_PROFILE = {
   friendCount: 24,
   drinkCount: 87,
   avatarColor: "#4ECDC4",
+  avatarUrl: null as string | null,
 }
 
 const MOCK_DRINK_LOGS: DrinkLog[] = [
   {
     id: "1",
-    timestamp: "2 hours ago",
+    timestamp: "December 24, 25'",
     photoUrl: "/beer-glass-bar.jpg",
     drinkType: "Beer",
     caption: "Trying out the new IPA at the local brewery!",
   },
   {
     id: "2",
-    timestamp: "1 day ago",
+    timestamp: "December 23, 25'",
     photoUrl: "/wine-glass-restaurant.jpg",
     drinkType: "Wine",
   },
   {
     id: "3",
-    timestamp: "2 days ago",
+    timestamp: "December 22, 25'",
     photoUrl: "/cocktail-mojito.png",
     drinkType: "Cocktail",
     caption: "Friday night vibes 🍹",
   },
   {
     id: "4",
-    timestamp: "3 days ago",
+    timestamp: "December 21, 25'",
     photoUrl: "/seltzer-can.jpg",
     drinkType: "Seltzer",
   },
   {
     id: "5",
-    timestamp: "4 days ago",
+    timestamp: "December 20, 25'",
     photoUrl: "/whiskey-glass.jpg",
     drinkType: "Spirit",
     caption: "Celebrating the weekend!",
   },
   {
     id: "6",
-    timestamp: "5 days ago",
+    timestamp: "December 19, 25'",
     photoUrl: "/beer-pint.jpg",
     drinkType: "Beer",
   },
   {
     id: "7",
-    timestamp: "6 days ago",
+    timestamp: "December 18, 25'",
     photoUrl: "/wine-red-glass.jpg",
     drinkType: "Wine",
     caption: "Dinner with friends",
   },
   {
     id: "8",
-    timestamp: "1 week ago",
+    timestamp: "December 17, 25'",
     photoUrl: "/cocktail-martini.jpg",
     drinkType: "Cocktail",
   },
@@ -143,18 +144,30 @@ function EmptyState() {
   )
 }
 
-function DrinkLogCard({ log }: { log: DrinkLog }) {
+function DrinkLogCard({ log, profile }: { log: DrinkLog; profile: typeof MOCK_PROFILE }) {
   return (
     <article className="rounded-2xl border bg-background/50 p-3">
       <div className="flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-          style={{ backgroundColor: MOCK_PROFILE.avatarColor }}
-        >
-          {MOCK_PROFILE.username[0].toUpperCase()}
-        </div>
+        {profile.avatarUrl ? (
+          <div className="relative h-10 w-10 overflow-hidden rounded-full">
+            <Image
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+            style={{ backgroundColor: profile.avatarColor }}
+          >
+            {profile.username[0].toUpperCase()}
+          </div>
+        )}
         <div className="flex-1">
-          <p className="text-sm font-medium">{MOCK_PROFILE.username}</p>
+          <p className="text-sm font-medium">{profile.username}</p>
           <p className="text-xs opacity-60">{log.timestamp}</p>
         </div>
       </div>
@@ -255,6 +268,10 @@ export default function ProfilePage() {
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
   const [granularity, setGranularity] = React.useState<Granularity>("Drink")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
+  const [isEditing, setIsEditing] = React.useState(false)
+  const [editedProfile, setEditedProfile] = React.useState(MOCK_PROFILE)
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -264,29 +281,62 @@ export default function ProfilePage() {
     return () => clearTimeout(timer)
   }, [])
 
+  const handleEditClick = () => {
+    setEditedProfile(MOCK_PROFILE)
+    setAvatarFile(null)
+    setIsEditing(true)
+  }
+
+  const handleSaveProfile = () => {
+    if (avatarFile) {
+      const url = URL.createObjectURL(avatarFile)
+      MOCK_PROFILE.avatarUrl = url
+    }
+    MOCK_PROFILE.username = editedProfile.username
+    MOCK_PROFILE.displayName = editedProfile.displayName
+    MOCK_PROFILE.avatarColor = editedProfile.avatarColor
+    setIsEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditedProfile(MOCK_PROFILE)
+    setAvatarFile(null)
+    setIsEditing(false)
+  }
+
+  const handleAvatarClick = () => {
+    if (isEditing) {
+      fileInputRef.current?.click()
+    }
+  }
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      const url = URL.createObjectURL(file)
+      setEditedProfile({ ...editedProfile, avatarUrl: url })
+    }
+  }
+
   const getGroupedDrinks = (): GroupedDrinks[] => {
     if (granularity === "Drink") {
       return [] // Return empty to show individual cards
     }
 
-    // Group drinks based on granularity
     const groups: { [key: string]: DrinkLog[] } = {}
 
     logs.forEach((log) => {
       let key: string
       if (granularity === "Day") {
-        // Extract day from timestamp (mock grouping)
-        if (log.timestamp.includes("hours")) key = "Today"
-        else if (log.timestamp.includes("1 day")) key = "Yesterday"
-        else if (log.timestamp.includes("days")) key = log.timestamp.replace(" ago", "")
-        else key = log.timestamp.replace(" ago", "")
+        key = log.timestamp
       } else if (granularity === "Month") {
-        // Group by month (mock)
-        if (log.timestamp.includes("hours") || log.timestamp.includes("day")) key = "This Month"
-        else key = "Last Month"
+        const parts = log.timestamp.split(", ")
+        const monthYear = parts[0] + ", " + parts[1]
+        key = monthYear
       } else {
-        // Group by year (mock)
-        key = "2024"
+        const parts = log.timestamp.split(", ")
+        key = parts[1]
       }
 
       if (!groups[key]) groups[key] = []
@@ -302,6 +352,10 @@ export default function ProfilePage() {
 
   const groupedDrinks = getGroupedDrinks()
 
+  const currentAvatarUrl = isEditing ? editedProfile.avatarUrl : MOCK_PROFILE.avatarUrl
+  const currentAvatarColor = isEditing ? editedProfile.avatarColor : MOCK_PROFILE.avatarColor
+  const currentUsername = isEditing ? editedProfile.username : MOCK_PROFILE.username
+
   return (
     <div className="container max-w-2xl px-4 py-6">
       <h2 className="mb-4 text-2xl font-bold">Profile</h2>
@@ -313,15 +367,72 @@ export default function ProfilePage() {
           {/* Profile Header */}
           <div className="rounded-2xl border bg-background/50 p-4">
             <div className="flex items-start gap-4">
-              <div
-                className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
-                style={{ backgroundColor: MOCK_PROFILE.avatarColor }}
-              >
-                {MOCK_PROFILE.username[0].toUpperCase()}
+              <div className="relative">
+                {currentAvatarUrl ? (
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full">
+                    <Image
+                      src={currentAvatarUrl || "/placeholder.svg"}
+                      alt="Profile"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
+                    style={{ backgroundColor: currentAvatarColor }}
+                  >
+                    {currentUsername[0].toUpperCase()}
+                  </div>
+                )}
+                {isEditing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleAvatarClick}
+                      className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-black text-white"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleAvatarFileChange}
+                    />
+                  </>
+                )}
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold">{MOCK_PROFILE.displayName}</h3>
-                <p className="text-sm opacity-60">@{MOCK_PROFILE.username}</p>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editedProfile.displayName}
+                      onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
+                      placeholder="Display Name"
+                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm opacity-60">@</span>
+                      <input
+                        type="text"
+                        value={editedProfile.username}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })}
+                        className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
+                        placeholder="username"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-bold">{MOCK_PROFILE.displayName}</h3>
+                    <p className="text-sm opacity-60">@{MOCK_PROFILE.username}</p>
+                  </>
+                )}
                 <p className="mt-2 text-xs opacity-50">Joined {MOCK_PROFILE.joinDate}</p>
                 <div className="mt-3 flex gap-4 text-sm">
                   <div>
@@ -338,45 +449,34 @@ export default function ProfilePage() {
           </div>
 
           {/* Primary Actions */}
-          <div className="flex gap-2">
+          {isEditing ? (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
+              >
+                Save Changes
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => alert("Edit profile coming soon!")}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2 text-sm font-medium text-white"
+              onClick={handleEditClick}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
             >
               <Edit2 className="h-4 w-4" />
               Edit Profile
             </button>
-            <div className="relative flex-1">
-              <button
-                type="button"
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-              >
-                <ArrowUpDown className="h-4 w-4" />
-                Sort: {granularity}
-              </button>
-              {showSortMenu && (
-                <div className="absolute right-0 top-full z-10 mt-2 w-full rounded-xl border bg-background shadow-lg">
-                  {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        setGranularity(option)
-                        setShowSortMenu(false)
-                      }}
-                      className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                        granularity === option ? "font-semibold" : ""
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Privacy Section */}
           <div className="rounded-2xl border bg-background/50 p-4">
@@ -393,13 +493,46 @@ export default function ProfilePage() {
 
           {/* My Drink Timeline */}
           <div>
-            <h3 className="mb-4 text-lg font-bold">My Timeline</h3>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold">My Timeline</h3>
+              {!isEditing && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    {granularity}
+                  </button>
+                  {showSortMenu && (
+                    <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
+                      {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setGranularity(option)
+                            setShowSortMenu(false)
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
+                            granularity === option ? "font-semibold" : ""
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {logs.length === 0 ? (
               <EmptyState />
             ) : (
               <div className="space-y-4">
                 {granularity === "Drink"
-                  ? logs.map((log) => <DrinkLogCard key={log.id} log={log} />)
+                  ? logs.map((log) => <DrinkLogCard key={log.id} log={log} profile={editedProfile} />)
                   : groupedDrinks.map((group, index) => (
                       <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
                     ))}
