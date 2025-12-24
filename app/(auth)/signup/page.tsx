@@ -1,0 +1,186 @@
+"use client"
+
+import type React from "react"
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Beer } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+export default function SignupPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Client-side validation
+  const validateForm = () => {
+    const errors: string[] = []
+
+    if (!email || !username || !password || !confirmPassword) {
+      errors.push("Please fill in all fields")
+    }
+
+    if (email && !email.includes("@")) {
+      errors.push("Please enter a valid email address")
+    }
+
+    if (username && username.length < 3) {
+      errors.push("Username must be at least 3 characters")
+    }
+
+    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
+      errors.push("Username can only contain letters, numbers, and underscores")
+    }
+
+    if (password && password.length < 8) {
+      errors.push("Password must be at least 8 characters")
+    }
+
+    if (password && confirmPassword && password !== confirmPassword) {
+      errors.push("Passwords do not match")
+    }
+
+    setValidationErrors(errors)
+    return errors.length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setValidationErrors([])
+
+    if (!validateForm()) {
+      return
+    }
+
+    setIsLoading(true)
+
+    // Mock signup handler - simulate API call
+    setTimeout(() => {
+      // Mock success - redirect to feed
+      router.push("/feed")
+      setIsLoading(false)
+    }, 1000)
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 safe-area-inset">
+      <div className="w-full max-w-md space-y-6">
+        {/* App branding */}
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
+            <Beer className="h-9 w-9 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold">Drink The Beer</h1>
+          <p className="text-sm text-muted-foreground">Join the community of beer enthusiasts</p>
+        </div>
+
+        {/* Signup form card */}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Error banner */}
+            {(error || validationErrors.length > 0) && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive space-y-1">
+                {error && <div>{error}</div>}
+                {validationErrors.map((err, idx) => (
+                  <div key={idx}>• {err}</div>
+                ))}
+              </div>
+            )}
+
+            {/* Email field */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                className="h-11"
+                autoComplete="email"
+              />
+            </div>
+
+            {/* Username field */}
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="beermaster"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isLoading}
+                className="h-11"
+                autoComplete="username"
+              />
+              <p className="text-xs text-muted-foreground">
+                At least 3 characters, letters, numbers, and underscores only
+              </p>
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                className="h-11"
+                autoComplete="new-password"
+              />
+              <p className="text-xs text-muted-foreground">At least 8 characters</p>
+            </div>
+
+            {/* Confirm password field */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                className="h-11"
+                autoComplete="new-password"
+              />
+            </div>
+
+            {/* Create account button */}
+            <Button type="submit" className="w-full h-11" disabled={isLoading}>
+              {isLoading ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+
+          {/* Sign in link */}
+          <div className="mt-4 text-center text-sm">
+            <span className="text-muted-foreground">Already have an account? </span>
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Sign in
+            </Link>
+          </div>
+        </div>
+
+        {/* Privacy note */}
+        <p className="text-center text-xs text-muted-foreground">
+          Your photos and ratings are private by default.
+          <br />
+          Share only what you want with friends.
+        </p>
+      </div>
+    </div>
+  )
+}
