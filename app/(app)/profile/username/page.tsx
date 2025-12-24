@@ -3,11 +3,9 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Plus, Edit2, Shield, ArrowUpDown } from "lucide-react"
+import { Plus, Edit2, BarChart3, Shield } from "lucide-react"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
-
-type Granularity = "Drink" | "Day" | "Month" | "Year"
 
 interface DrinkLog {
   id: string
@@ -180,81 +178,9 @@ function DrinkLogCard({ log }: { log: DrinkLog }) {
   )
 }
 
-interface GroupedDrinks {
-  label: string
-  drinks: DrinkLog[]
-  count: number
-}
-
-function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
-  const maxStack = 3 // Show up to 3 stacked photos
-  const displayDrinks = group.drinks.slice(0, maxStack)
-
-  return (
-    <article className="rounded-2xl border bg-background/50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h4 className="font-semibold">{group.label}</h4>
-          <p className="text-sm opacity-60">
-            {group.count} {group.count === 1 ? "drink" : "drinks"}
-          </p>
-        </div>
-      </div>
-
-      <div className="relative h-64">
-        {displayDrinks.map((drink, index) => (
-          <div
-            key={drink.id}
-            className="absolute overflow-hidden rounded-xl border-4 border-background shadow-lg transition-transform hover:z-10 hover:scale-105"
-            style={{
-              left: `${index * 16}px`,
-              top: `${index * 16}px`,
-              right: `${(displayDrinks.length - 1 - index) * 16}px`,
-              bottom: `${(displayDrinks.length - 1 - index) * 16}px`,
-              zIndex: displayDrinks.length - index,
-            }}
-          >
-            <Image
-              src={drink.photoUrl || "/placeholder.svg"}
-              alt={`${drink.drinkType} drink`}
-              fill
-              className="object-cover"
-            />
-          </div>
-        ))}
-
-        {group.count > maxStack && (
-          <div
-            className="absolute flex items-center justify-center rounded-xl border-4 border-background bg-black/80 text-white shadow-lg"
-            style={{
-              left: `${maxStack * 16}px`,
-              top: `${maxStack * 16}px`,
-              right: 0,
-              bottom: 0,
-              zIndex: 0,
-            }}
-          >
-            <span className="text-2xl font-bold">+{group.count - maxStack}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {Array.from(new Set(group.drinks.map((d) => d.drinkType))).map((type) => (
-          <span key={type} className="inline-flex rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
-            {type}
-          </span>
-        ))}
-      </div>
-    </article>
-  )
-}
-
 export default function ProfilePage() {
   const [loading, setLoading] = React.useState(true)
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
-  const [granularity, setGranularity] = React.useState<Granularity>("Drink")
-  const [showSortMenu, setShowSortMenu] = React.useState(false)
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -263,44 +189,6 @@ export default function ProfilePage() {
     }, 800)
     return () => clearTimeout(timer)
   }, [])
-
-  const getGroupedDrinks = (): GroupedDrinks[] => {
-    if (granularity === "Drink") {
-      return [] // Return empty to show individual cards
-    }
-
-    // Group drinks based on granularity
-    const groups: { [key: string]: DrinkLog[] } = {}
-
-    logs.forEach((log) => {
-      let key: string
-      if (granularity === "Day") {
-        // Extract day from timestamp (mock grouping)
-        if (log.timestamp.includes("hours")) key = "Today"
-        else if (log.timestamp.includes("1 day")) key = "Yesterday"
-        else if (log.timestamp.includes("days")) key = log.timestamp.replace(" ago", "")
-        else key = log.timestamp.replace(" ago", "")
-      } else if (granularity === "Month") {
-        // Group by month (mock)
-        if (log.timestamp.includes("hours") || log.timestamp.includes("day")) key = "This Month"
-        else key = "Last Month"
-      } else {
-        // Group by year (mock)
-        key = "2024"
-      }
-
-      if (!groups[key]) groups[key] = []
-      groups[key].push(log)
-    })
-
-    return Object.entries(groups).map(([label, drinks]) => ({
-      label,
-      drinks,
-      count: drinks.length,
-    }))
-  }
-
-  const groupedDrinks = getGroupedDrinks()
 
   return (
     <div className="container max-w-2xl px-4 py-6">
@@ -347,35 +235,13 @@ export default function ProfilePage() {
               <Edit2 className="h-4 w-4" />
               Edit Profile
             </button>
-            <div className="relative flex-1">
-              <button
-                type="button"
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-              >
-                <ArrowUpDown className="h-4 w-4" />
-                Sort: {granularity}
-              </button>
-              {showSortMenu && (
-                <div className="absolute right-0 top-full z-10 mt-2 w-full rounded-xl border bg-background shadow-lg">
-                  {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        setGranularity(option)
-                        setShowSortMenu(false)
-                      }}
-                      className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                        granularity === option ? "font-semibold" : ""
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Link
+              href="/analytics"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
+            >
+              <BarChart3 className="h-4 w-4" />
+              View Analytics
+            </Link>
           </div>
 
           {/* Privacy Section */}
@@ -398,11 +264,9 @@ export default function ProfilePage() {
               <EmptyState />
             ) : (
               <div className="space-y-4">
-                {granularity === "Drink"
-                  ? logs.map((log) => <DrinkLogCard key={log.id} log={log} />)
-                  : groupedDrinks.map((group, index) => (
-                      <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
-                    ))}
+                {logs.map((log) => (
+                  <DrinkLogCard key={log.id} log={log} />
+                ))}
               </div>
             )}
           </div>

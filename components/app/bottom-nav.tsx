@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Plus, BarChart3, User, Users } from "lucide-react"
+import { Home, Plus, BarChart3, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -20,11 +20,6 @@ const navItems = [
     href: "/analytics",
     label: "Analytics",
     icon: BarChart3,
-  },
-  {
-    href: "/friends",
-    label: "Friends",
-    icon: Users,
   },
   {
     href: "/profile/me",
@@ -49,7 +44,7 @@ export function BottomNav() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-[3rem] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors active:scale-95",
+                    "flex min-h-[3rem] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                     isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
                   )}
                 >

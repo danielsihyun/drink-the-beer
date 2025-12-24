@@ -169,31 +169,24 @@ function LogDrinkPage() {
         <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
       </section>
 
-      <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 right-0 z-50">
-        <div className="container mx-auto max-w-2xl px-36">
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={!canPost}
-            className={[
-              "w-full rounded-2xl px-2 py-3 text-sm font-medium shadow-sm",
-              canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
-            ].join(" ")}
-          >
-            {submitting ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Posting…
-              </span>
-            ) : (
-              "Post"
-            )}
-          </button>
-          <p className="mt-2 text-center text-xs opacity-60">
-            Photos are private by default; friends can see them once connected.
-          </p>
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!canPost}
+        className={[
+          "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
+          canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
+        ].join(" ")}
+      >
+        {submitting ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Posting…
+          </span>
+        ) : (
+          "Post"
+        )}
+      </button>
     </div>
   )
 }
