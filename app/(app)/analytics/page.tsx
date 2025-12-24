@@ -134,29 +134,64 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
   )
 }
 
-function BarChart({ data, maxValue }: { data: { day: string; count: number }[]; maxValue: number }) {
+function LineGraph({ data, maxValue }: { data: { day: string; count: number }[]; maxValue: number }) {
+  const chartHeight = 160
+  const chartWidth = 100 // percentage
+  const padding = 20
+  const effectiveHeight = chartHeight - padding * 2
+
+  // Calculate points for the line
+  const points = data.map((item, index) => {
+    const x = (index / (data.length - 1)) * 100
+    const y = maxValue > 0 ? chartHeight - padding - (item.count / maxValue) * effectiveHeight : chartHeight - padding
+    return { x, y, ...item }
+  })
+
+  const pathD = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")
+
+  const areaPathD = `${pathD} L 100 ${chartHeight - padding} L 0 ${chartHeight - padding} Z`
+
   return (
     <div className="rounded-2xl border bg-background/50 p-4">
       <h3 className="mb-4 text-sm font-semibold">Drinks per day</h3>
-      <div className="flex items-end justify-between gap-2" style={{ height: "160px" }}>
-        {data.map((item) => {
-          const heightPercent = maxValue > 0 ? (item.count / maxValue) * 100 : 0
-          return (
-            <div key={item.day} className="flex flex-1 flex-col items-center gap-2">
-              <div className="relative w-full flex-1">
-                <div
-                  className="absolute bottom-0 w-full rounded-t-lg bg-black transition-all"
-                  style={{ height: `${heightPercent}%` }}
-                />
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-medium opacity-60">{item.day}</p>
-                <p className="text-xs font-bold">{item.count}</p>
-              </div>
+      <div className="relative" style={{ height: `${chartHeight}px` }}>
+        <svg className="h-full w-full" viewBox={`0 0 100 ${chartHeight}`} preserveAspectRatio="none">
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map((y) => (
+            <line
+              key={y}
+              x1="0"
+              y1={padding + (effectiveHeight * y) / 100}
+              x2="100"
+              y2={padding + (effectiveHeight * y) / 100}
+              stroke="currentColor"
+              strokeOpacity="0.1"
+              strokeWidth="0.5"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          <path d={areaPathD} fill="black" fillOpacity="0.5" />
+          <path
+            d={pathD}
+            fill="none"
+            stroke="black"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {/* Labels */}
+        <div className="absolute -bottom-6 left-0 right-0 flex justify-between px-1">
+          {data.map((item) => (
+            <div key={item.day} className="flex flex-col items-center gap-0.5">
+              <p className="text-[10px] font-medium opacity-60">{item.day}</p>
+              <p className="text-xs font-bold">{item.count}</p>
             </div>
-          )
-        })}
+          ))}
+        </div>
       </div>
+      <div className="h-6" />
     </div>
   )
 }
@@ -241,7 +276,7 @@ export default function AnalyticsPage() {
               <SummaryCard label="Most common" value={data.mostCommonType} />
             </div>
 
-            <BarChart data={data.drinksPerDay} maxValue={maxDrinksPerDay} />
+            <LineGraph data={data.drinksPerDay} maxValue={maxDrinksPerDay} />
             <TypeBreakdown data={data.typeBreakdown} />
           </div>
         </>
