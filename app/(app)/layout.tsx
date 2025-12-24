@@ -1,6 +1,5 @@
 import type React from "react"
-import { BottomNav } from "@/components/bottom-nav"
-import { TopBar } from "@/components/top-bar"
+import { BottomNav } from "@/components/app/bottom-nav"
 
 export default function AppLayout({
   children,
@@ -9,13 +8,21 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Top Bar */}
-      <TopBar />
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
+          <h1 className="text-lg font-bold">Drink The Beer</h1>
+          {/* Optional action slot for future use */}
+          <div className="flex items-center gap-2">{/* Placeholder for notifications, settings, etc. */}</div>
+        </div>
+      </header>
 
-      {/* Main Content Area - with padding for fixed top and bottom bars */}
-      <main className="flex-1 overflow-y-auto pb-20 pt-16">{children}</main>
+      {/* Main content area */}
+      <main className="mx-auto w-full max-w-md flex-1 pb-20">
+        <div className="px-4 py-4 safe-area-inset-bottom">{children}</div>
+      </main>
 
-      {/* Bottom Navigation */}
+      {/* Bottom navigation */}
       <BottomNav />
     </div>
   )

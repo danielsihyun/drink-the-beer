@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+import { redirect } from "next/navigation"
 
-export default function Home() {
-  redirect("/feed");
+export default function RootPage() {
+  // Redirect to the app (feed page)
+  redirect("/feed")
 }
