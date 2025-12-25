@@ -3,12 +3,15 @@
 import * as React from "react"
 import Image from "next/image"
 import { Camera, Loader2, X } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
 function LogDrinkPage() {
+  const supabase = createClient()
+
   const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
   const [caption, setCaption] = React.useState("")
   const [file, setFile] = React.useState<File | null>(null)
@@ -34,6 +37,14 @@ function LogDrinkPage() {
     setPreviewUrl(null)
   }
 
+  function getFileExt(f: File) {
+    const fromName = f.name?.split(".").pop()?.toLowerCase()
+    if (fromName && fromName.length <= 6) return fromName
+    if (f.type === "image/png") return "png"
+    if (f.type === "image/webp") return "webp"
+    return "jpg"
+  }
+
   async function onSubmit() {
     setError(null)
     setSuccess(null)
@@ -43,11 +54,39 @@ function LogDrinkPage() {
 
     setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 900))
-      setSuccess("Posted! (mock)")
+      // 1) Ensure user is authenticated
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      const user = userRes.user
+      if (!user) {
+        setError("You’re not logged in. Please log in and try again.")
+        return
+      }
+
+      // 2) Upload photo to Supabase Storage (private bucket)
+      const ext = getFileExt(file)
+      const objectName = `${user.id}/${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(objectName, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "image/jpeg",
+      })
+      if (uploadErr) throw uploadErr
+
+      // 3) Insert the log row into DB
+      const { error: insertErr } = await supabase.from("drink_logs").insert({
+        user_id: user.id,
+        photo_path: objectName,
+        drink_type: drinkType,
+        caption: caption.trim() ? caption.trim() : null,
+      })
+      if (insertErr) throw insertErr
+
+      setSuccess("Posted!")
       resetForm()
-    } catch {
-      setError("Something went wrong. Please try again.")
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong. Please try again.")
     } finally {
       setSubmitting(false)
     }
