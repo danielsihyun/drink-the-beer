@@ -3,17 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import {
-  ArrowUpDown,
-  Camera,
-  Edit2,
-  FilePenLine,
-  Loader2,
-  LogOut,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react"
+import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -35,6 +25,7 @@ type ProfileRow = {
   id: string
   username: string
   display_name: string
+  avatar_path: string | null
   created_at: string | null
 }
 
@@ -119,6 +110,18 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
+function getFileExt(file: File) {
+  const parts = file.name.split(".")
+  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg"
+  // tiny safety net
+  return ext.replace(/[^a-z0-9]/g, "") || "jpg"
+}
+
+function revokeIfBlob(url: string | null) {
+  if (!url) return
+  if (url.startsWith("blob:")) URL.revokeObjectURL(url)
+}
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
@@ -194,13 +197,7 @@ function DrinkLogCard({
       <div className="flex items-center gap-2">
         {profile.avatarUrl ? (
           <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
+            <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
           </div>
         ) : (
           <div
@@ -223,13 +220,7 @@ function DrinkLogCard({
 
       <div className="mt-3 overflow-hidden rounded-xl border">
         <div className="relative aspect-square w-full">
-          <Image
-            src={log.photoUrl || "/placeholder.svg"}
-            alt={`${log.drinkType} drink`}
-            fill
-            className="object-cover"
-            unoptimized
-          />
+          <Image src={log.photoUrl || "/placeholder.svg"} alt={`${log.drinkType} drink`} fill className="object-cover" unoptimized />
         </div>
       </div>
 
@@ -241,8 +232,7 @@ function DrinkLogCard({
           ) : (
             <p className="text-sm leading-relaxed opacity-50">No caption</p>
           )}
-      </div>
-
+        </div>
 
         <div className="flex items-end justify-end gap-1">
           <button
@@ -300,13 +290,7 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
               zIndex: displayDrinks.length - index,
             }}
           >
-            <Image
-              src={drink.photoUrl || "/placeholder.svg"}
-              alt={`${drink.drinkType} drink`}
-              fill
-              className="object-cover"
-              unoptimized
-            />
+            <Image src={drink.photoUrl || "/placeholder.svg"} alt={`${drink.drinkType} drink`} fill className="object-cover" unoptimized />
           </div>
         ))}
 
@@ -328,10 +312,7 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         {Array.from(new Set(group.drinks.map((d) => d.drinkType))).map((type) => (
-          <span
-            key={type}
-            className="inline-flex rounded-full border bg-black/5 px-3 py-1 text-xs font-medium"
-          >
+          <span key={type} className="inline-flex rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
             {type}
           </span>
         ))}
@@ -340,15 +321,7 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
   )
 }
 
-function OverlayPage({
-  title,
-  children,
-  onClose,
-}: {
-  title: string
-  children: React.ReactNode
-  onClose: () => void
-}) {
+function OverlayPage({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[60] bg-black/60">
       <div className="fixed inset-x-0 bottom-0 top-0 mx-auto w-full max-w-2xl">
@@ -403,6 +376,27 @@ export default function ProfilePage() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
+  async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
+    if (!path) return null
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
+    if (error) return null
+    return data?.signedUrl ?? null
+  }
+
+  async function uploadAvatarAndGetPath(opts: { userId: string; file: File }) {
+    const ext = getFileExt(opts.file)
+    const path = `${opts.userId}/avatar.${ext}`
+
+    const { error: uploadError } = await supabase.storage.from("profile-photos").upload(path, opts.file, {
+      upsert: true,
+      contentType: opts.file.type || "image/jpeg",
+      cacheControl: "3600",
+    })
+
+    if (uploadError) throw uploadError
+    return path
+  }
+
   const load = React.useCallback(async () => {
     setError(null)
     setLoading(true)
@@ -420,12 +414,14 @@ export default function ProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,username,display_name,created_at")
+        .select("id,username,display_name,avatar_path,created_at")
         .eq("id", user.id)
         .single()
       if (profErr) throw profErr
 
       const p = prof as ProfileRow
+
+      const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
 
       const { data: rows, error: logsErr } = await supabase
         .from("drink_logs")
@@ -439,9 +435,7 @@ export default function ProfilePage() {
 
       const mapped: DrinkLog[] = await Promise.all(
         base.map(async (r) => {
-          const { data } = await supabase.storage
-            .from("drink-photos")
-            .createSignedUrl(r.photo_path, 60 * 60)
+          const { data } = await supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60)
 
           return {
             id: r.id,
@@ -458,20 +452,17 @@ export default function ProfilePage() {
 
       setLogs(mapped)
 
-      setProfile((prev) => ({
-        ...prev,
+      const nextProfile: UiProfile = {
+        ...DEFAULT_PROFILE,
         username: p.username,
         displayName: p.display_name,
         joinDate: formatJoinDate(p.created_at),
         drinkCount: mapped.length,
-      }))
-      setEditedProfile((prev) => ({
-        ...prev,
-        username: p.username,
-        displayName: p.display_name,
-        joinDate: formatJoinDate(p.created_at),
-        drinkCount: mapped.length,
-      }))
+        avatarUrl,
+      }
+
+      setProfile(nextProfile)
+      setEditedProfile(nextProfile)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your profile.")
     } finally {
@@ -491,10 +482,13 @@ export default function ProfilePage() {
   }
 
   const handleCancelEdit = () => {
+    // if we created a local preview blob, revoke it to avoid leaks
+    if (editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) revokeIfBlob(editedProfile.avatarUrl)
     setEditedProfile(profile)
     setAvatarFile(null)
     setIsEditingProfile(false)
     setError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
   const handleAvatarClick = () => {
@@ -504,6 +498,9 @@ export default function ProfilePage() {
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (f) {
+      // revoke previous preview (if any)
+      if (editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) revokeIfBlob(editedProfile.avatarUrl)
+
       setAvatarFile(f)
       const url = URL.createObjectURL(f)
       setEditedProfile({ ...editedProfile, avatarUrl: url })
@@ -530,9 +527,23 @@ export default function ProfilePage() {
         throw new Error("Username can only contain letters, numbers, and underscores.")
       }
 
+      // If avatar was changed locally, upload it first, then store avatar_path on profiles.
+      let nextAvatarPath: string | null = null
+      if (avatarFile) {
+        nextAvatarPath = await uploadAvatarAndGetPath({ userId: user.id, file: avatarFile })
+      } else {
+        // keep existing avatar_path (don’t overwrite)
+        const { data: curProf } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).single()
+        nextAvatarPath = (curProf as any)?.avatar_path ?? null
+      }
+
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ username: nextUsername, display_name: nextDisplayName })
+        .update({
+          username: nextUsername,
+          display_name: nextDisplayName,
+          avatar_path: nextAvatarPath,
+        })
         .eq("id", user.id)
 
       if (updErr) {
@@ -540,8 +551,12 @@ export default function ProfilePage() {
         throw updErr
       }
 
-      let avatarUrl = profile.avatarUrl
-      if (avatarFile) avatarUrl = URL.createObjectURL(avatarFile)
+      // Revoke preview blob now that we will switch to signed URL.
+      if (avatarFile && editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) {
+        revokeIfBlob(editedProfile.avatarUrl)
+      }
+
+      const avatarUrl = await getSignedUrlOrNull("profile-photos", nextAvatarPath)
 
       const updated: UiProfile = {
         ...profile,
@@ -553,6 +568,8 @@ export default function ProfilePage() {
       setProfile(updated)
       setEditedProfile(updated)
       setIsEditingProfile(false)
+      setAvatarFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     } catch (e: any) {
       setError(e?.message ?? "Could not save profile.")
     } finally {
@@ -629,11 +646,7 @@ export default function ProfilePage() {
     setPostBusy(true)
 
     try {
-      const { error: delErr } = await supabase
-        .from("drink_logs")
-        .delete()
-        .eq("id", activePost.id)
-        .eq("user_id", userId)
+      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", activePost.id).eq("user_id", userId)
 
       if (delErr) throw delErr
 
@@ -759,9 +772,7 @@ export default function ProfilePage() {
                         <input
                           type="text"
                           value={editedProfile.username}
-                          onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
-                          }
+                          onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })}
                           className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
                           placeholder="username"
                         />
@@ -779,12 +790,10 @@ export default function ProfilePage() {
 
                   <div className="mt-3 flex gap-4 text-sm">
                     <div>
-                      <span className="font-bold">{profile.friendCount}</span>{" "}
-                      <span className="opacity-60">Friends</span>
+                      <span className="font-bold">{profile.friendCount}</span> <span className="opacity-60">Friends</span>
                     </div>
                     <div>
-                      <span className="font-bold">{profile.drinkCount}</span>{" "}
-                      <span className="opacity-60">Drinks</span>
+                      <span className="font-bold">{profile.drinkCount}</span> <span className="opacity-60">Drinks</span>
                     </div>
                   </div>
                 </div>
@@ -867,17 +876,9 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {granularity === "Drink"
                     ? logs.map((log) => (
-                        <DrinkLogCard
-                          key={log.id}
-                          log={log}
-                          profile={current}
-                          onEdit={openEditPost}
-                          onDelete={openDeletePost}
-                        />
+                        <DrinkLogCard key={log.id} log={log} profile={current} onEdit={openEditPost} onDelete={openDeletePost} />
                       ))
-                    : groupedDrinks.map((group, index) => (
-                        <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
-                      ))}
+                    : groupedDrinks.map((group, index) => <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />)}
                 </div>
               )}
             </div>
@@ -912,13 +913,7 @@ export default function ProfilePage() {
 
           <div className="overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
@@ -1010,22 +1005,14 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">
-                  This will permanently delete this post (and its photo) from your account.
-                </p>
+                <p className="mt-1 text-sm opacity-70">This will permanently delete this post (and its photo) from your account.</p>
               </div>
             </div>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
