@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Loader2, Search, ArrowUpDown, Plus } from "lucide-react"
+import { Loader2, Search, ArrowUpDown, Plus, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -15,20 +15,28 @@ type FriendRow = {
   username: string
   display_name: string
   avatar_path: string | null
-  friend_count: number | null
-  drink_count: number | null
+  friend_count: number
+  drink_count: number
 }
 
-// Search rows can come from either:
-// - profiles_public_stats (if you create it): includes friend_count/drink_count
-// - profiles_public (what you have now): likely DOES NOT include counts
 type SearchProfileRow = {
   id: string
   username: string
   display_name: string
   avatar_path: string | null
-  friend_count?: number | null
-  drink_count?: number | null
+  friend_count: number
+  drink_count: number
+}
+
+type PendingApiRow = {
+  friendshipId: string
+  requesterId: string
+  createdAt: string
+  username: string
+  display_name: string
+  avatar_path: string | null
+  friend_count: number
+  drink_count: number
 }
 
 type UiPerson = {
@@ -39,6 +47,11 @@ type UiPerson = {
   friendCount: number
   drinkCount: number
   friendshipCreatedAt?: string
+}
+
+type UiPending = UiPerson & {
+  friendshipId: string
+  requestedAt: string
 }
 
 function sortLabel(s: FriendSort) {
@@ -61,6 +74,9 @@ export default function FriendsPage() {
   const [searching, setSearching] = React.useState(false)
   const [searchResults, setSearchResults] = React.useState<UiPerson[]>([])
 
+  const [pending, setPending] = React.useState<UiPending[]>([])
+  const [pendingBusyId, setPendingBusyId] = React.useState<string | null>(null)
+
   const [friends, setFriends] = React.useState<UiPerson[]>([])
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
@@ -72,25 +88,70 @@ export default function FriendsPage() {
     return data?.signedUrl ?? null
   }
 
+  const ensureAuthed = React.useCallback(async () => {
+    const { data: userRes, error: userErr } = await supabase.auth.getUser()
+    if (userErr) throw userErr
+    const user = userRes.user
+    if (!user) {
+      router.replace("/login?redirectTo=%2Ffriends")
+      return null
+    }
+    setMeId(user.id)
+    return user.id
+  }, [router, supabase])
+
+  const loadPending = React.useCallback(async () => {
+    try {
+      const me = await ensureAuthed()
+      if (!me) return
+
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token. Please log out and back in.")
+
+      const res = await fetch("/api/friends/pending-incoming", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not load pending requests.")
+
+      const base = (json.items ?? []) as PendingApiRow[]
+      const mapped: UiPending[] = await Promise.all(
+        base.map(async (r) => {
+          const avatarUrl = await getSignedUrlOrNull("profile-photos", r.avatar_path)
+          return {
+            friendshipId: r.friendshipId,
+            requestedAt: r.createdAt,
+            id: r.requesterId,
+            username: r.username,
+            displayName: r.display_name,
+            avatarUrl,
+            friendCount: r.friend_count ?? 0,
+            drinkCount: r.drink_count ?? 0,
+          }
+        })
+      )
+
+      setPending(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong loading pending requests.")
+    }
+  }, [ensureAuthed, supabase])
+
   const loadFriends = React.useCallback(async () => {
     setError(null)
     setLoading(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      const user = userRes.user
-      if (!user) {
-        router.replace("/login?redirectTo=%2Ffriends")
-        return
-      }
-
-      setMeId(user.id)
+      const me = await ensureAuthed()
+      if (!me) return
 
       const { data: rows, error: fErr } = await supabase
         .from("friends_with_stats")
         .select("user_id,friend_id,friendship_created_at,username,display_name,avatar_path,friend_count,drink_count")
-        .eq("user_id", user.id)
+        .eq("user_id", me)
         .limit(500)
 
       if (fErr) throw fErr
@@ -113,12 +174,15 @@ export default function FriendsPage() {
       )
 
       setFriends(mapped)
+
+      // also load pending after friends load
+      await loadPending()
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your friends.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase])
+  }, [ensureAuthed, loadPending, router, supabase])
 
   React.useEffect(() => {
     loadFriends()
@@ -127,7 +191,6 @@ export default function FriendsPage() {
   // Search (debounced)
   React.useEffect(() => {
     if (!meId) return
-
     const q = query.trim()
     if (!q.length) {
       setSearchResults([])
@@ -136,50 +199,21 @@ export default function FriendsPage() {
 
     const t = window.setTimeout(async () => {
       setSearching(true)
-      setError(null)
-
       try {
-        // Build a set of existing friend IDs so search results don’t show “already-friends”
-        const friendIds = new Set(friends.map((f) => f.id))
+        const { data: rows, error: sErr } = await supabase
+          .from("profile_public_stats")
+          .select("id,username,display_name,avatar_path,friend_count,drink_count")
+          .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+          .limit(25)
 
-        // Prefer a stats view if it exists; fall back to your current view.
-        const trySearch = async (tableName: string) => {
-          return supabase
-            .from(tableName)
-            .select("id,username,display_name,avatar_path,friend_count,drink_count")
-            .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-            .limit(25)
-        }
+        if (sErr) throw sErr
 
-        let rows: SearchProfileRow[] = []
-        let sErr: any = null
-
-        // 1) Try profiles_public_stats (optional)
-        const r1 = await trySearch("profiles_public_stats")
-        sErr = r1.error
-        rows = (r1.data ?? []) as SearchProfileRow[]
-
-        // 2) If it doesn't exist (schema cache), fall back to profiles_public
-        if (sErr && (sErr.code === "PGRST205" || String(sErr.message || "").includes("schema cache"))) {
-          const r2 = await supabase
-            .from("profiles_public")
-            .select("id,username,display_name,avatar_path")
-            .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-            .limit(25)
-
-          if (r2.error) throw r2.error
-          rows = (r2.data ?? []) as SearchProfileRow[]
-        } else if (sErr) {
-          throw sErr
-        }
-
-        const filtered = rows
-          .filter((p) => p.id !== meId)
-          .filter((p) => !friendIds.has(p.id))
+        const base = (rows ?? []) as SearchProfileRow[]
+        const filtered = base.filter((p) => p.id !== meId)
 
         const mapped: UiPerson[] = await Promise.all(
           filtered.map(async (p) => {
-            const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path ?? null)
+            const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
             return {
               id: p.id,
               username: p.username,
@@ -200,19 +234,14 @@ export default function FriendsPage() {
     }, 250)
 
     return () => window.clearTimeout(t)
-  }, [query, meId, supabase, friends])
+  }, [query, meId, supabase])
 
   function sortedFriends(list: UiPerson[]) {
     const copy = [...list]
-    if (sort === "name_asc") {
-      copy.sort((a, b) => a.username.localeCompare(b.username))
-    } else if (sort === "name_desc") {
-      copy.sort((a, b) => b.username.localeCompare(a.username))
-    } else if (sort === "since_new") {
-      copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
-    } else if (sort === "since_old") {
-      copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
-    }
+    if (sort === "name_asc") copy.sort((a, b) => a.username.localeCompare(b.username))
+    else if (sort === "name_desc") copy.sort((a, b) => b.username.localeCompare(a.username))
+    else if (sort === "since_new") copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
+    else copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
     return copy
   }
 
@@ -236,11 +265,38 @@ export default function FriendsPage() {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not add friend.")
 
-      setQuery("")
-      setSearchResults([])
       await loadFriends()
     } catch (e: any) {
       setError(e?.message ?? "Could not add friend.")
+    }
+  }
+
+  async function respondToRequest(friendshipId: string, action: "accept" | "reject") {
+    setError(null)
+    setPendingBusyId(friendshipId)
+    try {
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token. Please log out and back in.")
+
+      const res = await fetch("/api/friends/respond", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ friendshipId, action }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not update request.")
+
+      await loadFriends()
+    } catch (e: any) {
+      setError(e?.message ?? "Could not update request.")
+    } finally {
+      setPendingBusyId(null)
     }
   }
 
@@ -297,7 +353,7 @@ export default function FriendsPage() {
         {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
       </div>
 
-      {/* Sort control */}
+      {/* Sort control (top-right under search bar) */}
       <div className="mt-3 flex items-center justify-end">
         <div className="relative">
           <button
@@ -338,7 +394,7 @@ export default function FriendsPage() {
         </div>
       </div>
 
-      {/* Search results */}
+      {/* Search results (shown when typing) */}
       {query.trim().length ? (
         <div className="mt-4 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Search results</div>
@@ -389,14 +445,76 @@ export default function FriendsPage() {
         </div>
       ) : null}
 
+      {/* ✅ Pending requests (above friends list) */}
+      <div className="mt-6 space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
+
+        {pending.length === 0 ? (
+          <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No pending requests.</div>
+        ) : (
+          pending.map((p) => (
+            <article key={p.friendshipId} className="rounded-2xl border bg-background/50 p-3">
+              <div className="flex items-center gap-3">
+                {p.avatarUrl ? (
+                  <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                    <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                  </div>
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                    {p.username[0]?.toUpperCase() ?? "U"}
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <div className="text-sm font-semibold">{p.displayName}</div>
+                  <div className="text-xs opacity-60">@{p.username}</div>
+
+                  <div className="mt-2 flex gap-4 text-sm">
+                    <div>
+                      <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                    </div>
+                    <div>
+                      <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => respondToRequest(p.friendshipId, "accept")}
+                    disabled={pendingBusyId === p.friendshipId}
+                    className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    aria-label="Accept"
+                    title="Accept"
+                  >
+                    {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => respondToRequest(p.friendshipId, "reject")}
+                    disabled={pendingBusyId === p.friendshipId}
+                    className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60"
+                    aria-label="Reject"
+                    title="Reject"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
       {/* Friends list */}
       <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
         <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
 
         {friendsSorted.length === 0 ? (
           <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">
-            You have no friends (yet). 
-            Search their username above and hit the + to add them.
+            No friends yet. Search someone above and hit the + to add them.
           </div>
         ) : (
           friendsSorted.map((f) => (
