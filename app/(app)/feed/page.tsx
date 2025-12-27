@@ -4,7 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
@@ -86,11 +86,15 @@ function OverlayPage({
 export default function FeedPage() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<FeedItem[]>([])
   const [refreshing, setRefreshing] = React.useState(false)
+
+  // Success banner control
+  const [postedBanner, setPostedBanner] = React.useState(false)
 
   // edit/delete overlay state (only for your own posts)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -101,6 +105,23 @@ export default function FeedPage() {
   const [postCaption, setPostCaption] = React.useState("")
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const posted = searchParams.get("posted")
+    if (posted === "1") {
+      setPostedBanner(true)
+      // remove ?posted=1 so it doesn't persist on refresh
+      router.replace("/feed")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // ✅ Auto-dismiss the banner after 2 seconds (and cleanup timer)
+  React.useEffect(() => {
+    if (!postedBanner) return
+    const t = window.setTimeout(() => setPostedBanner(false), 4000)
+    return () => window.clearTimeout(t)
+  }, [postedBanner])
 
   async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
     if (!path) return null
@@ -148,7 +169,9 @@ export default function FeedPage() {
       // 3) Create signed URLs for drink images
       const signed = await Promise.all(
         rows.map(async (row) => {
-          const { data, error: urlErr } = await supabase.storage.from("drink-photos").createSignedUrl(row.photo_path, 60 * 60)
+          const { data, error: urlErr } = await supabase.storage
+            .from("drink-photos")
+            .createSignedUrl(row.photo_path, 60 * 60)
 
           const photoUrl = urlErr ? null : data?.signedUrl ?? null
 
@@ -245,7 +268,11 @@ export default function FeedPage() {
     setPostError(null)
     setPostBusy(true)
     try {
-      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", active.id).eq("user_id", active.user_id)
+      const { error: delErr } = await supabase
+        .from("drink_logs")
+        .delete()
+        .eq("id", active.id)
+        .eq("user_id", active.user_id)
       if (delErr) throw delErr
 
       if (active.photo_path) {
@@ -312,6 +339,13 @@ export default function FeedPage() {
           </div>
         </div>
 
+        {/* ✅ Posted banner at the very top of the feed */}
+        {postedBanner ? (
+          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            Posted!
+          </div>
+        ) : null}
+
         {error ? (
           <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
@@ -333,7 +367,6 @@ export default function FeedPage() {
           <div className="mt-6 space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {items.map((it) => (
               <article key={it.id} className="rounded-2xl border bg-background/50 p-3">
-                {/* header: match timeline */}
                 <div className="flex items-center gap-2">
                   {it.avatarUrl ? (
                     <div className="relative h-10 w-10 overflow-hidden rounded-full">
@@ -358,7 +391,6 @@ export default function FeedPage() {
                   </span>
                 </div>
 
-                {/* square photo */}
                 <div className="mt-3 overflow-hidden rounded-xl border">
                   <div className="relative aspect-square w-full">
                     {it.photoUrl ? (
@@ -371,7 +403,6 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                {/* caption + actions row (only show actions if mine) */}
                 <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
                   <div className="flex h-7.5 items-center pl-2">
                     {it.caption ? (
@@ -415,7 +446,6 @@ export default function FeedPage() {
         )}
       </div>
 
-      {/* Edit overlay (only used for your own posts) */}
       {editOpen && active ? (
         <OverlayPage
           title="Edit post"
@@ -434,16 +464,20 @@ export default function FeedPage() {
 
           <div className="overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={active.photoUrl ?? "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={active.photoUrl ?? "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
           <div className="mt-5 rounded-2xl border bg-background/50 p-3">
             <div className="text-sm font-medium">Drink type</div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {(Array.from(
-                new Set(["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"] as DrinkType[])
-              ) as DrinkType[]).map((t) => {
+              {(["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"] as DrinkType[]).map((t) => {
                 const selected = t === postDrinkType
                 return (
                   <button
@@ -505,7 +539,6 @@ export default function FeedPage() {
         </OverlayPage>
       ) : null}
 
-      {/* Delete overlay (only used for your own posts) */}
       {deleteOpen && active ? (
         <OverlayPage
           title="Delete post"
@@ -529,14 +562,22 @@ export default function FeedPage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">This will permanently delete this post (and its photo) from your account.</p>
+                <p className="mt-1 text-sm opacity-70">
+                  This will permanently delete this post (and its photo) from your account.
+                </p>
               </div>
             </div>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={active.photoUrl ?? "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={active.photoUrl ?? "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 

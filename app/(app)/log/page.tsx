@@ -3,14 +3,16 @@
 import * as React from "react"
 import Image from "next/image"
 import { Camera, Loader2, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
-function LogDrinkPage() {
+export default function LogDrinkPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
   const [caption, setCaption] = React.useState("")
@@ -37,14 +39,6 @@ function LogDrinkPage() {
     setPreviewUrl(null)
   }
 
-  function getFileExt(f: File) {
-    const fromName = f.name?.split(".").pop()?.toLowerCase()
-    if (fromName && fromName.length <= 6) return fromName
-    if (f.type === "image/png") return "png"
-    if (f.type === "image/webp") return "webp"
-    return "jpg"
-  }
-
   async function onSubmit() {
     setError(null)
     setSuccess(null)
@@ -54,37 +48,42 @@ function LogDrinkPage() {
 
     setSubmitting(true)
     try {
-      // 1) Ensure user is authenticated
+      // 1) Ensure signed in
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr) throw userErr
       const user = userRes.user
       if (!user) {
-        setError("You’re not logged in. Please log in and try again.")
+        router.replace("/login?redirectTo=%2Flog")
         return
       }
 
-      // 2) Upload photo to Supabase Storage (private bucket)
-      const ext = getFileExt(file)
-      const objectName = `${user.id}/${crypto.randomUUID()}.${ext}`
+      // 2) Upload image to storage (private bucket: drink-photos)
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
+      const filename = `${crypto.randomUUID()}.${ext}`
+      const photoPath = `${user.id}/${filename}`
 
-      const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(objectName, file, {
+      const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
         cacheControl: "3600",
         upsert: false,
         contentType: file.type || "image/jpeg",
       })
       if (uploadErr) throw uploadErr
 
-      // 3) Insert the log row into DB
-      const { error: insertErr } = await supabase.from("drink_logs").insert({
+      // 3) Insert row
+      const nextCaption = caption.trim()
+      const { error: insErr } = await supabase.from("drink_logs").insert({
         user_id: user.id,
-        photo_path: objectName,
+        photo_path: photoPath,
         drink_type: drinkType,
-        caption: caption.trim() ? caption.trim() : null,
+        caption: nextCaption.length ? nextCaption : null,
       })
-      if (insertErr) throw insertErr
+      if (insErr) throw insErr
 
-      setSuccess("Posted!")
+      // Optional: clear local form (won't matter since we redirect)
       resetForm()
+
+      // 4) Redirect to feed with a success flag
+      router.replace("/feed?posted=1")
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong. Please try again.")
     } finally {
@@ -229,5 +228,3 @@ function LogDrinkPage() {
     </div>
   )
 }
-
-export default LogDrinkPage
