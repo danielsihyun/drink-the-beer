@@ -25,8 +25,8 @@ type ProfileRow = {
   id: string
   username: string
   display_name: string
-  avatar_path: string | null
   created_at: string | null
+  avatar_path?: string | null
 }
 
 type UiProfile = {
@@ -108,18 +108,6 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   }
 
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
-}
-
-function getFileExt(file: File) {
-  const parts = file.name.split(".")
-  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg"
-  // tiny safety net
-  return ext.replace(/[^a-z0-9]/g, "") || "jpg"
-}
-
-function revokeIfBlob(url: string | null) {
-  if (!url) return
-  if (url.startsWith("blob:")) URL.revokeObjectURL(url)
 }
 
 function LoadingSkeleton() {
@@ -224,7 +212,6 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* Caption + actions row: grid keeps actions pinned to right edge; buttons are 30px (h-7.5/w-7.5), icons h-4/w-4 */}
       <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
         <div className="flex h-7.5 items-center pl-2">
           {log.caption ? (
@@ -328,12 +315,7 @@ function OverlayPage({ title, children, onClose }: { title: string; children: Re
         <div className="flex h-full flex-col bg-background">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="text-base font-semibold">{title}</div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border"
-              aria-label="Close"
-            >
+            <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border" aria-label="Close">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -351,6 +333,9 @@ export default function ProfilePage() {
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [success, setSuccess] = React.useState<string | null>(null)
+
+  const successTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [userId, setUserId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
@@ -365,6 +350,10 @@ export default function ProfilePage() {
   const [loggingOut, setLoggingOut] = React.useState(false)
   const [savingProfile, setSavingProfile] = React.useState(false)
 
+  const [currentPassword, setCurrentPassword] = React.useState("")
+  const [newPassword, setNewPassword] = React.useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState("")
+
   const [editPostOpen, setEditPostOpen] = React.useState(false)
   const [deletePostOpen, setDeletePostOpen] = React.useState(false)
   const [activePost, setActivePost] = React.useState<DrinkLog | null>(null)
@@ -376,25 +365,21 @@ export default function ProfilePage() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
-    if (!path) return null
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
-    if (error) return null
-    return data?.signedUrl ?? null
+  function setErrorMsg(msg: string) {
+    // Errors persist until replaced or cleared by success
+    setSuccess(null)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    setError(msg)
   }
 
-  async function uploadAvatarAndGetPath(opts: { userId: string; file: File }) {
-    const ext = getFileExt(opts.file)
-    const path = `${opts.userId}/avatar.${ext}`
-
-    const { error: uploadError } = await supabase.storage.from("profile-photos").upload(path, opts.file, {
-      upsert: true,
-      contentType: opts.file.type || "image/jpeg",
-      cacheControl: "3600",
-    })
-
-    if (uploadError) throw uploadError
-    return path
+  function setSuccessMsg(msg: string) {
+    // Success auto-dismisses after 4s
+    setError(null)
+    setSuccess(msg)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    successTimerRef.current = setTimeout(() => {
+      setSuccess(null)
+    }, 3000)
   }
 
   const load = React.useCallback(async () => {
@@ -414,14 +399,18 @@ export default function ProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,username,display_name,avatar_path,created_at")
+        .select("id,username,display_name,created_at,avatar_path")
         .eq("id", user.id)
         .single()
       if (profErr) throw profErr
 
       const p = prof as ProfileRow
 
-      const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
+      let avatarUrl: string | null = null
+      if (p.avatar_path) {
+        const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
+        avatarUrl = data?.signedUrl ?? null
+      }
 
       const { data: rows, error: logsErr } = await supabase
         .from("drink_logs")
@@ -452,19 +441,24 @@ export default function ProfilePage() {
 
       setLogs(mapped)
 
-      const nextProfile: UiProfile = {
-        ...DEFAULT_PROFILE,
+      setProfile((prev) => ({
+        ...prev,
         username: p.username,
         displayName: p.display_name,
         joinDate: formatJoinDate(p.created_at),
         drinkCount: mapped.length,
         avatarUrl,
-      }
-
-      setProfile(nextProfile)
-      setEditedProfile(nextProfile)
+      }))
+      setEditedProfile((prev) => ({
+        ...prev,
+        username: p.username,
+        displayName: p.display_name,
+        joinDate: formatJoinDate(p.created_at),
+        drinkCount: mapped.length,
+        avatarUrl,
+      }))
     } catch (e: any) {
-      setError(e?.message ?? "Something went wrong loading your profile.")
+      setErrorMsg(e?.message ?? "Something went wrong loading your profile.")
     } finally {
       setLoading(false)
     }
@@ -479,16 +473,23 @@ export default function ProfilePage() {
     setAvatarFile(null)
     setIsEditingProfile(true)
     setError(null)
+    setSuccess(null)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmNewPassword("")
   }
 
   const handleCancelEdit = () => {
-    // if we created a local preview blob, revoke it to avoid leaks
-    if (editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) revokeIfBlob(editedProfile.avatarUrl)
     setEditedProfile(profile)
     setAvatarFile(null)
     setIsEditingProfile(false)
     setError(null)
-    if (fileInputRef.current) fileInputRef.current.value = ""
+    setSuccess(null)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmNewPassword("")
   }
 
   const handleAvatarClick = () => {
@@ -498,9 +499,6 @@ export default function ProfilePage() {
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (f) {
-      // revoke previous preview (if any)
-      if (editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) revokeIfBlob(editedProfile.avatarUrl)
-
       setAvatarFile(f)
       const url = URL.createObjectURL(f)
       setEditedProfile({ ...editedProfile, avatarUrl: url })
@@ -508,55 +506,72 @@ export default function ProfilePage() {
   }
 
   async function handleSaveProfile() {
-    setError(null)
+    // Don’t auto-clear errors here; only clear on success.
     setSavingProfile(true)
 
     try {
-      const { data: userRes } = await supabase.auth.getUser()
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr) throw userErr
       const user = userRes.user
       if (!user) {
         router.replace("/login?redirectTo=%2Fprofile")
         return
       }
 
+      const prevUsername = profile.username
       const nextUsername = editedProfile.username.trim().toLowerCase()
       const nextDisplayName = editedProfile.displayName.trim()
 
-      if (nextUsername.length < 3) throw new Error("Username must be at least 3 characters.")
-      if (!/^[a-z0-9_]+$/.test(nextUsername)) {
-        throw new Error("Username can only contain letters, numbers, and underscores.")
+      if (nextUsername.length < 3) {
+        setErrorMsg("Username must be at least 3 characters.")
+        return
       }
-
-      // If avatar was changed locally, upload it first, then store avatar_path on profiles.
-      let nextAvatarPath: string | null = null
-      if (avatarFile) {
-        nextAvatarPath = await uploadAvatarAndGetPath({ userId: user.id, file: avatarFile })
-      } else {
-        // keep existing avatar_path (don’t overwrite)
-        const { data: curProf } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).single()
-        nextAvatarPath = (curProf as any)?.avatar_path ?? null
+      if (!/^[a-z0-9_]+$/.test(nextUsername)) {
+        setErrorMsg("Username must be letters, numbers, underscores only.")
+        return
       }
 
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({
-          username: nextUsername,
-          display_name: nextDisplayName,
-          avatar_path: nextAvatarPath,
-        })
+        .update({ username: nextUsername, display_name: nextDisplayName })
         .eq("id", user.id)
 
       if (updErr) {
-        if ((updErr as any).code === "23505") throw new Error("That username is already taken. Try another.")
+        if ((updErr as any).code === "23505") {
+          setErrorMsg("Username must be unique. Try something else.")
+          return
+        }
         throw updErr
       }
 
-      // Revoke preview blob now that we will switch to signed URL.
-      if (avatarFile && editedProfile.avatarUrl && editedProfile.avatarUrl !== profile.avatarUrl) {
-        revokeIfBlob(editedProfile.avatarUrl)
+      const wantsPasswordChange =
+        currentPassword.trim().length > 0 || newPassword.trim().length > 0 || confirmNewPassword.trim().length > 0
+
+      if (wantsPasswordChange) {
+        const cp = currentPassword.trim()
+        const np = newPassword.trim()
+        const cnp = confirmNewPassword.trim()
+
+        if (!cp) throw new Error("Enter your current password to change your password.")
+        if (np.length < 8) throw new Error("New password must be at least 8 characters.")
+        if (np !== cnp) throw new Error("New passwords do not match.")
+
+        const email = user.email
+        if (!email) throw new Error("No email found on this account; cannot verify current password.")
+
+        const { error: reauthErr } = await supabase.auth.signInWithPassword({ email, password: cp })
+        if (reauthErr) throw new Error("Current password is incorrect.")
+
+        const { error: pwErr } = await supabase.auth.updateUser({ password: np })
+        if (pwErr) throw pwErr
+
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmNewPassword("")
       }
 
-      const avatarUrl = await getSignedUrlOrNull("profile-photos", nextAvatarPath)
+      let avatarUrl = profile.avatarUrl
+      if (avatarFile) avatarUrl = URL.createObjectURL(avatarFile)
 
       const updated: UiProfile = {
         ...profile,
@@ -568,10 +583,20 @@ export default function ProfilePage() {
       setProfile(updated)
       setEditedProfile(updated)
       setIsEditingProfile(false)
-      setAvatarFile(null)
-      if (fileInputRef.current) fileInputRef.current.value = ""
+
+      // Clear any prior error after successful save.
+      setError(null)
+
+      // Only show success popup if username changed
+      if (nextUsername !== prevUsername) {
+        setSuccessMsg("Username changed successfully.")
+      } else {
+        // if username didn’t change, don’t show a username success popup
+        setSuccess(null)
+        if (successTimerRef.current) clearTimeout(successTimerRef.current)
+      }
     } catch (e: any) {
-      setError(e?.message ?? "Could not save profile.")
+      setErrorMsg(e?.message ?? "Could not save profile.")
     } finally {
       setSavingProfile(false)
     }
@@ -647,7 +672,6 @@ export default function ProfilePage() {
 
     try {
       const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", activePost.id).eq("user_id", userId)
-
       if (delErr) throw delErr
 
       if (activePost.photoPath) {
@@ -704,6 +728,12 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        {success ? (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {success}
+          </div>
+        ) : null}
+
         {error ? (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
@@ -719,13 +749,7 @@ export default function ProfilePage() {
                 <div className="relative">
                   {current.avatarUrl ? (
                     <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                      <Image
-                        src={current.avatarUrl || "/placeholder.svg"}
-                        alt="Profile"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                      <Image src={current.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
                     </div>
                   ) : (
                     <div
@@ -759,25 +783,63 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={editedProfile.displayName}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
-                        className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
-                        placeholder="Display Name"
-                      />
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm opacity-60">@</span>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
                         <input
                           type="text"
-                          value={editedProfile.username}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })}
-                          className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
-                          placeholder="username"
+                          value={editedProfile.displayName}
+                          onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
+                          className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
+                          placeholder="Display Name"
                         />
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm opacity-60">@</span>
+                          <input
+                            type="text"
+                            value={editedProfile.username}
+                            onChange={(e) =>
+                              setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
+                            }
+                            className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
+                            placeholder="username"
+                          />
+                        </div>
                       </div>
-                      <p className="text-xs opacity-60">Usernames are unique. Letters, numbers, underscores only.</p>
+
+                      <div className="rounded-xl border bg-background/50 p-3">
+                        <div className="text-sm font-medium">Change password</div>
+                        <p className="mt-1 text-xs opacity-60">Leave blank to keep your current password.</p>
+
+                        <div className="mt-3 space-y-2">
+                          <input
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                            placeholder="Current password"
+                            autoComplete="current-password"
+                            disabled={savingProfile}
+                          />
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                            placeholder="New password (min 8 characters)"
+                            autoComplete="new-password"
+                            disabled={savingProfile}
+                          />
+                          <input
+                            type="password"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                            placeholder="Confirm new password"
+                            autoComplete="new-password"
+                            disabled={savingProfile}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -790,10 +852,12 @@ export default function ProfilePage() {
 
                   <div className="mt-3 flex gap-4 text-sm">
                     <div>
-                      <span className="font-bold">{profile.friendCount}</span> <span className="opacity-60">Friends</span>
+                      <span className="font-bold">{profile.friendCount}</span>{" "}
+                      <span className="opacity-60">Friends</span>
                     </div>
                     <div>
-                      <span className="font-bold">{profile.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                      <span className="font-bold">{profile.drinkCount}</span>{" "}
+                      <span className="opacity-60">Drinks</span>
                     </div>
                   </div>
                 </div>
@@ -1005,7 +1069,9 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">This will permanently delete this post (and its photo) from your account.</p>
+                <p className="mt-1 text-sm opacity-70">
+                  This will permanently delete this post (and its photo) from your account.
+                </p>
               </div>
             </div>
           </div>
