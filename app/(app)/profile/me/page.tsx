@@ -155,21 +155,21 @@ function LoadingSkeleton() {
 function EmptyState() {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed">
-        <Plus className="h-8 w-8 opacity-50" />
-      </div>
-      <h3 className="mb-2 text-lg font-semibold">No logs yet</h3>
-      <p className="mb-6 max-w-sm text-sm opacity-70">Start logging drinks to build your timeline.</p>
       <Link
         href="/log"
-        className="inline-flex items-center gap-2 rounded-full border bg-black px-4 py-2 text-sm font-medium text-white"
+        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed"
+        aria-label="Log a drink"
+        title="Log a drink"
       >
-        <Plus className="h-4 w-4" />
-        Log Drink
+        <Plus className="h-8 w-8 opacity-50" />
       </Link>
+
+      <h3 className="mb-2 text-lg font-semibold">No logs yet</h3>
+      <p className="mb-6 max-w-sm text-sm opacity-70">Log your first drink and it'll show up here.</p>
     </div>
   )
 }
+
 
 function DrinkLogCard({
   log,
@@ -586,7 +586,7 @@ export default function ProfilePage() {
         .eq("id", user.id)
 
       if (updErr) {
-        if ((updErr as any).code === "23505") throw new Error("Username must be unique. Try something else.")
+        if ((updErr as any).code === "23505") throw new Error("Username is taken. Try something else.")
         throw updErr
       }
 
@@ -789,7 +789,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="container max-w-2xl px-4 py-6">
+      <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Profile</h2>
 
@@ -1038,14 +1038,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={load}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-            >
-              <Loader2 className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4 opacity-0"} />
-              Refresh timeline
-            </button>
           </div>
         )}
       </div>

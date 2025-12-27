@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="container max-w-2xl px-4 py-6">
+    <div className="container max-w-2xl px-3 py-1.5">
       <h2 className="mb-4 text-2xl font-bold">Analytics</h2>
 
       {loading ? (

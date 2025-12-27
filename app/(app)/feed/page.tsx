@@ -292,7 +292,7 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-2xl px-4 py-6">
+      <div className="container max-w-2xl px-3 py-1.5">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Feed</h2>
           <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
@@ -314,29 +314,20 @@ export default function FeedPage() {
 
   return (
     <>
-      <div className="container max-w-2xl px-4 py-6">
+      <div className="container max-w-2xl px-3 py-1.5">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Feed</h2>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-              disabled={refreshing}
-            >
-              {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Refresh
-            </button>
-
             <Link
-              href="/log"
+              href="/friends"
               className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
             >
               <Plus className="h-4 w-4" />
               Log
             </Link>
           </div>
+
         </div>
 
         {/* ✅ Posted banner at the very top of the feed */}
@@ -354,14 +345,18 @@ export default function FeedPage() {
 
         {items.length === 0 ? (
           <div className="mt-10 flex flex-col items-center justify-center text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed">
+            <Link
+              href="/friends"
+              className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed"
+              aria-label="Log a drink"
+              title="Log a drink"
+            >
               <Plus className="h-7 w-7 opacity-50" />
-            </div>
-            <h3 className="text-lg font-semibold">No posts yet</h3>
-            <p className="mt-1 max-w-sm text-sm opacity-70">Post your first drink and it’ll show up here.</p>
-            <Link href="/log" className="mt-6 rounded-full bg-black px-4 py-2 text-sm font-medium text-white">
-              Log a drink
             </Link>
+
+          {/*this currently redirects to log - but it should redirect to friends page*/}
+            <h3 className="text-lg font-semibold">No posts yet</h3>
+            <p className="mt-1 max-w-sm text-sm opacity-70">Add your friends to build out your feed!</p>
           </div>
         ) : (
           <div className="mt-6 space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
