@@ -417,7 +417,7 @@ export default function FeedPage() {
                       <button
                         type="button"
                         onClick={() => openEdit(it)}
-                        className="inline-flex items-center justify-center text-foreground/70 hover:text-foreground active:scale-[0.99]"
+                        className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-120 active:scale-[0.99]"
                         style={{ width: "30px", height: "30px" }}
                         aria-label="Edit post"
                         title="Edit"
@@ -428,7 +428,7 @@ export default function FeedPage() {
                       <button
                         type="button"
                         onClick={() => openDelete(it)}
-                        className="inline-flex items-center justify-center text-red-400 hover:text-red-300 active:scale-[0.99]"
+                        className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-120 active:scale-[0.99]"
                         style={{ width: "30px", height: "30px" }}
                         aria-label="Delete post"
                         title="Delete"

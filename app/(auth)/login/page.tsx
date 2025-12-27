@@ -48,6 +48,10 @@ export default function LoginPage() {
 
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
 
+    const { data } = await supabase.auth.getSession()
+    console.log("session exists?", Boolean(data.session))
+
+
     if (signInErr) {
       setError(signInErr.message)
       setIsLoading(false)

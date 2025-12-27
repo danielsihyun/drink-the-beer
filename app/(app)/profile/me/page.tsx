@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
+import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -26,7 +26,7 @@ type ProfileRow = {
   username: string
   display_name: string
   created_at: string | null
-  avatar_path?: string | null
+  avatar_path: string | null
 }
 
 type UiProfile = {
@@ -37,6 +37,7 @@ type UiProfile = {
   drinkCount: number
   avatarColor: string
   avatarUrl: string | null
+  avatarPath: string | null
 }
 
 interface DrinkLog {
@@ -64,6 +65,7 @@ const DEFAULT_PROFILE: UiProfile = {
   drinkCount: 0,
   avatarColor: "#4ECDC4",
   avatarUrl: null,
+  avatarPath: null,
 }
 
 function formatCardTimestamp(iso: string) {
@@ -185,7 +187,13 @@ function DrinkLogCard({
       <div className="flex items-center gap-2">
         {profile.avatarUrl ? (
           <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+            <Image
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
         ) : (
           <div
@@ -196,7 +204,7 @@ function DrinkLogCard({
           </div>
         )}
 
-        <div className="flex-1">
+        <div className="flex-1 pl-[2px]">
           <p className="text-sm font-medium">{profile.username}</p>
           <p className="text-xs opacity-60">{log.timestampLabel}</p>
         </div>
@@ -208,10 +216,17 @@ function DrinkLogCard({
 
       <div className="mt-3 overflow-hidden rounded-xl border">
         <div className="relative aspect-square w-full">
-          <Image src={log.photoUrl || "/placeholder.svg"} alt={`${log.drinkType} drink`} fill className="object-cover" unoptimized />
+          <Image
+            src={log.photoUrl || "/placeholder.svg"}
+            alt={`${log.drinkType} drink`}
+            fill
+            className="object-cover"
+            unoptimized
+          />
         </div>
       </div>
 
+      {/* Caption + actions row */}
       <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
         <div className="flex h-7.5 items-center pl-2">
           {log.caption ? (
@@ -225,7 +240,7 @@ function DrinkLogCard({
           <button
             type="button"
             onClick={() => onEdit(log)}
-            className="inline-flex items-center justify-center text-foreground/70 hover:text-foreground active:scale-[0.99]"
+            className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
             style={{ width: "30px", height: "30px" }}
             aria-label="Edit post"
             title="Edit"
@@ -236,7 +251,7 @@ function DrinkLogCard({
           <button
             type="button"
             onClick={() => onDelete(log)}
-            className="inline-flex items-center justify-center text-red-400 hover:text-red-300 active:scale-[0.99]"
+            className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
             style={{ width: "30px", height: "30px" }}
             aria-label="Delete post"
             title="Delete"
@@ -277,7 +292,13 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
               zIndex: displayDrinks.length - index,
             }}
           >
-            <Image src={drink.photoUrl || "/placeholder.svg"} alt={`${drink.drinkType} drink`} fill className="object-cover" unoptimized />
+            <Image
+              src={drink.photoUrl || "/placeholder.svg"}
+              alt={`${drink.drinkType} drink`}
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
         ))}
 
@@ -308,24 +329,52 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
   )
 }
 
-function OverlayPage({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+/**
+ * ✅ Updated OverlayPage:
+ * - Darkens the background
+ * - Leaves ~10% margin on left/right (w-[90vw], px-[5vw])
+ * - Modal is centered and smaller than the screen
+ * - Body scrolls inside modal if needed
+ */
+function OverlayPage({
+  title,
+  children,
+  onClose,
+}: {
+  title: string
+  children: React.ReactNode
+  onClose: () => void
+}) {
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60">
-      <div className="fixed inset-x-0 bottom-0 top-0 mx-auto w-full max-w-2xl">
-        <div className="flex h-full flex-col bg-background">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Match the feed container width */}
+      <div className="container max-w-2xl px-4">
+        {/* Modal = 80% of the feed container width */}
+        <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="text-base font-semibold">{title}</div>
-            <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border" aria-label="Close">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+              aria-label="Close"
+              title="Close"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 safe-area-inset">{children}</div>
+          <div className="max-h-[80vh] overflow-y-auto px-4 py-4">{children}</div>
         </div>
       </div>
     </div>
   )
 }
+
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -334,8 +383,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
-
-  const successTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [userId, setUserId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
@@ -350,10 +397,6 @@ export default function ProfilePage() {
   const [loggingOut, setLoggingOut] = React.useState(false)
   const [savingProfile, setSavingProfile] = React.useState(false)
 
-  const [currentPassword, setCurrentPassword] = React.useState("")
-  const [newPassword, setNewPassword] = React.useState("")
-  const [confirmNewPassword, setConfirmNewPassword] = React.useState("")
-
   const [editPostOpen, setEditPostOpen] = React.useState(false)
   const [deletePostOpen, setDeletePostOpen] = React.useState(false)
   const [activePost, setActivePost] = React.useState<DrinkLog | null>(null)
@@ -363,24 +406,29 @@ export default function ProfilePage() {
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
 
+  // ✅ Profile-card actions
+  const [passwordOpen, setPasswordOpen] = React.useState(false)
+  const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false)
+
+  // Change password form state
+  const [pwCurrent, setPwCurrent] = React.useState("")
+  const [pwNew, setPwNew] = React.useState("")
+  const [pwConfirm, setPwConfirm] = React.useState("")
+  const [pwBusy, setPwBusy] = React.useState(false)
+  const [pwError, setPwError] = React.useState<string | null>(null)
+
+  // Delete account confirm state
+  const [delConfirm, setDelConfirm] = React.useState("")
+  const [delBusy, setDelBusy] = React.useState(false)
+  const [delError, setDelError] = React.useState<string | null>(null)
+
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  function setErrorMsg(msg: string) {
-    // Errors persist until replaced or cleared by success
-    setSuccess(null)
-    if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    setError(msg)
-  }
-
-  function setSuccessMsg(msg: string) {
-    // Success auto-dismisses after 4s
-    setError(null)
-    setSuccess(msg)
-    if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    successTimerRef.current = setTimeout(() => {
-      setSuccess(null)
-    }, 3000)
-  }
+  React.useEffect(() => {
+    let t: any
+    if (success) t = setTimeout(() => setSuccess(null), 4000)
+    return () => clearTimeout(t)
+  }, [success])
 
   const load = React.useCallback(async () => {
     setError(null)
@@ -406,10 +454,10 @@ export default function ProfilePage() {
 
       const p = prof as ProfileRow
 
-      let avatarUrl: string | null = null
+      let avatarSignedUrl: string | null = null
       if (p.avatar_path) {
         const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
-        avatarUrl = data?.signedUrl ?? null
+        avatarSignedUrl = data?.signedUrl ?? null
       }
 
       const { data: rows, error: logsErr } = await supabase
@@ -421,11 +469,9 @@ export default function ProfilePage() {
       if (logsErr) throw logsErr
 
       const base = (rows ?? []) as DrinkLogRow[]
-
       const mapped: DrinkLog[] = await Promise.all(
         base.map(async (r) => {
           const { data } = await supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60)
-
           return {
             id: r.id,
             userId: r.user_id,
@@ -441,24 +487,20 @@ export default function ProfilePage() {
 
       setLogs(mapped)
 
-      setProfile((prev) => ({
-        ...prev,
+      const ui: UiProfile = {
+        ...DEFAULT_PROFILE,
         username: p.username,
         displayName: p.display_name,
         joinDate: formatJoinDate(p.created_at),
         drinkCount: mapped.length,
-        avatarUrl,
-      }))
-      setEditedProfile((prev) => ({
-        ...prev,
-        username: p.username,
-        displayName: p.display_name,
-        joinDate: formatJoinDate(p.created_at),
-        drinkCount: mapped.length,
-        avatarUrl,
-      }))
+        avatarUrl: avatarSignedUrl,
+        avatarPath: p.avatar_path ?? null,
+      }
+
+      setProfile(ui)
+      setEditedProfile(ui)
     } catch (e: any) {
-      setErrorMsg(e?.message ?? "Something went wrong loading your profile.")
+      setError(e?.message ?? "Something went wrong loading your profile.")
     } finally {
       setLoading(false)
     }
@@ -473,11 +515,6 @@ export default function ProfilePage() {
     setAvatarFile(null)
     setIsEditingProfile(true)
     setError(null)
-    setSuccess(null)
-    if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmNewPassword("")
   }
 
   const handleCancelEdit = () => {
@@ -485,11 +522,6 @@ export default function ProfilePage() {
     setAvatarFile(null)
     setIsEditingProfile(false)
     setError(null)
-    setSuccess(null)
-    if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmNewPassword("")
   }
 
   const handleAvatarClick = () => {
@@ -506,97 +538,72 @@ export default function ProfilePage() {
   }
 
   async function handleSaveProfile() {
-    // Don’t auto-clear errors here; only clear on success.
+    setError(null)
     setSavingProfile(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
+      const { data: userRes } = await supabase.auth.getUser()
       const user = userRes.user
       if (!user) {
         router.replace("/login?redirectTo=%2Fprofile")
         return
       }
 
-      const prevUsername = profile.username
       const nextUsername = editedProfile.username.trim().toLowerCase()
       const nextDisplayName = editedProfile.displayName.trim()
 
-      if (nextUsername.length < 3) {
-        setErrorMsg("Username must be at least 3 characters.")
-        return
-      }
+      if (nextUsername.length < 3) throw new Error("Username must be at least 3 characters.")
       if (!/^[a-z0-9_]+$/.test(nextUsername)) {
-        setErrorMsg("Username must be letters, numbers, underscores only.")
-        return
+        throw new Error("Username must be letters, numbers, and underscores only.")
+      }
+
+      // Upload avatar if changed
+      let nextAvatarPath = profile.avatarPath
+      let nextAvatarUrl = profile.avatarUrl
+
+      if (avatarFile) {
+        const ext = avatarFile.name.split(".").pop() || "jpg"
+        const path = `${user.id}/${crypto.randomUUID()}.${ext}`
+
+        const { error: upErr } = await supabase.storage
+          .from("profile-photos")
+          .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
+
+        if (upErr) throw upErr
+
+        const { data } = await supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60)
+        nextAvatarPath = path
+        nextAvatarUrl = data?.signedUrl ?? null
       }
 
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ username: nextUsername, display_name: nextDisplayName })
+        .update({
+          username: nextUsername,
+          display_name: nextDisplayName,
+          avatar_path: nextAvatarPath,
+        })
         .eq("id", user.id)
 
       if (updErr) {
-        if ((updErr as any).code === "23505") {
-          setErrorMsg("Username must be unique. Try something else.")
-          return
-        }
+        if ((updErr as any).code === "23505") throw new Error("Username must be unique. Try something else.")
         throw updErr
       }
-
-      const wantsPasswordChange =
-        currentPassword.trim().length > 0 || newPassword.trim().length > 0 || confirmNewPassword.trim().length > 0
-
-      if (wantsPasswordChange) {
-        const cp = currentPassword.trim()
-        const np = newPassword.trim()
-        const cnp = confirmNewPassword.trim()
-
-        if (!cp) throw new Error("Enter your current password to change your password.")
-        if (np.length < 8) throw new Error("New password must be at least 8 characters.")
-        if (np !== cnp) throw new Error("New passwords do not match.")
-
-        const email = user.email
-        if (!email) throw new Error("No email found on this account; cannot verify current password.")
-
-        const { error: reauthErr } = await supabase.auth.signInWithPassword({ email, password: cp })
-        if (reauthErr) throw new Error("Current password is incorrect.")
-
-        const { error: pwErr } = await supabase.auth.updateUser({ password: np })
-        if (pwErr) throw pwErr
-
-        setCurrentPassword("")
-        setNewPassword("")
-        setConfirmNewPassword("")
-      }
-
-      let avatarUrl = profile.avatarUrl
-      if (avatarFile) avatarUrl = URL.createObjectURL(avatarFile)
 
       const updated: UiProfile = {
         ...profile,
         username: nextUsername,
         displayName: nextDisplayName,
-        avatarUrl,
+        avatarPath: nextAvatarPath,
+        avatarUrl: nextAvatarUrl,
       }
 
       setProfile(updated)
       setEditedProfile(updated)
       setIsEditingProfile(false)
-
-      // Clear any prior error after successful save.
-      setError(null)
-
-      // Only show success popup if username changed
-      if (nextUsername !== prevUsername) {
-        setSuccessMsg("Username changed successfully.")
-      } else {
-        // if username didn’t change, don’t show a username success popup
-        setSuccess(null)
-        if (successTimerRef.current) clearTimeout(successTimerRef.current)
-      }
+      setSuccess("Username changed successfully.")
     } catch (e: any) {
-      setErrorMsg(e?.message ?? "Could not save profile.")
+      setError(e?.message ?? "Could not save profile.")
     } finally {
       setSavingProfile(false)
     }
@@ -701,15 +708,84 @@ export default function ProfilePage() {
       groups[label].push(log)
     }
 
-    return Object.entries(groups).map(([label, drinks]) => ({
-      label,
-      drinks,
-      count: drinks.length,
-    }))
+    return Object.entries(groups).map(([label, drinks]) => ({ label, drinks, count: drinks.length }))
   }
 
   const groupedDrinks = getGroupedDrinks()
   const current = isEditingProfile ? editedProfile : profile
+
+  // ✅ Change password (real)
+  async function onChangePassword() {
+    setPwError(null)
+    setPwBusy(true)
+
+    try {
+      const { data: userRes, error: uErr } = await supabase.auth.getUser()
+      if (uErr) throw uErr
+      const user = userRes.user
+      if (!user?.email) throw new Error("Missing email on session user.")
+
+      if (!pwCurrent.trim() || !pwNew.trim() || !pwConfirm.trim()) throw new Error("Please fill in all fields.")
+      if (pwNew.length < 8) throw new Error("Password must be at least 8 characters.")
+      if (pwNew !== pwConfirm) throw new Error("Passwords do not match.")
+
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: pwCurrent,
+      })
+      if (signErr) throw new Error("Current password is incorrect.")
+
+      const { error: updErr } = await supabase.auth.updateUser({ password: pwNew })
+      if (updErr) throw updErr
+
+      setPasswordOpen(false)
+      setPwCurrent("")
+      setPwNew("")
+      setPwConfirm("")
+      setSuccess("Password changed successfully.")
+    } catch (e: any) {
+      setPwError(e?.message ?? "Could not change password.")
+    } finally {
+      setPwBusy(false)
+    }
+  }
+
+  // ✅ Delete account (real via server route)
+  async function onDeleteAccount() {
+    setDelError(null)
+    setDelBusy(true)
+
+    try {
+      if (delConfirm.trim().toUpperCase() !== "DELETE") {
+        throw new Error('Type "DELETE" to confirm.')
+      }
+
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token. Please log out and log back in.")
+
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ token }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Delete failed.")
+
+      await supabase.auth.signOut()
+      router.replace("/signup")
+    } catch (e: any) {
+      setDelError(e?.message ?? "Could not delete account.")
+    } finally {
+      setDelBusy(false)
+    }
+  }
 
   return (
     <>
@@ -728,15 +804,15 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {success ? (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            {success}
-          </div>
-        ) : null}
-
         {error ? (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
+          </div>
+        ) : null}
+
+        {success ? (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+            {success}
           </div>
         ) : null}
 
@@ -744,12 +820,19 @@ export default function ProfilePage() {
           <LoadingSkeleton />
         ) : (
           <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-            <div className="rounded-2xl border bg-background/50 p-4">
+            {/* PROFILE CARD */}
+            <div className="relative rounded-2xl border bg-background/50 p-3">
               <div className="flex items-start gap-4">
                 <div className="relative">
                   {current.avatarUrl ? (
                     <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                      <Image src={current.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+                      <Image
+                        src={current.avatarUrl || "/placeholder.svg"}
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                   ) : (
                     <div
@@ -783,62 +866,25 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-3">
-                      <div className="space-y-2">
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editedProfile.displayName}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
+                        className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
+                        placeholder="Display Name"
+                      />
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm opacity-60">@</span>
                         <input
                           type="text"
-                          value={editedProfile.displayName}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
-                          className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
-                          placeholder="Display Name"
+                          value={editedProfile.username}
+                          onChange={(e) =>
+                            setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
+                          }
+                          className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
+                          placeholder="username"
                         />
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm opacity-60">@</span>
-                          <input
-                            type="text"
-                            value={editedProfile.username}
-                            onChange={(e) =>
-                              setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
-                            }
-                            className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
-                            placeholder="username"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border bg-background/50 p-3">
-                        <div className="text-sm font-medium">Change password</div>
-                        <p className="mt-1 text-xs opacity-60">Leave blank to keep your current password.</p>
-
-                        <div className="mt-3 space-y-2">
-                          <input
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-                            placeholder="Current password"
-                            autoComplete="current-password"
-                            disabled={savingProfile}
-                          />
-                          <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-                            placeholder="New password (min 8 characters)"
-                            autoComplete="new-password"
-                            disabled={savingProfile}
-                          />
-                          <input
-                            type="password"
-                            value={confirmNewPassword}
-                            onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-                            placeholder="Confirm new password"
-                            autoComplete="new-password"
-                            disabled={savingProfile}
-                          />
-                        </div>
                       </div>
                     </div>
                   ) : (
@@ -850,18 +896,55 @@ export default function ProfilePage() {
 
                   <p className="mt-2 text-xs opacity-50">Joined {profile.joinDate}</p>
 
-                  <div className="mt-3 flex gap-4 text-sm">
-                    <div>
-                      <span className="font-bold">{profile.friendCount}</span>{" "}
-                      <span className="opacity-60">Friends</span>
-                    </div>
-                    <div>
-                      <span className="font-bold">{profile.drinkCount}</span>{" "}
-                      <span className="opacity-60">Drinks</span>
+                  {/* tighter spacing to align with icon row */}
+                  <div className="mt-1 flex items-center justify-between pr-20 text-sm">
+                    <div className="flex gap-4">
+                      <div>
+                        <span className="font-bold">{profile.friendCount}</span>{" "}
+                        <span className="opacity-60">Friends</span>
+                      </div>
+                      <div>
+                        <span className="font-bold">{profile.drinkCount}</span>{" "}
+                        <span className="opacity-60">Drinks</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* profile-card icons pinned to card bottom-right */}
+              {isEditingProfile ? (
+                <div className="absolute bottom-3 right-3 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPwError(null)
+                      setPasswordOpen(true)
+                    }}
+                    className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                    style={{ width: "30px", height: "30px" }}
+                    aria-label="Change password"
+                    title="Change password"
+                  >
+                    <Lock className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDelError(null)
+                      setDelConfirm("")
+                      setDeleteAccountOpen(true)
+                    }}
+                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                    style={{ width: "30px", height: "30px" }}
+                    aria-label="Delete account"
+                    title="Delete account"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {isEditingProfile ? (
@@ -940,9 +1023,17 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {granularity === "Drink"
                     ? logs.map((log) => (
-                        <DrinkLogCard key={log.id} log={log} profile={current} onEdit={openEditPost} onDelete={openDeletePost} />
+                        <DrinkLogCard
+                          key={log.id}
+                          log={log}
+                          profile={current}
+                          onEdit={openEditPost}
+                          onDelete={openDeletePost}
+                        />
                       ))
-                    : groupedDrinks.map((group, index) => <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />)}
+                    : groupedDrinks.map((group, index) => (
+                        <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
+                      ))}
                 </div>
               )}
             </div>
@@ -959,6 +1050,158 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {/* ✅ Change Password popup */}
+      {passwordOpen ? (
+        <OverlayPage
+          title="Change password"
+          onClose={() => {
+            if (pwBusy) return
+            setPasswordOpen(false)
+            setPwError(null)
+          }}
+        >
+          {pwError ? (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {pwError}
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border bg-background/50 p-4">
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium">Current password</div>
+                <input
+                  type="password"
+                  value={pwCurrent}
+                  onChange={(e) => setPwCurrent(e.target.value)}
+                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                  placeholder="••••••••"
+                  disabled={pwBusy}
+                />
+              </div>
+
+              <div>
+                <div className="text-sm font-medium">New password</div>
+                <input
+                  type="password"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                  placeholder="At least 8 characters"
+                  disabled={pwBusy}
+                />
+              </div>
+
+              <div>
+                <div className="text-sm font-medium">Confirm new password</div>
+                <input
+                  type="password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                  placeholder="••••••••"
+                  disabled={pwBusy}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (pwBusy) return
+                setPasswordOpen(false)
+                setPwError(null)
+              }}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              disabled={pwBusy}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={onChangePassword}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
+              disabled={pwBusy}
+            >
+              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </button>
+          </div>
+        </OverlayPage>
+      ) : null}
+
+      {/* ✅ Delete Account popup */}
+      {deleteAccountOpen ? (
+        <OverlayPage
+          title="Delete account"
+          onClose={() => {
+            if (delBusy) return
+            setDeleteAccountOpen(false)
+            setDelError(null)
+          }}
+        >
+          {delError ? (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {delError}
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border bg-background/50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <div className="text-base font-semibold">This is permanent</div>
+                <p className="mt-1 text-sm opacity-70">
+                  This will delete your profile and posts. This cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="text-sm font-medium">Type DELETE to confirm</div>
+              <input
+                value={delConfirm}
+                onChange={(e) => setDelConfirm(e.target.value)}
+                className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                placeholder="DELETE"
+                disabled={delBusy}
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (delBusy) return
+                setDeleteAccountOpen(false)
+                setDelError(null)
+              }}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              disabled={delBusy}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={onDeleteAccount}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200"
+              disabled={delBusy}
+            >
+              {delBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Delete
+            </button>
+          </div>
+        </OverlayPage>
+      ) : null}
+
+      {/* Post edit popup */}
       {editPostOpen && activePost ? (
         <OverlayPage
           title="Edit post"
@@ -975,9 +1218,16 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border bg-background/50">
+          {/* smaller preview so modal stays compact */}
+          <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={activePost.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
@@ -1046,6 +1296,7 @@ export default function ProfilePage() {
         </OverlayPage>
       ) : null}
 
+      {/* Post delete popup */}
       {deletePostOpen && activePost ? (
         <OverlayPage
           title="Delete post"
@@ -1062,23 +1313,28 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border bg-background/50 p-4">
+          <div className="rounded-2xl border bg-background/50 p-3">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">
-                  This will permanently delete this post (and its photo) from your account.
-                </p>
+                <p className="mt-1 text-sm opacity-70">This action cannot be undone.</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border bg-background/50">
+          {/* smaller preview so modal stays compact */}
+          <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={activePost.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
