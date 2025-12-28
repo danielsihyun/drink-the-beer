@@ -320,7 +320,7 @@ export default function FeedPage() {
 
           <div className="flex items-center gap-2">
             <Link
-              href="/friends"
+              href="/log"
               className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
             >
               <Plus className="h-4 w-4" />

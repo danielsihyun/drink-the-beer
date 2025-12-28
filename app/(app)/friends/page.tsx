@@ -67,6 +67,46 @@ function sortLabel(s: FriendSort) {
   return "Oldest"
 }
 
+/**
+ * ✅ Same popup style as Profile page
+ */
+function OverlayPage({
+  title,
+  children,
+  onClose,
+}: {
+  title: string
+  children: React.ReactNode
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="container max-w-2xl px-4">
+        <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="text-base font-semibold">{title}</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+              aria-label="Close"
+              title="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="max-h-[80vh] overflow-y-auto px-4 py-4">{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FriendsPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -87,7 +127,7 @@ export default function FriendsPage() {
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
-  // ✅ neutral toast popup
+  // ✅ neutral toast popup (in-flow, between title and search bar)
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const toastTimerRef = React.useRef<number | null>(null)
 
@@ -194,7 +234,7 @@ export default function FriendsPage() {
     loadFriends()
   }, [loadFriends])
 
-  // Search (debounced)
+  // Search (debounced) ✅ now uses server route so counts are correct
   React.useEffect(() => {
     if (!meId) return
     const q = query.trim()
@@ -206,15 +246,24 @@ export default function FriendsPage() {
     const t = window.setTimeout(async () => {
       setSearching(true)
       try {
-        const { data: rows, error: sErr } = await supabase
-          .from("profile_public_stats")
-          .select("id,username,display_name,avatar_path,friend_count,drink_count")
-          .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-          .limit(25)
+        const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+        if (sessErr) throw sessErr
+        const token = sessRes.session?.access_token
+        if (!token) throw new Error("Missing session token. Please log out and back in.")
 
-        if (sErr) throw sErr
+        const res = await fetch("/api/profile/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ q }),
+        })
 
-        const base = (rows ?? []) as SearchProfileRow[]
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json?.error ?? "Search failed.")
+
+        const base = (json?.items ?? []) as SearchProfileRow[]
         const filtered = base.filter((p) => p.id !== meId)
 
         const mapped: UiPerson[] = await Promise.all(
@@ -271,7 +320,6 @@ export default function FriendsPage() {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not add friend.")
 
-      // ✅ toast behavior
       if (json?.autoAccepted) showToast("Friend added!")
       else showToast("Request sent!")
 
@@ -303,7 +351,6 @@ export default function FriendsPage() {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not update request.")
 
-      // ✅ toast behavior
       showToast(action === "accepted" ? "Friend added!" : "Request rejected")
 
       await loadFriends()
@@ -311,6 +358,52 @@ export default function FriendsPage() {
       setError(e?.message ?? "Could not update request.")
     } finally {
       setPendingBusyId(null)
+    }
+  }
+
+  // ✅ Remove friend modal state
+  const [removeOpen, setRemoveOpen] = React.useState(false)
+  const [removeBusy, setRemoveBusy] = React.useState(false)
+  const [removeError, setRemoveError] = React.useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = React.useState<UiPerson | null>(null)
+
+  function openRemove(friend: UiPerson) {
+    setRemoveTarget(friend)
+    setRemoveError(null)
+    setRemoveOpen(true)
+  }
+
+  async function confirmRemoveFriend() {
+    if (!removeTarget) return
+    setRemoveError(null)
+    setRemoveBusy(true)
+
+    try {
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token. Please log out and back in.")
+
+      const res = await fetch("/api/friends/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ friendId: removeTarget.id }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not remove friend.")
+
+      setRemoveOpen(false)
+      setRemoveTarget(null)
+      showToast("Friend removed.")
+      await loadFriends()
+    } catch (e: any) {
+      setRemoveError(e?.message ?? "Could not remove friend.")
+    } finally {
+      setRemoveBusy(false)
     }
   }
 
@@ -344,233 +437,295 @@ export default function FriendsPage() {
   const friendsSorted = sortedFriends(friends)
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Friends</h2>
-      </div>
+    <>
+      <div className="container max-w-2xl px-3 py-1.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Friends</h2>
+        </div>
 
-      {/* ✅ Toast popup (moved below title, pushes content down like Feed "Posted") */}
-      {toastMsg ? (
-        <div className="mt-4 w-full">
-          <div className="rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
+        {/* ✅ Toast popup (between title and search bar) */}
+        {toastMsg ? (
+          <div className="mt-3 rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
             {toastMsg}
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {error ? (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
 
-      {/* Search bar */}
-      <div className="mt-4 flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
-        <Search className="h-4 w-4 opacity-60" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search people by username or name…"
-          className="w-full bg-transparent text-sm outline-none"
-        />
-        {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
+        {/* Search bar */}
+        <div className="mt-4 flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
+          <Search className="h-4 w-4 opacity-60" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search people by username or name…"
+            className="w-full bg-transparent text-sm outline-none"
+          />
+          {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
+        </div>
+
+        {/* Sort control */}
+        <div className="mt-3 flex items-center justify-end">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              {sortLabel(sort)}
+            </button>
+
+            {showSortMenu ? (
+              <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
+                {(
+                  [
+                    { key: "name_asc", label: "Name (A → Z)" },
+                    { key: "name_desc", label: "Name (Z → A)" },
+                    { key: "since_new", label: "Friendship (Newest)" },
+                    { key: "since_old", label: "Friendship (Oldest)" },
+                  ] as { key: FriendSort; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setSort(opt.key)
+                      setShowSortMenu(false)
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
+                      sort === opt.key ? "font-semibold" : ""
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Search results */}
+        {query.trim().length ? (
+          <div className="mt-4 space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Search results</div>
+
+            {searchResults.length === 0 && !searching ? (
+              <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No matches.</div>
+            ) : null}
+
+            {searchResults.map((p) => (
+              <article key={p.id} className="rounded-2xl border bg-background/50 p-3">
+                <div className="flex items-center gap-3">
+                  {p.avatarUrl ? (
+                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                      <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                      {p.username[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{p.displayName}</div>
+                    <div className="text-xs opacity-60">@{p.username}</div>
+
+                    <div className="mt-2 flex gap-4 text-sm">
+                      <div>
+                        <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                      </div>
+                      <div>
+                        <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => addFriend(p.id)}
+                    className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+                    aria-label="Add friend"
+                    title="Add friend"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {/* ✅ Pending requests (above Your friends) */}
+        <div className="mt-6 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
+
+          {pending.length === 0 ? (
+            <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No pending requests.</div>
+          ) : (
+            pending.map((p) => (
+              <article key={p.friendshipId} className="rounded-2xl border bg-background/50 p-3">
+                <div className="flex items-center gap-3">
+                  {p.avatarUrl ? (
+                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                      <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                      {p.username[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{p.displayName}</div>
+                    <div className="text-xs opacity-60">@{p.username}</div>
+
+                    <div className="mt-2 flex gap-4 text-sm">
+                      <div>
+                        <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                      </div>
+                      <div>
+                        <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => respondToRequest(p.friendshipId, "accepted")}
+                      disabled={pendingBusyId === p.friendshipId}
+                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                      aria-label="Accept"
+                      title="Accept"
+                    >
+                      {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => respondToRequest(p.friendshipId, "rejected")}
+                      disabled={pendingBusyId === p.friendshipId}
+                      className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60"
+                      aria-label="Reject"
+                      title="Reject"
+                    >
+                      {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        {/* Friends list */}
+        <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
+
+          {friendsSorted.length === 0 ? (
+            <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">
+              No friends yet. Search someone above and hit the + to add them.
+            </div>
+          ) : (
+            friendsSorted.map((f) => (
+              <article key={f.id} className="rounded-2xl border bg-background/50 p-3">
+                <div className="flex items-center gap-3">
+                  {f.avatarUrl ? (
+                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                      <Image src={f.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                      {f.username[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{f.displayName}</div>
+                    <div className="text-xs opacity-60">@{f.username}</div>
+
+                    <div className="mt-2 flex gap-4 text-sm">
+                      <div>
+                        <span className="font-bold">{f.friendCount}</span> <span className="opacity-60">Friends</span>
+                      </div>
+                      <div>
+                        <span className="font-bold">{f.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => openRemove(f)}
+                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                    style={{ width: "30px", height: "30px" }}
+                    aria-label="Remove friend"
+                    title="Remove friend"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Sort control */}
-      <div className="mt-3 flex items-center justify-end">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowSortMenu(!showSortMenu)}
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
-          >
-            <ArrowUpDown className="h-4 w-4" />
-            {sortLabel(sort)}
-          </button>
-
-          {showSortMenu ? (
-            <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
-              {(
-                [
-                  { key: "name_asc", label: "Name (A → Z)" },
-                  { key: "name_desc", label: "Name (Z → A)" },
-                  { key: "since_new", label: "Friendship (Newest)" },
-                  { key: "since_old", label: "Friendship (Oldest)" },
-                ] as { key: FriendSort; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => {
-                    setSort(opt.key)
-                    setShowSortMenu(false)
-                  }}
-                  className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                    sort === opt.key ? "font-semibold" : ""
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+      {removeOpen && removeTarget ? (
+        <OverlayPage
+          title="Remove friend"
+          onClose={() => {
+            if (removeBusy) return
+            setRemoveOpen(false)
+            setRemoveError(null)
+            setRemoveTarget(null)
+          }}
+        >
+          {removeError ? (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {removeError}
             </div>
           ) : null}
-        </div>
-      </div>
 
-      {/* Search results */}
-      {query.trim().length ? (
-        <div className="mt-4 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Search results</div>
-
-          {searchResults.length === 0 && !searching ? (
-            <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No matches.</div>
-          ) : null}
-
-          {searchResults.map((p) => (
-            <article key={p.id} className="rounded-2xl border bg-background/50 p-3">
-              <div className="flex items-center gap-3">
-                {p.avatarUrl ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                    <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                  </div>
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                    {p.username[0]?.toUpperCase() ?? "U"}
-                  </div>
-                )}
-
-                <div className="flex-1">
-                  <div className="text-sm font-semibold">{p.displayName}</div>
-                  <div className="text-xs opacity-60">@{p.username}</div>
-
-                  <div className="mt-2 flex gap-4 text-sm">
-                    <div>
-                      <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
-                    </div>
-                    <div>
-                      <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => addFriend(p.id)}
-                  className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
-                  aria-label="Add friend"
-                  title="Add friend"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
-
-      {/* ✅ Pending requests (above Your friends) */}
-      <div className="mt-6 space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
-
-        {pending.length === 0 ? (
-          <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No pending requests.</div>
-        ) : (
-          pending.map((p) => (
-            <article key={p.friendshipId} className="rounded-2xl border bg-background/50 p-3">
-              <div className="flex items-center gap-3">
-                {p.avatarUrl ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                    <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                  </div>
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                    {p.username[0]?.toUpperCase() ?? "U"}
-                  </div>
-                )}
-
-                <div className="flex-1">
-                  <div className="text-sm font-semibold">{p.displayName}</div>
-                  <div className="text-xs opacity-60">@{p.username}</div>
-
-                  <div className="mt-2 flex gap-4 text-sm">
-                    <div>
-                      <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
-                    </div>
-                    <div>
-                      <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => respondToRequest(p.friendshipId, "accepted")}
-                    disabled={pendingBusyId === p.friendshipId}
-                    className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                    aria-label="Accept"
-                    title="Accept"
-                  >
-                    {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => respondToRequest(p.friendshipId, "rejected")}
-                    disabled={pendingBusyId === p.friendshipId}
-                    className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60"
-                    aria-label="Reject"
-                    title="Reject"
-                  >
-                    {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
-
-      {/* Friends list */}
-      <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-        <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
-
-        {friendsSorted.length === 0 ? (
-          <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">
-            No friends yet. Search someone above and hit the + to add them.
+          <div className="rounded-2xl border bg-background/50 p-4">
+            <div className="text-base font-semibold">Are you sure?</div>
+            <p className="mt-1 text-sm opacity-70">
+              This will remove <span className="font-semibold">@{removeTarget.username}</span> from your friends.
+            </p>
           </div>
-        ) : (
-          friendsSorted.map((f) => (
-            <article key={f.id} className="rounded-2xl border bg-background/50 p-3">
-              <div className="flex items-center gap-3">
-                {f.avatarUrl ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                    <Image src={f.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                  </div>
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                    {f.username[0]?.toUpperCase() ?? "U"}
-                  </div>
-                )}
 
-                <div className="flex-1">
-                  <div className="text-sm font-semibold">{f.displayName}</div>
-                  <div className="text-xs opacity-60">@{f.username}</div>
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (removeBusy) return
+                setRemoveOpen(false)
+                setRemoveError(null)
+                setRemoveTarget(null)
+              }}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              disabled={removeBusy}
+            >
+              Cancel
+            </button>
 
-                  <div className="mt-2 flex gap-4 text-sm">
-                    <div>
-                      <span className="font-bold">{f.friendCount}</span> <span className="opacity-60">Friends</span>
-                    </div>
-                    <div>
-                      <span className="font-bold">{f.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
-    </div>
+            <button
+              type="button"
+              onClick={confirmRemoveFriend}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200"
+              disabled={removeBusy}
+            >
+              {removeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Remove
+            </button>
+          </div>
+        </OverlayPage>
+      ) : null}
+    </>
   )
 }
