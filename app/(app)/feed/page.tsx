@@ -319,13 +319,15 @@ export default function FeedPage() {
           <h2 className="text-2xl font-bold">Feed</h2>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/log"
-              className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
-            >
-              <Plus className="h-4 w-4" />
-              Log
-            </Link>
+          <button
+            type="button"
+            onClick={() => router.push("/log")}
+            className="inline-flex h-9.5 items-center justify-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="leading-none">Log</span>
+          </button>
+
           </div>
 
         </div>
