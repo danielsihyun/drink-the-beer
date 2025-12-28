@@ -26,6 +26,7 @@ type SearchProfileRow = {
   avatar_path: string | null
   friend_count: number
   drink_count: number
+  outgoing_pending?: boolean
 }
 
 type PendingIncomingRow = {
@@ -47,6 +48,7 @@ type UiPerson = {
   friendCount: number
   drinkCount: number
   friendshipCreatedAt?: string
+  outgoingPending?: boolean
 }
 
 type UiPending = {
@@ -127,7 +129,7 @@ export default function FriendsPage() {
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
-  // ✅ neutral toast popup (in-flow, between title and search bar)
+  // ✅ neutral toast popup
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const toastTimerRef = React.useRef<number | null>(null)
 
@@ -142,6 +144,9 @@ export default function FriendsPage() {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
     }
   }, [])
+
+  // ✅ Local optimistic pending requests so search results stay as "pending"
+  const [outgoingPendingIds, setOutgoingPendingIds] = React.useState<Record<string, true>>({})
 
   async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
     if (!path) return null
@@ -234,7 +239,23 @@ export default function FriendsPage() {
     loadFriends()
   }, [loadFriends])
 
-  // Search (debounced) ✅ now uses server route so counts are correct
+  // ✅ Clear local pending once they become a real friend
+  React.useEffect(() => {
+    if (!friends.length) return
+    setOutgoingPendingIds((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const f of friends) {
+        if (next[f.id]) {
+          delete next[f.id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [friends])
+
+  // Search (debounced)
   React.useEffect(() => {
     if (!meId) return
     const q = query.trim()
@@ -264,7 +285,10 @@ export default function FriendsPage() {
         if (!res.ok) throw new Error(json?.error ?? "Search failed.")
 
         const base = (json?.items ?? []) as SearchProfileRow[]
-        const filtered = base.filter((p) => p.id !== meId)
+        const friendIdSet = new Set(friends.map((f) => f.id))
+
+        // ✅ Filter out me + anyone I’m already friends with
+        const filtered = base.filter((p) => p.id !== meId && !friendIdSet.has(p.id))
 
         const mapped: UiPerson[] = await Promise.all(
           filtered.map(async (p) => {
@@ -276,6 +300,7 @@ export default function FriendsPage() {
               avatarUrl,
               friendCount: p.friend_count ?? 0,
               drinkCount: p.drink_count ?? 0,
+              outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
             }
           })
         )
@@ -289,14 +314,16 @@ export default function FriendsPage() {
     }, 250)
 
     return () => window.clearTimeout(t)
-  }, [query, meId, supabase])
+  }, [query, meId, supabase, friends, outgoingPendingIds])
 
   function sortedFriends(list: UiPerson[]) {
     const copy = [...list]
     if (sort === "name_asc") copy.sort((a, b) => a.username.localeCompare(b.username))
     else if (sort === "name_desc") copy.sort((a, b) => b.username.localeCompare(a.username))
-    else if (sort === "since_new") copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
-    else if (sort === "since_old") copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
+    else if (sort === "since_new")
+      copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
+    else if (sort === "since_old")
+      copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
     return copy
   }
 
@@ -320,8 +347,19 @@ export default function FriendsPage() {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not add friend.")
 
-      if (json?.autoAccepted) showToast("Friend added!")
-      else showToast("Request sent!")
+      if (json?.autoAccepted) {
+        showToast("Friend added!")
+        // ✅ remove from search results if they became a friend
+        setSearchResults((prev) => prev.filter((p) => p.id !== friendId))
+      } else {
+        showToast("Request sent!")
+
+        // ✅ persist local pending so it doesn't revert after refetch
+        setOutgoingPendingIds((prev) => ({ ...prev, [friendId]: true }))
+
+        // ✅ immediately flip to “pending” so it shows a checkmark
+        setSearchResults((prev) => prev.map((p) => (p.id === friendId ? { ...p, outgoingPending: true } : p)))
+      }
 
       await loadFriends()
     } catch (e: any) {
@@ -545,15 +583,28 @@ export default function FriendsPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => addFriend(p.id)}
-                    className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
-                    aria-label="Add friend"
-                    title="Add friend"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  {/* ✅ If outgoing pending, show checkmark instead of plus */}
+                  {p.outgoingPending ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white opacity-70"
+                      aria-label="Request pending"
+                      title="Request pending"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => addFriend(p.id)}
+                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+                      aria-label="Add friend"
+                      title="Add friend"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
@@ -603,7 +654,11 @@ export default function FriendsPage() {
                       aria-label="Accept"
                       title="Accept"
                     >
-                      {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      {pendingBusyId === p.friendshipId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
                     </button>
 
                     <button
@@ -614,7 +669,11 @@ export default function FriendsPage() {
                       aria-label="Reject"
                       title="Reject"
                     >
-                      {pendingBusyId === p.friendshipId ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                      {pendingBusyId === p.friendshipId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -659,6 +718,7 @@ export default function FriendsPage() {
                     </div>
                   </div>
 
+                  {/* ✅ Remove friend (X icon) */}
                   <button
                     type="button"
                     onClick={() => openRemove(f)}
@@ -676,6 +736,7 @@ export default function FriendsPage() {
         </div>
       </div>
 
+      {/* ✅ Remove friend popup */}
       {removeOpen && removeTarget ? (
         <OverlayPage
           title="Remove friend"
