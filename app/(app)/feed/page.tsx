@@ -119,7 +119,7 @@ export default function FeedPage() {
   // ✅ Auto-dismiss the banner after 2 seconds (and cleanup timer)
   React.useEffect(() => {
     if (!postedBanner) return
-    const t = window.setTimeout(() => setPostedBanner(false), 4000)
+    const t = window.setTimeout(() => setPostedBanner(false), 5000)
     return () => window.clearTimeout(t)
   }, [postedBanner])
 

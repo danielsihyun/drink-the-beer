@@ -316,7 +316,7 @@ export default function FriendsPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-2xl px-4 py-6">
+      <div className="container max-w-2xl px-3 py-1.5">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
           <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
@@ -344,19 +344,19 @@ export default function FriendsPage() {
   const friendsSorted = sortedFriends(friends)
 
   return (
-    <div className="container max-w-2xl px-4 py-6">
-      {/* ✅ Toast popup */}
+    <div className="container max-w-2xl px-3 py-1.5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Friends</h2>
+      </div>
+
+      {/* ✅ Toast popup (moved below title, pushes content down like Feed "Posted") */}
       {toastMsg ? (
-        <div className="pointer-events-none fixed left-1/2 top-16 z-[80] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
+        <div className="mt-4 w-full">
           <div className="rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
             {toastMsg}
           </div>
         </div>
       ) : null}
-
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Friends</h2>
-      </div>
 
       {error ? (
         <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">

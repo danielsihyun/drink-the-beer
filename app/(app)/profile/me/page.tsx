@@ -21,12 +21,19 @@ type DrinkLogRow = {
   created_at: string
 }
 
+// 1) REPLACE your ProfileRow type with this (matches your profile_public_stats columns)
 type ProfileRow = {
   id: string
   username: string
   display_name: string
-  created_at: string | null
   avatar_path: string | null
+  friend_count: number | null
+  drink_count: number | null
+}
+
+// 2) ADD this type (for join date from profiles)
+type ProfileMetaRow = {
+  created_at: string | null
 }
 
 type UiProfile = {
@@ -446,13 +453,19 @@ export default function ProfilePage() {
       setUserId(user.id)
 
       const { data: prof, error: profErr } = await supabase
-        .from("profiles")
-        .select("id,username,display_name,created_at,avatar_path")
+        .from("profile_public_stats")
+        .select("id,username,display_name,avatar_path,friend_count,drink_count")
         .eq("id", user.id)
         .single()
       if (profErr) throw profErr
 
       const p = prof as ProfileRow
+
+      // Join date comes from profiles
+      const { data: meta, error: metaErr } = await supabase.from("profiles").select("created_at").eq("id", user.id).single()
+      if (metaErr) throw metaErr
+
+      const m = meta as ProfileMetaRow
 
       let avatarSignedUrl: string | null = null
       if (p.avatar_path) {
@@ -487,12 +500,14 @@ export default function ProfilePage() {
 
       setLogs(mapped)
 
+      
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
         username: p.username,
         displayName: p.display_name,
-        joinDate: formatJoinDate(p.created_at),
-        drinkCount: mapped.length,
+        joinDate: formatJoinDate(m.created_at),
+        friendCount: p.friend_count ?? 0,
+        drinkCount: p.drink_count ?? 0,
         avatarUrl: avatarSignedUrl,
         avatarPath: p.avatar_path ?? null,
       }
