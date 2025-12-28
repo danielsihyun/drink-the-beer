@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
+const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
 type DrinkLogRow = {
   id: string
@@ -51,6 +52,9 @@ function formatCardTimestamp(iso: string) {
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
 }
 
+/**
+ * ✅ Copied from Profile page so modals match exactly
+ */
 function OverlayPage({
   title,
   children,
@@ -61,22 +65,27 @@ function OverlayPage({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60">
-      <div className="fixed inset-x-0 bottom-0 top-0 mx-auto w-full max-w-2xl">
-        <div className="flex h-full flex-col bg-background">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="container max-w-2xl px-4">
+        <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="text-base font-semibold">{title}</div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full"
               aria-label="Close"
+              title="Close"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 safe-area-inset">{children}</div>
+          <div className="max-h-[80vh] overflow-y-auto px-4 py-4">{children}</div>
         </div>
       </div>
     </div>
@@ -169,9 +178,7 @@ export default function FeedPage() {
       // 3) Create signed URLs for drink images
       const signed = await Promise.all(
         rows.map(async (row) => {
-          const { data, error: urlErr } = await supabase.storage
-            .from("drink-photos")
-            .createSignedUrl(row.photo_path, 60 * 60)
+          const { data, error: urlErr } = await supabase.storage.from("drink-photos").createSignedUrl(row.photo_path, 60 * 60)
 
           const photoUrl = urlErr ? null : data?.signedUrl ?? null
 
@@ -268,11 +275,7 @@ export default function FeedPage() {
     setPostError(null)
     setPostBusy(true)
     try {
-      const { error: delErr } = await supabase
-        .from("drink_logs")
-        .delete()
-        .eq("id", active.id)
-        .eq("user_id", active.user_id)
+      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", active.id).eq("user_id", active.user_id)
       if (delErr) throw delErr
 
       if (active.photo_path) {
@@ -319,17 +322,11 @@ export default function FeedPage() {
           <h2 className="text-2xl font-bold">Feed</h2>
 
           <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => router.push("/log")}
-            className="inline-flex h-9.5 items-center justify-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="leading-none">Log</span>
-          </button>
-
+            <Link href="/log" className="inline-flex items-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white h-10 justify-center">
+              <Plus className="h-4 w-4" />
+              <span className="leading-none">Log</span>
+            </Link>
           </div>
-
         </div>
 
         {/* ✅ Posted banner at the very top of the feed */}
@@ -356,7 +353,6 @@ export default function FeedPage() {
               <Plus className="h-7 w-7 opacity-50" />
             </Link>
 
-          {/*this currently redirects to log - but it should redirect to friends page*/}
             <h3 className="text-lg font-semibold">No posts yet</h3>
             <p className="mt-1 max-w-sm text-sm opacity-70">Add your friends to build out your feed!</p>
           </div>
@@ -443,6 +439,7 @@ export default function FeedPage() {
         )}
       </div>
 
+      {/* ✅ Feed Edit popup (now identical to Profile Post edit popup) */}
       {editOpen && active ? (
         <OverlayPage
           title="Edit post"
@@ -459,22 +456,16 @@ export default function FeedPage() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border bg-background/50">
+          <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={active.photoUrl ?? "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={active.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
           <div className="mt-5 rounded-2xl border bg-background/50 p-3">
             <div className="text-sm font-medium">Drink type</div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {(["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"] as DrinkType[]).map((t) => {
+              {DRINK_TYPES.map((t) => {
                 const selected = t === postDrinkType
                 return (
                   <button
@@ -536,6 +527,7 @@ export default function FeedPage() {
         </OverlayPage>
       ) : null}
 
+      {/* ✅ Feed Delete popup (now identical to Profile Post delete popup) */}
       {deleteOpen && active ? (
         <OverlayPage
           title="Delete post"
@@ -552,29 +544,21 @@ export default function FeedPage() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border bg-background/50 p-4">
+          <div className="rounded-2xl border bg-background/50 p-3">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">
-                  This will permanently delete this post (and its photo) from your account.
-                </p>
+                <p className="mt-1 text-sm opacity-70">This action cannot be undone.</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border bg-background/50">
+          <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={active.photoUrl ?? "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={active.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
