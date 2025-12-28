@@ -271,34 +271,50 @@ export default function FriendsPage() {
     }
   }
 
-  async function respondToRequest(friendshipId: string, action: "accept" | "reject") {
+  async function respondToRequest(requestId: string, action: "accepted" | "rejected") {
     setError(null)
-    setPendingBusyId(friendshipId)
+  
     try {
       const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
       if (sessErr) throw sessErr
       const token = sessRes.session?.access_token
       if (!token) throw new Error("Missing session token. Please log out and back in.")
-
+  
       const res = await fetch("/api/friends/respond", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ friendshipId, action }),
+        body: JSON.stringify({ requestId, action }),
       })
-
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error ?? "Could not update request.")
-
+  
+      // 👇 always read the body, even when not JSON
+      const raw = await res.text()
+      let json: any = null
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+  
+      if (!res.ok) {
+        // Prefer server's json error, otherwise show the raw body
+        const msg =
+          json?.error ??
+          raw ??
+          `Request failed (HTTP ${res.status})`
+  
+        throw new Error(msg)
+      }
+  
       await loadFriends()
     } catch (e: any) {
       setError(e?.message ?? "Could not update request.")
-    } finally {
-      setPendingBusyId(null)
     }
   }
+  
+
 
   if (loading) {
     return (
@@ -482,7 +498,7 @@ export default function FriendsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => respondToRequest(p.friendshipId, "accept")}
+                    onClick={() => respondToRequest(p.friendshipId, "accepted")}
                     disabled={pendingBusyId === p.friendshipId}
                     className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
                     aria-label="Accept"
@@ -493,7 +509,7 @@ export default function FriendsPage() {
 
                   <button
                     type="button"
-                    onClick={() => respondToRequest(p.friendshipId, "reject")}
+                    onClick={() => respondToRequest(p.friendshipId, "rejected")}
                     disabled={pendingBusyId === p.friendshipId}
                     className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60"
                     aria-label="Reject"
