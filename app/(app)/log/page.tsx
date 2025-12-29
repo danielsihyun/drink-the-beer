@@ -23,6 +23,8 @@ export default function LogDrinkPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   const canPost = Boolean(file && drinkType && !submitting)
 
   React.useEffect(() => {
@@ -37,6 +39,7 @@ export default function LogDrinkPage() {
     setCaption("")
     setFile(null)
     setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
   async function onSubmit() {
@@ -59,7 +62,13 @@ export default function LogDrinkPage() {
 
       // 2) Upload image to storage (private bucket: drink-photos)
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
-      const filename = `${crypto.randomUUID()}.${ext}`
+
+      const uuid =
+        typeof crypto !== "undefined" && "randomUUID" in crypto && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+
+      const filename = `${uuid}.${ext}`
       const photoPath = `${user.id}/${filename}`
 
       const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
@@ -79,7 +88,6 @@ export default function LogDrinkPage() {
       })
       if (insErr) throw insErr
 
-      // Optional: clear local form (won't matter since we redirect)
       resetForm()
 
       // 4) Redirect to feed with a success flag
@@ -115,6 +123,7 @@ export default function LogDrinkPage() {
               onClick={() => {
                 setFile(null)
                 setPreviewUrl(null)
+                if (fileInputRef.current) fileInputRef.current.value = ""
               }}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
             >
@@ -137,29 +146,34 @@ export default function LogDrinkPage() {
               />
             </div>
           ) : (
-            <label className="flex h-56 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center"
+            >
               <div className="flex h-12 w-12 items-center justify-center rounded-full border">
                 <Camera className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm font-medium">Take a photo</p>
-                <p className="mt-1 text-xs opacity-70">Or upload from your camera roll</p>
+                <p className="text-sm font-medium">Add a photo</p>
+                <p className="mt-1 text-xs opacity-70">Choose from library, take a photo, or pick a file</p>
               </div>
-
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null
-                  setFile(f)
-                  setError(null)
-                  setSuccess(null)
-                }}
-              />
-            </label>
+            </button>
           )}
+
+          {/* Single input -> iOS shows the native "Photo Library / Take Photo / Choose File" sheet */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null
+              setFile(f)
+              setError(null)
+              setSuccess(null)
+            }}
+          />
         </div>
       </section>
 
