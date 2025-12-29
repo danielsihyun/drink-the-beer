@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { Suspense } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
@@ -89,7 +90,7 @@ function OverlayPage({
   )
 }
 
-export default function FeedPage() {
+function FeedContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -571,5 +572,31 @@ export default function FeedPage() {
         </OverlayPage>
       ) : null}
     </>
+  )
+}
+
+export default function FeedPage() {
+  return (
+    <Suspense fallback={
+      <div className="container max-w-2xl px-3 py-1.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Feed</h2>
+          <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
+              <div className="h-4 w-40 rounded bg-foreground/10" />
+              <div className="mt-2 h-3 w-24 rounded bg-foreground/10" />
+              <div className="mt-4 h-64 rounded-xl bg-foreground/10" />
+              <div className="mt-3 h-7 w-20 rounded-full bg-foreground/10" />
+            </div>
+          ))}
+        </div>
+      </div>
+    }>
+      <FeedContent />
+    </Suspense>
   )
 }
