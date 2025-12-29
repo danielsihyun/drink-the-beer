@@ -54,9 +54,6 @@ function formatCardTimestamp(iso: string) {
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
 }
 
-/**
- * ✅ Matches Profile page modal exactly
- */
 function OverlayPage({
   title,
   children,
@@ -100,10 +97,8 @@ function FeedContent() {
   const [items, setItems] = React.useState<FeedItem[]>([])
   const [refreshing, setRefreshing] = React.useState(false)
 
-  // Success banner control
   const [postedBanner, setPostedBanner] = React.useState(false)
 
-  // edit/delete overlay state (only for your own posts)
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [active, setActive] = React.useState<FeedItem | null>(null)
@@ -169,7 +164,6 @@ function FeedContent() {
         timestampLabel: formatCardTimestamp(it.created_at),
       }))
 
-      // already newest -> oldest, but safe:
       mapped.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
 
       setItems(mapped)
@@ -386,7 +380,6 @@ function FeedContent() {
                     )}
                   </div>
 
-                  {/* ✅ Only allow edit/delete for your own posts */}
                   {it.isMine ? (
                     <div className="flex items-end justify-end gap-1">
                       <button
@@ -421,7 +414,6 @@ function FeedContent() {
         )}
       </div>
 
-      {/* ✅ Edit popup */}
       {editOpen && active ? (
         <OverlayPage
           title="Edit post"
@@ -509,7 +501,6 @@ function FeedContent() {
         </OverlayPage>
       ) : null}
 
-      {/* ✅ Delete popup */}
       {deleteOpen && active ? (
         <OverlayPage
           title="Delete post"
