@@ -79,6 +79,10 @@ export default function LogDrinkPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
   const [cropping, setCropping] = React.useState(false)
 
+  // crop area should max out the square
+  const cropWrapRef = React.useRef<HTMLDivElement | null>(null)
+  const [cropSize, setCropSize] = React.useState<{ width: number; height: number } | null>(null)
+
   const canPost = Boolean(file && drinkType && !submitting)
 
   React.useEffect(() => {
@@ -94,6 +98,28 @@ export default function LogDrinkPage() {
     setRawUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [rawFile])
+
+  // keep crop target full-bleed inside the square container
+  React.useEffect(() => {
+    if (!cropOpen) return
+    if (!cropWrapRef.current) return
+    const el = cropWrapRef.current
+
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect()
+      const s = Math.floor(Math.min(r.width, r.height))
+      setCropSize({ width: s, height: s })
+    })
+
+    ro.observe(el)
+
+    // set initial size immediately
+    const r0 = el.getBoundingClientRect()
+    const s0 = Math.floor(Math.min(r0.width, r0.height))
+    setCropSize({ width: s0, height: s0 })
+
+    return () => ro.disconnect()
+  }, [cropOpen])
 
   function resetForm() {
     setDrinkType(null)
@@ -362,31 +388,27 @@ export default function LogDrinkPage() {
             </div>
 
             <div className="p-4">
-              <div className="relative w-full overflow-hidden rounded-xl border" style={{ aspectRatio: "1 / 1" }}>
+              <div
+                ref={cropWrapRef}
+                className="relative w-full overflow-hidden rounded-xl border"
+                style={{ aspectRatio: "1 / 1" }}
+              >
                 <Cropper
                   image={rawUrl}
                   crop={crop}
                   zoom={zoom}
                   aspect={1}
+                  cropSize={cropSize ?? undefined}
+                  objectFit="cover"
+                  showGrid={true}          // ✅ bring back 3x3 grid
+                  zoomWithScroll={false}   // ✅ keep pinch zoom, no scroll wheel zoom
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels as Area)}
                 />
               </div>
 
-              <div className="mt-4">
-                <div className="mb-2 text-sm font-medium">Zoom</div>
-                <input
-                  type="range"
-                  min={1}
-                  max={3}
-                  step={0.01}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full"
-                  disabled={cropping}
-                />
-              </div>
+              {/* ✅ removed zoom slider (pinch to zoom still works) */}
 
               <div className="mt-5 flex gap-3">
                 <button
