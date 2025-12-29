@@ -3,6 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { Plus } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 type TimeRange = "week" | "month" | "year"
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
@@ -14,77 +16,6 @@ interface AnalyticsData {
   mostCommonType: DrinkType
   drinksPerDay: { day: string; count: number }[]
   typeBreakdown: { type: DrinkType; count: number; percentage: number }[]
-}
-
-const MOCK_DATA: Record<TimeRange, AnalyticsData> = {
-  week: {
-    totalDrinks: 12,
-    avgPerDay: 1.7,
-    maxInDay: 4,
-    mostCommonType: "Beer",
-    drinksPerDay: [
-      { day: "Mon", count: 2 },
-      { day: "Tue", count: 1 },
-      { day: "Wed", count: 3 },
-      { day: "Thu", count: 0 },
-      { day: "Fri", count: 4 },
-      { day: "Sat", count: 2 },
-      { day: "Sun", count: 0 },
-    ],
-    typeBreakdown: [
-      { type: "Beer", count: 6, percentage: 50 },
-      { type: "Wine", count: 3, percentage: 25 },
-      { type: "Cocktail", count: 2, percentage: 16.7 },
-      { type: "Seltzer", count: 1, percentage: 8.3 },
-    ],
-  },
-  month: {
-    totalDrinks: 48,
-    avgPerDay: 1.6,
-    maxInDay: 5,
-    mostCommonType: "Beer",
-    drinksPerDay: [
-      { day: "W1", count: 8 },
-      { day: "W2", count: 12 },
-      { day: "W3", count: 15 },
-      { day: "W4", count: 13 },
-    ],
-    typeBreakdown: [
-      { type: "Beer", count: 20, percentage: 41.7 },
-      { type: "Wine", count: 12, percentage: 25 },
-      { type: "Cocktail", count: 8, percentage: 16.7 },
-      { type: "Seltzer", count: 5, percentage: 10.4 },
-      { type: "Shot", count: 3, percentage: 6.2 },
-    ],
-  },
-  year: {
-    totalDrinks: 512,
-    avgPerDay: 1.4,
-    maxInDay: 6,
-    mostCommonType: "Beer",
-    drinksPerDay: [
-      { day: "Jan", count: 35 },
-      { day: "Feb", count: 42 },
-      { day: "Mar", count: 48 },
-      { day: "Apr", count: 44 },
-      { day: "May", count: 50 },
-      { day: "Jun", count: 52 },
-      { day: "Jul", count: 48 },
-      { day: "Aug", count: 45 },
-      { day: "Sep", count: 40 },
-      { day: "Oct", count: 38 },
-      { day: "Nov", count: 35 },
-      { day: "Dec", count: 35 },
-    ],
-    typeBreakdown: [
-      { type: "Beer", count: 210, percentage: 41 },
-      { type: "Wine", count: 140, percentage: 27.3 },
-      { type: "Cocktail", count: 85, percentage: 16.6 },
-      { type: "Seltzer", count: 50, percentage: 9.8 },
-      { type: "Spirit", count: 20, percentage: 3.9 },
-      { type: "Shot", count: 7, percentage: 1.4 },
-    ],
-  },
 }
 
 function LoadingSkeleton() {
@@ -174,7 +105,7 @@ function LineGraph({ data, maxValue }: { data: { day: string; count: number }[];
           <path
             d={pathD}
             fill="none"
-            stroke="black"
+            stroke="transparent"
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -219,28 +150,204 @@ function TypeBreakdown({ data }: { data: { type: DrinkType; count: number; perce
   )
 }
 
+function startOfDay(d: Date) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function addDays(d: Date, days: number) {
+  const x = new Date(d)
+  x.setDate(x.getDate() + days)
+  return x
+}
+
+function toLocalDateKey(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+function getRangeBounds(range: TimeRange) {
+  const now = new Date()
+
+  if (range === "week") {
+    // Monday-start week
+    const today = startOfDay(now)
+    const day = today.getDay() // 0=Sun ... 6=Sat
+    const offsetFromMonday = (day + 6) % 7
+    const start = addDays(today, -offsetFromMonday)
+    const end = addDays(start, 7)
+    return { start, end }
+  }
+
+  if (range === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0)
+    return { start, end }
+  }
+
+  // year
+  const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0)
+  const end = new Date(now.getFullYear() + 1, 0, 1, 0, 0, 0, 0)
+  return { start, end }
+}
+
 export default function AnalyticsPage() {
+  const supabase = createClient()
+  const router = useRouter()
+
   const [range, setRange] = React.useState<TimeRange>("week")
   const [loading, setLoading] = React.useState(true)
   const [hasData, setHasData] = React.useState(false)
+  const [data, setData] = React.useState<AnalyticsData | null>(null)
+
+  const fetchAnalytics = React.useCallback(
+    async (r: TimeRange) => {
+      setLoading(true)
+
+      try {
+        const { data: userRes, error: userErr } = await supabase.auth.getUser()
+        if (userErr) throw userErr
+        const user = userRes.user
+
+        if (!user) {
+          router.replace("/login?redirectTo=%2Fanalytics")
+          return
+        }
+
+        const { start, end } = getRangeBounds(r)
+
+        const { data: rows, error: logsErr } = await supabase
+          .from("drink_logs")
+          .select("drink_type,created_at")
+          .eq("user_id", user.id)
+          .gte("created_at", start.toISOString())
+          .lt("created_at", end.toISOString())
+          .limit(5000)
+
+        if (logsErr) throw logsErr
+
+        const logs = (rows ?? []) as Array<{ drink_type: DrinkType; created_at: string }>
+
+        if (logs.length === 0) {
+          setHasData(false)
+          setData(null)
+          return
+        }
+
+        // Daily counts for maxInDay + week bucketing
+        const dayCount = new Map<string, number>()
+        const typeCount = new Map<DrinkType, number>()
+
+        for (const l of logs) {
+          const dt = new Date(l.created_at)
+          const dayKey = toLocalDateKey(dt)
+          dayCount.set(dayKey, (dayCount.get(dayKey) ?? 0) + 1)
+
+          // defensive: only count known types
+          const t = l.drink_type
+          typeCount.set(t, (typeCount.get(t) ?? 0) + 1)
+        }
+
+        const totalDrinks = logs.length
+
+        const periodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
+        const avgPerDay = totalDrinks / periodDays
+
+        const maxInDay = Math.max(...Array.from(dayCount.values()))
+
+        // Most common type (tie-breaker: deterministic alphabetical by label)
+        const mostCommonType = Array.from(typeCount.entries())
+          .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
+          .map((x) => x[0])[0] as DrinkType
+
+        // Drinks per day (display buckets)
+        let drinksPerDay: { day: string; count: number }[] = []
+
+        if (r === "week") {
+          drinksPerDay = Array.from({ length: 7 }).map((_, i) => {
+            const d = addDays(start, i)
+            const label = d.toLocaleString("en-US", { weekday: "short" })
+            const key = toLocalDateKey(d)
+            return { day: label, count: dayCount.get(key) ?? 0 }
+          })
+        } else if (r === "month") {
+          // Force exactly W1..W4 (days 1-7, 8-14, 15-21, 22-end)
+          const weekBuckets = [0, 0, 0, 0]
+          for (const l of logs) {
+            const dt = new Date(l.created_at)
+            const dom = dt.getDate() // 1..31
+            const idx = Math.min(3, Math.floor((dom - 1) / 7))
+            weekBuckets[idx] += 1
+          }
+          drinksPerDay = [
+            { day: "W1", count: weekBuckets[0] },
+            { day: "W2", count: weekBuckets[1] },
+            { day: "W3", count: weekBuckets[2] },
+            { day: "W4", count: weekBuckets[3] },
+          ]
+        } else {
+          // year: Jan..Dec
+          const monthBuckets = Array.from({ length: 12 }).map(() => 0)
+          for (const l of logs) {
+            const dt = new Date(l.created_at)
+            monthBuckets[dt.getMonth()] += 1
+          }
+          const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+          drinksPerDay = monthLabels.map((m, i) => ({ day: m, count: monthBuckets[i] }))
+        }
+
+        const typeBreakdown = Array.from(typeCount.entries())
+          .filter(([, c]) => c > 0)
+          .map(([type, count]) => ({
+            type,
+            count,
+            percentage: totalDrinks > 0 ? (count / totalDrinks) * 100 : 0,
+          }))
+          .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type))
+
+        setHasData(true)
+        setData({
+          totalDrinks,
+          avgPerDay,
+          maxInDay,
+          mostCommonType,
+          drinksPerDay,
+          typeBreakdown,
+        })
+      } catch {
+        // keep UI unchanged; treat errors like "no data" rather than adding new error UI
+        setHasData(false)
+        setData(null)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [router, supabase]
+  )
 
   React.useEffect(() => {
-    setLoading(true)
-    const timer = setTimeout(() => {
-      setHasData(true)
-      setLoading(false)
-    }, 600)
-    return () => clearTimeout(timer)
-  }, [])
-
-  const data = MOCK_DATA[range]
-  const maxDrinksPerDay = Math.max(...data.drinksPerDay.map((d) => d.count))
+    fetchAnalytics(range)
+  }, [fetchAnalytics, range])
 
   function handleRangeChange(newRange: TimeRange) {
     setRange(newRange)
-    setLoading(true)
-    setTimeout(() => setLoading(false), 300)
   }
+
+  const mostCommonLabel = React.useMemo(() => {
+    if (!data) return ""
+    const max = Math.max(0, ...data.typeBreakdown.map((t) => t.count))
+    if (max === 0) return "—"
+    const winners = data.typeBreakdown
+      .filter((t) => t.count === max)
+      .map((t) => t.type)
+      .sort()
+    return winners.join("/")
+  }, [data])
+
+  const maxDrinksPerDay = data ? Math.max(...data.drinksPerDay.map((d) => d.count)) : 0
 
   return (
     <div className="container max-w-2xl px-3 py-1.5">
@@ -248,7 +355,7 @@ export default function AnalyticsPage() {
 
       {loading ? (
         <LoadingSkeleton />
-      ) : !hasData ? (
+      ) : !hasData || !data ? (
         <EmptyState />
       ) : (
         <>
@@ -271,9 +378,9 @@ export default function AnalyticsPage() {
           <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             <div className="grid grid-cols-2 gap-3">
               <SummaryCard label="Total drinks" value={data.totalDrinks} />
-              <SummaryCard label="Avg per day" value={data.avgPerDay.toFixed(1)} />
-              <SummaryCard label="Max in a day" value={data.maxInDay} />
-              <SummaryCard label="Most common" value={data.mostCommonType} />
+              <SummaryCard label="Avg per day" value={data.avgPerDay.toFixed(2)} />
+              <SummaryCard label="Most in a day" value={data.maxInDay} />
+              <SummaryCard label="Most common" value={mostCommonLabel} />
             </div>
 
             <LineGraph data={data.drinksPerDay} maxValue={maxDrinksPerDay} />

@@ -10,24 +10,25 @@ import { createClient } from "@/lib/supabase/client"
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
-type DrinkLogRow = {
+type FeedApiItem = {
   id: string
   user_id: string
   photo_path: string
   drink_type: DrinkType
   caption: string | null
   created_at: string
-}
-
-type ProfileRow = {
-  id: string
   username: string
-  display_name: string
-  avatar_path: string | null
-  created_at: string | null
+  avatarUrl: string | null
+  photoUrl: string | null
 }
 
-type FeedItem = DrinkLogRow & {
+type FeedItem = {
+  id: string
+  user_id: string
+  photo_path: string
+  drink_type: DrinkType
+  caption: string | null
+  created_at: string
   photoUrl: string | null
   username: string
   avatarUrl: string | null
@@ -53,7 +54,7 @@ function formatCardTimestamp(iso: string) {
 }
 
 /**
- * ✅ Copied from Profile page so modals match exactly
+ * ✅ Matches Profile page modal exactly
  */
 function OverlayPage({
   title,
@@ -65,11 +66,7 @@ function OverlayPage({
   onClose: () => void
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
-      role="dialog"
-      aria-modal="true"
-    >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6" role="dialog" aria-modal="true">
       <div className="container max-w-2xl px-4">
         <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
@@ -119,25 +116,16 @@ export default function FeedPage() {
     const posted = searchParams.get("posted")
     if (posted === "1") {
       setPostedBanner(true)
-      // remove ?posted=1 so it doesn't persist on refresh
       router.replace("/feed")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  // ✅ Auto-dismiss the banner after 2 seconds (and cleanup timer)
   React.useEffect(() => {
     if (!postedBanner) return
     const t = window.setTimeout(() => setPostedBanner(false), 5000)
     return () => window.clearTimeout(t)
   }, [postedBanner])
-
-  async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
-    if (!path) return null
-    const { data, error: e } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
-    if (e) return null
-    return data?.signedUrl ?? null
-  }
 
   const load = React.useCallback(async () => {
     setError(null)
@@ -151,49 +139,39 @@ export default function FeedPage() {
         return
       }
 
-      // 1) Fetch logs (feed: currently scoped to the signed-in user, keep as-is)
-      const { data: logs, error: logsErr } = await supabase
-        .from("drink_logs")
-        .select("id,user_id,photo_path,drink_type,caption,created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token. Please log out and back in.")
 
-      if (logsErr) throw logsErr
+      const res = await fetch("/api/feed", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      })
 
-      const rows = (logs ?? []) as DrinkLogRow[]
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
 
-      // 2) Fetch current user's profile (username + avatar) to display in card header
-      const { data: prof, error: profErr } = await supabase
-        .from("profiles")
-        .select("id,username,display_name,avatar_path,created_at")
-        .eq("id", user.id)
-        .single()
+      const base = (json?.items ?? []) as FeedApiItem[]
 
-      if (profErr) throw profErr
-      const p = prof as ProfileRow
+      const mapped: FeedItem[] = base.map((it) => ({
+        id: it.id,
+        user_id: it.user_id,
+        photo_path: it.photo_path,
+        drink_type: it.drink_type,
+        caption: it.caption,
+        created_at: it.created_at,
+        photoUrl: it.photoUrl ?? null,
+        username: it.username,
+        avatarUrl: it.avatarUrl ?? null,
+        isMine: it.user_id === user.id,
+        timestampLabel: formatCardTimestamp(it.created_at),
+      }))
 
-      const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
+      // already newest -> oldest, but safe:
+      mapped.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
 
-      // 3) Create signed URLs for drink images
-      const signed = await Promise.all(
-        rows.map(async (row) => {
-          const { data, error: urlErr } = await supabase.storage.from("drink-photos").createSignedUrl(row.photo_path, 60 * 60)
-
-          const photoUrl = urlErr ? null : data?.signedUrl ?? null
-
-          return {
-            ...row,
-            photoUrl,
-            username: p.username,
-            avatarUrl,
-            isMine: row.user_id === user.id,
-            timestampLabel: formatCardTimestamp(row.created_at),
-          } as FeedItem
-        })
-      )
-
-      setItems(signed)
+      setItems(mapped)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
@@ -322,14 +300,16 @@ export default function FeedPage() {
           <h2 className="text-2xl font-bold">Feed</h2>
 
           <div className="flex items-center gap-2">
-            <Link href="/log" className="inline-flex items-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white h-10 justify-center">
+            <Link
+              href="/log"
+              className="inline-flex items-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white h-10 justify-center"
+            >
               <Plus className="h-4 w-4" />
               <span className="leading-none">Log</span>
             </Link>
           </div>
         </div>
 
-        {/* ✅ Posted banner at the very top of the feed */}
         {postedBanner ? (
           <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             Posted!
@@ -347,8 +327,8 @@ export default function FeedPage() {
             <Link
               href="/friends"
               className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed"
-              aria-label="Log a drink"
-              title="Log a drink"
+              aria-label="Add friends"
+              title="Add friends"
             >
               <Plus className="h-7 w-7 opacity-50" />
             </Link>
@@ -370,7 +350,7 @@ export default function FeedPage() {
                       className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
                       style={{ backgroundColor: "#4ECDC4" }}
                     >
-                      {it.username[0]?.toUpperCase() ?? "Y"}
+                      {it.username[0]?.toUpperCase() ?? "U"}
                     </div>
                   )}
 
@@ -405,6 +385,7 @@ export default function FeedPage() {
                     )}
                   </div>
 
+                  {/* ✅ Only allow edit/delete for your own posts */}
                   {it.isMine ? (
                     <div className="flex items-end justify-end gap-1">
                       <button
@@ -439,7 +420,7 @@ export default function FeedPage() {
         )}
       </div>
 
-      {/* ✅ Feed Edit popup (now identical to Profile Post edit popup) */}
+      {/* ✅ Edit popup */}
       {editOpen && active ? (
         <OverlayPage
           title="Edit post"
@@ -527,7 +508,7 @@ export default function FeedPage() {
         </OverlayPage>
       ) : null}
 
-      {/* ✅ Feed Delete popup (now identical to Profile Post delete popup) */}
+      {/* ✅ Delete popup */}
       {deleteOpen && active ? (
         <OverlayPage
           title="Delete post"
