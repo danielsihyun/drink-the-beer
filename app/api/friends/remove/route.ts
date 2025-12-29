@@ -29,35 +29,35 @@ export async function POST(req: Request) {
 
     if (meId === friendId) return NextResponse.json({ error: "Invalid friendId" }, { status: 400 })
 
-    async function tryDeletePair(colA: string, colB: string) {
-      // direction 1
-      const r1: any = await admin
-        .from("friendships")
-        .delete()
-        .eq("status", "accepted")
-        .eq(colA as any, meId)
-        .eq(colB as any, friendId)
-        .select("id")
-        .limit(1)
-
-      if (r1.error) return { ok: false as const, error: r1.error.message }
-      if ((r1.data ?? []).length > 0) return { ok: true as const }
-
-      // direction 2
-      const r2: any = await admin
-        .from("friendships")
-        .delete()
-        .eq("status", "accepted")
-        .eq(colA as any, friendId)
-        .eq(colB as any, meId)
-        .select("id")
-        .limit(1)
-
-      if (r2.error) return { ok: false as const, error: r2.error.message }
-      if ((r2.data ?? []).length > 0) return { ok: true as const }
-
-      return { ok: false as const, error: "Friendship not found." }
-    }
+      async function tryDeletePair(colA: string, colB: string) {
+        // direction 1
+        const r1 = (await admin
+          .from("friendships")
+          .delete()
+          .eq("status", "accepted")
+          .eq(colA as any, meId)
+          .eq(colB as any, friendId)
+          .select("id")
+          .limit(1)) as any
+      
+        if (r1.error) return { ok: false as const, error: r1.error.message }
+        if ((r1.data ?? []).length > 0) return { ok: true as const }
+      
+        // direction 2
+        const r2 = (await admin
+          .from("friendships")
+          .delete()
+          .eq("status", "accepted")
+          .eq(colA as any, friendId)
+          .eq(colB as any, meId)
+          .select("id")
+          .limit(1)) as any
+      
+        if (r2.error) return { ok: false as const, error: r2.error.message }
+        if ((r2.data ?? []).length > 0) return { ok: true as const }
+      
+        return { ok: false as const, error: "Friendship not found." }
+      }
 
     // Try common schemas (we stop on first one that works)
     const candidates: Array<[string, string]> = [
