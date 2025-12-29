@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Beer } from "lucide-react"
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -135,5 +135,24 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 safe-area-inset">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center space-y-2 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary animate-pulse">
+              <Beer className="h-9 w-9 text-primary-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold">Drink The Beer</h1>
+          </div>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
