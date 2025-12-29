@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Cropper from "react-easy-crop"
 import { Camera, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -9,6 +10,50 @@ import { createClient } from "@/lib/supabase/client"
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
+
+type Area = { width: number; height: number; x: number; y: number }
+
+function createImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.addEventListener("load", () => resolve(img))
+    img.addEventListener("error", (e) => reject(e))
+    img.src = url
+  })
+}
+
+async function getCroppedFile(imageSrc: string, crop: Area, outputMime: string) {
+  const image = await createImage(imageSrc)
+  const canvas = document.createElement("canvas")
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("Could not prepare image crop.")
+
+  canvas.width = crop.width
+  canvas.height = crop.height
+
+  ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height)
+
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => {
+        if (!b) return reject(new Error("Could not crop image."))
+        resolve(b)
+      },
+      outputMime,
+      outputMime === "image/jpeg" ? 0.92 : undefined
+    )
+  })
+
+  const ext = outputMime === "image/png" ? "png" : "jpg"
+
+  const uuid =
+    typeof crypto !== "undefined" && "randomUUID" in crypto && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+
+  const file = new File([blob], `${uuid}.${ext}`, { type: outputMime })
+  return file
+}
 
 export default function LogDrinkPage() {
   const supabase = createClient()
@@ -25,6 +70,15 @@ export default function LogDrinkPage() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
+  // Crop UI state
+  const [cropOpen, setCropOpen] = React.useState(false)
+  const [rawFile, setRawFile] = React.useState<File | null>(null)
+  const [rawUrl, setRawUrl] = React.useState<string | null>(null)
+  const [crop, setCrop] = React.useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = React.useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
+  const [cropping, setCropping] = React.useState(false)
+
   const canPost = Boolean(file && drinkType && !submitting)
 
   React.useEffect(() => {
@@ -34,11 +88,24 @@ export default function LogDrinkPage() {
     return () => URL.revokeObjectURL(url)
   }, [file])
 
+  React.useEffect(() => {
+    if (!rawFile) return
+    const url = URL.createObjectURL(rawFile)
+    setRawUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [rawFile])
+
   function resetForm() {
     setDrinkType(null)
     setCaption("")
     setFile(null)
     setPreviewUrl(null)
+    setRawFile(null)
+    setRawUrl(null)
+    setCropOpen(false)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
@@ -51,7 +118,6 @@ export default function LogDrinkPage() {
 
     setSubmitting(true)
     try {
-      // 1) Ensure signed in
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr) throw userErr
       const user = userRes.user
@@ -60,7 +126,6 @@ export default function LogDrinkPage() {
         return
       }
 
-      // 2) Upload image to storage (private bucket: drink-photos)
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
 
       const uuid =
@@ -78,7 +143,6 @@ export default function LogDrinkPage() {
       })
       if (uploadErr) throw uploadErr
 
-      // 3) Insert row
       const nextCaption = caption.trim()
       const { error: insErr } = await supabase.from("drink_logs").insert({
         user_id: user.id,
@@ -89,8 +153,6 @@ export default function LogDrinkPage() {
       if (insErr) throw insErr
 
       resetForm()
-
-      // 4) Redirect to feed with a success flag
       router.replace("/feed?posted=1")
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong. Please try again.")
@@ -99,146 +161,260 @@ export default function LogDrinkPage() {
     }
   }
 
+  function onPickFile(f: File | null) {
+    if (!f) return
+    setError(null)
+    setSuccess(null)
+
+    // Open cropper for the newly selected image
+    setRawFile(f)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+    setCropOpen(true)
+  }
+
+  async function onConfirmCrop() {
+    if (!rawUrl || !croppedAreaPixels) return
+
+    setCropping(true)
+    try {
+      // Prefer PNG if user picked PNG, otherwise JPEG
+      const outputMime = rawFile?.type === "image/png" ? "image/png" : "image/jpeg"
+      const cropped = await getCroppedFile(rawUrl, croppedAreaPixels, outputMime)
+      setFile(cropped)
+      setCropOpen(false)
+    } catch (e: any) {
+      setError(e?.message ?? "Could not crop image.")
+      setCropOpen(false)
+      setRawFile(null)
+      setRawUrl(null)
+    } finally {
+      setCropping(false)
+    }
+  }
+
+  function onCancelCrop() {
+    setCropOpen(false)
+    setRawFile(null)
+    setRawUrl(null)
+    setCroppedAreaPixels(null)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
   return (
-    <div className="container max-w-2xl px-3 py-1.5">
-      <h2 className="mb-4 text-2xl font-bold">Log a drink</h2>
+    <>
+      <div className="container max-w-2xl px-3 py-1.5">
+        <h2 className="mb-4 text-2xl font-bold">Log a drink</h2>
 
-      {error ? (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
-      {success ? (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-          {success}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+        {success ? (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {success}
+          </div>
+        ) : null}
 
-      <section className="rounded-2xl border bg-background/50 p-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Photo</h2>
-          {file ? (
-            <button
-              type="button"
-              onClick={() => {
-                setFile(null)
-                setPreviewUrl(null)
-                if (fileInputRef.current) fileInputRef.current.value = ""
-              }}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
-            >
-              <X className="h-4 w-4" />
-              Clear
-            </button>
-          ) : null}
-        </div>
+        <section className="rounded-2xl border bg-background/50 p-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Photo</h2>
+            {file ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFile(null)
+                  setPreviewUrl(null)
+                  if (fileInputRef.current) fileInputRef.current.value = ""
+                }}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </button>
+            ) : null}
+          </div>
 
-        <div className="mt-3">
-          {previewUrl ? (
-            <div className="relative overflow-hidden rounded-xl border">
-              <Image
-                src={previewUrl || "/placeholder.svg"}
-                alt="Drink preview"
-                width={900}
-                height={1200}
-                className="h-72 w-full object-cover"
-                unoptimized
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border">
-                <Camera className="h-6 w-6" />
+          <div className="mt-3">
+            {previewUrl ? (
+              <div className="relative overflow-hidden rounded-xl border">
+                <Image
+                  src={previewUrl || "/placeholder.svg"}
+                  alt="Drink preview"
+                  width={900}
+                  height={1200}
+                  className="h-72 w-full object-cover"
+                  unoptimized
+                />
               </div>
-              <div>
-                <p className="text-sm font-medium">Add a photo</p>
-                <p className="mt-1 text-xs opacity-70">Choose from library, take a photo, or pick a file</p>
-              </div>
-            </button>
-          )}
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border">
+                  <Camera className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Add a photo</p>
+                  <p className="mt-1 text-xs opacity-70">Choose from library, take a photo, or pick a file</p>
+                </div>
+              </button>
+            )}
 
-          {/* Single input -> iOS shows the native "Photo Library / Take Photo / Choose File" sheet */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-2xl border bg-background/50 p-3">
+          <h2 className="text-sm font-medium">Drink type</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {DRINK_TYPES.map((t) => {
+              const selected = t === drinkType
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setDrinkType(t)
+                    setError(null)
+                    setSuccess(null)
+                  }}
+                  className={[
+                    "rounded-full border px-4 py-2 text-sm",
+                    "active:scale-[0.99]",
+                    selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-bg/5",
+                  ].join(" ")}
+                  aria-pressed={selected}
+                >
+                  {t}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-2xl border bg-background/50 p-3">
+          <h2 className="text-sm font-medium">Caption (optional)</h2>
+          <textarea
+            value={caption}
             onChange={(e) => {
-              const f = e.target.files?.[0] ?? null
-              setFile(f)
+              setCaption(e.target.value)
               setError(null)
               setSuccess(null)
             }}
+            placeholder="Who are you with? What are you doing?"
+            className="mt-3 h-24 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+            maxLength={200}
           />
-        </div>
-      </section>
+          <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
+        </section>
 
-      <section className="mt-4 rounded-2xl border bg-background/50 p-3">
-        <h2 className="text-sm font-medium">Drink type</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {DRINK_TYPES.map((t) => {
-            const selected = t === drinkType
-            return (
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!canPost}
+          className={[
+            "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
+            canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
+          ].join(" ")}
+        >
+          {submitting ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Posting…
+            </span>
+          ) : (
+            "Post"
+          )}
+        </button>
+      </div>
+
+      {/* Crop Modal (Instagram-ish: pan + zoom in a square frame) */}
+      {cropOpen && rawUrl ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="text-base font-semibold">Crop</div>
               <button
-                key={t}
                 type="button"
                 onClick={() => {
-                  setDrinkType(t)
-                  setError(null)
-                  setSuccess(null)
+                  if (cropping) return
+                  onCancelCrop()
                 }}
-                className={[
-                  "rounded-full border px-4 py-2 text-sm",
-                  "active:scale-[0.99]",
-                  selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-bg/5",
-                ].join(" ")}
-                aria-pressed={selected}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+                aria-label="Close"
+                title="Close"
               >
-                {t}
+                <X className="h-5 w-5" />
               </button>
-            )
-          })}
+            </div>
+
+            <div className="p-4">
+              <div className="relative w-full overflow-hidden rounded-xl border" style={{ aspectRatio: "1 / 1" }}>
+                <Cropper
+                  image={rawUrl}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels as Area)}
+                />
+              </div>
+
+              <div className="mt-4">
+                <div className="mb-2 text-sm font-medium">Zoom</div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                  disabled={cropping}
+                />
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cropping) return
+                    onCancelCrop()
+                  }}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                  disabled={cropping}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onConfirmCrop}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
+                  disabled={cropping}
+                >
+                  {cropping ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
-
-      <section className="mt-4 rounded-2xl border bg-background/50 p-3">
-        <h2 className="text-sm font-medium">Caption (optional)</h2>
-        <textarea
-          value={caption}
-          onChange={(e) => {
-            setCaption(e.target.value)
-            setError(null)
-            setSuccess(null)
-          }}
-          placeholder="Who are you with? What are you doing?"
-          className="mt-3 h-24 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-          maxLength={200}
-        />
-        <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
-      </section>
-
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={!canPost}
-        className={[
-          "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
-          canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
-        ].join(" ")}
-      >
-        {submitting ? (
-          <span className="inline-flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Posting…
-          </span>
-        ) : (
-          "Post"
-        )}
-      </button>
-    </div>
+      ) : null}
+    </>
   )
 }
