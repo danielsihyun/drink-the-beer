@@ -31,27 +31,33 @@ export async function POST(req: Request) {
 
       async function tryDeletePair(colA: string, colB: string) {
         // direction 1
-        const r1 = (await admin
-          .from("friendships")
-          .delete()
-          .eq("status", "accepted")
-          .eq(colA as any, meId)
-          .eq(colB as any, friendId)
-          .select("id")
-          .limit(1)) as any
+        const executeQuery1 = async () => {
+          const query1: any = admin.from("friendships").delete()
+          const query1a: any = query1.eq("status", "accepted")
+          const query1b: any = query1a.eq(colA as any, meId)
+          const query1c: any = query1b.eq(colB as any, friendId)
+          const query1d: any = query1c.select("id")
+          const query1e: any = query1d.limit(1)
+          return await query1e
+        }
+        
+        const r1 = await executeQuery1()
       
         if (r1.error) return { ok: false as const, error: r1.error.message }
         if ((r1.data ?? []).length > 0) return { ok: true as const }
       
         // direction 2
-        const r2 = (await admin
-          .from("friendships")
-          .delete()
-          .eq("status", "accepted")
-          .eq(colA as any, friendId)
-          .eq(colB as any, meId)
-          .select("id")
-          .limit(1)) as any
+        const executeQuery2 = async () => {
+          const query2: any = admin.from("friendships").delete()
+          const query2a: any = query2.eq("status", "accepted")
+          const query2b: any = query2a.eq(colA as any, friendId)
+          const query2c: any = query2b.eq(colB as any, meId)
+          const query2d: any = query2c.select("id")
+          const query2e: any = query2d.limit(1)
+          return await query2e
+        }
+        
+        const r2 = await executeQuery2()
       
         if (r2.error) return { ok: false as const, error: r2.error.message }
         if ((r2.data ?? []).length > 0) return { ok: true as const }
