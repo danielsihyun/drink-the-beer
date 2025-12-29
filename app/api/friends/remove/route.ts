@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     async function tryDeletePair(colA: string, colB: string) {
       // direction 1
-      const r1 = await admin
+      const r1: any = await admin
         .from("friendships")
         .delete()
         .eq("status", "accepted")
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       if ((r1.data ?? []).length > 0) return { ok: true as const }
 
       // direction 2
-      const r2 = await admin
+      const r2: any = await admin
         .from("friendships")
         .delete()
         .eq("status", "accepted")
