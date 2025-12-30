@@ -61,7 +61,7 @@ export default function SignupPage() {
 
     const supabase = createClient()
 
-    // Optional: check username availability (requires SELECT policy on profiles)
+    // Check username availability
     const { data: existing, error: checkErr } = await supabase
       .from("profiles")
       .select("username")
@@ -85,6 +85,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { username, display_name: username },
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     })
 
@@ -94,18 +95,13 @@ export default function SignupPage() {
       return
     }
 
-    // Since confirmations are OFF, Supabase may auto-create a session.
-    // We want: signup -> go to login (NOT feed), so we sign out to prevent proxy redirecting /login -> /feed.
-    if (data.session) {
-      await supabase.auth.signOut()
-    }
+    // With email confirmation enabled, no session is created until email is verified
+    setSuccess("Account created! Please check your email to verify your account before signing in.")
 
-    setSuccess("Account created! Redirecting to login…")
-
-    // Quick success toast time, then move to login
+    // Wait a bit longer so user can read the message
     setTimeout(() => {
-      router.replace("/login?signup=success")
-    }, 900)
+      router.replace("/login")
+    }, 3000)
 
     setIsLoading(false)
   }
