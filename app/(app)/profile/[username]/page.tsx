@@ -105,7 +105,7 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="animate-pulse rounded-2xl border bg-background/50 p-3">
+      <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
         <div className="flex items-start gap-4">
           <div className="h-20 w-20 rounded-full bg-foreground/10" />
           <div className="flex-1 space-y-3">
@@ -293,13 +293,8 @@ export default function UserProfilePage() {
 
       const p = prof as ProfileRow
 
-      const { data: meta, error: metaErr } = await supabase
-        .from("profiles")
-        .select("created_at")
-        .eq("id", p.id)
-        .single()
+      const { data: meta, error: metaErr } = await supabase.from("profiles").select("created_at").eq("id", p.id).single()
       if (metaErr) throw metaErr
-
       const m = meta as ProfileMetaRow
 
       let avatarSignedUrl: string | null = null
@@ -396,9 +391,9 @@ export default function UserProfilePage() {
         <LoadingSkeleton />
       ) : profile ? (
         <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          {/* PROFILE CARD - matches personal profile exactly */}
-          <div className="rounded-2xl border bg-background/50 p-3">
-            <div className="flex items-start gap-4">
+          {/* PROFILE CARD */}
+          <div className="relative rounded-2xl border bg-background/50 p-3">
+            <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
                 <div className="relative h-20 w-20 overflow-hidden rounded-full">
                   <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
@@ -414,17 +409,19 @@ export default function UserProfilePage() {
 
               <div className="flex-1">
                 <h3 className="text-lg font-bold">{profile.displayName}</h3>
-                <p className="text-sm opacity-60">@{profile.username}</p>
-                <p className="mt-2 text-xs opacity-50">Joined {profile.joinDate}</p>
+                <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
+                <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
-                <div className="mt-1 flex gap-4 text-sm">
-                  <div>
-                    <span className="font-bold">{profile.friendCount}</span>{" "}
-                    <span className="opacity-60">Friends</span>
-                  </div>
-                  <div>
-                    <span className="font-bold">{profile.drinkCount}</span>{" "}
-                    <span className="opacity-60">Drinks</span>
+                <div className="mt-1 flex items-center justify-between pr-20 text-sm">
+                  <div className="flex gap-4">
+                    <div>
+                      <span className="font-bold">{profile.friendCount}</span>{" "}
+                      <span className="opacity-60">Friends</span>
+                    </div>
+                    <div>
+                      <span className="font-bold">{profile.drinkCount}</span>{" "}
+                      <span className="opacity-60">Drinks</span>
+                    </div>
                   </div>
                 </div>
               </div>

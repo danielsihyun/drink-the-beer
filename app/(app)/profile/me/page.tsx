@@ -840,7 +840,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {current.avatarUrl ? (
-                    <div className="relative h-24 w-24 overflow-hidden rounded-full">
+                    <div className="relative h-20 w-20 overflow-hidden rounded-full">
                       <Image
                         src={current.avatarUrl || "/placeholder.svg"}
                         alt="Profile"
@@ -851,7 +851,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div
-                      className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white"
+                      className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
                       style={{ backgroundColor: current.avatarColor }}
                     >
                       {current.username[0]?.toUpperCase() ?? "Y"}
@@ -905,11 +905,11 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <h3 className="text-lg font-bold">{profile.displayName}</h3>
-                      <p className="text-sm opacity-60">@{profile.username}</p>
+                      <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
                     </>
                   )}
 
-                  <p className="mt-1 text-xs opacity-50">Joined {profile.joinDate}</p>
+                  <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
                   {/* tighter spacing to align with icon row */}
                   <div className="mt-1 flex items-center justify-between pr-20 text-sm">
