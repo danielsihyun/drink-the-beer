@@ -67,11 +67,9 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
 
 function LineGraph({ data, maxValue }: { data: { day: string; count: number }[]; maxValue: number }) {
   const chartHeight = 160
-  const chartWidth = 100 // percentage
   const padding = 20
   const effectiveHeight = chartHeight - padding * 2
 
-  // Calculate points for the line
   const points = data.map((item, index) => {
     const x = (index / (data.length - 1)) * 100
     const y = maxValue > 0 ? chartHeight - padding - (item.count / maxValue) * effectiveHeight : chartHeight - padding
@@ -79,7 +77,6 @@ function LineGraph({ data, maxValue }: { data: { day: string; count: number }[];
   })
 
   const pathD = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")
-
   const areaPathD = `${pathD} L 100 ${chartHeight - padding} L 0 ${chartHeight - padding} Z`
 
   return (
@@ -87,7 +84,6 @@ function LineGraph({ data, maxValue }: { data: { day: string; count: number }[];
       <h3 className="mb-4 text-sm font-semibold">Drinks per day</h3>
       <div className="relative" style={{ height: `${chartHeight}px` }}>
         <svg className="h-full w-full" viewBox={`0 0 100 ${chartHeight}`} preserveAspectRatio="none">
-          {/* Grid lines */}
           {[0, 25, 50, 75, 100].map((y) => (
             <line
               key={y}
@@ -112,7 +108,7 @@ function LineGraph({ data, maxValue }: { data: { day: string; count: number }[];
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        {/* Labels */}
+
         <div className="absolute -bottom-6 left-0 right-0 flex justify-between px-1">
           {data.map((item) => (
             <div key={item.day} className="flex flex-col items-center gap-0.5">
@@ -169,28 +165,24 @@ function toLocalDateKey(d: Date) {
   return `${y}-${m}-${day}`
 }
 
+// ✅ Rolling windows so "week" recognizes past drinks (last 7 days),
+// not “this calendar week”
 function getRangeBounds(range: TimeRange) {
   const now = new Date()
+  const end = addDays(startOfDay(now), 1) // tomorrow 00:00 local (exclusive)
 
   if (range === "week") {
-    // Monday-start week
-    const today = startOfDay(now)
-    const day = today.getDay() // 0=Sun ... 6=Sat
-    const offsetFromMonday = (day + 6) % 7
-    const start = addDays(today, -offsetFromMonday)
-    const end = addDays(start, 7)
+    const start = addDays(startOfDay(now), -6) // last 7 days incl today
     return { start, end }
   }
 
   if (range === "month") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0)
+    const start = addDays(startOfDay(now), -27) // last 28 days -> 4 buckets
     return { start, end }
   }
 
-  // year
-  const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0)
-  const end = new Date(now.getFullYear() + 1, 0, 1, 0, 0, 0, 0)
+  // year: last 12 months-ish (365 days). We bucket by calendar month within this window.
+  const start = addDays(startOfDay(now), -364)
   return { start, end }
 }
 
@@ -217,86 +209,110 @@ export default function AnalyticsPage() {
           return
         }
 
-        const { start, end } = getRangeBounds(r)
+        // ✅ Keep historical window so past drinks are always recognized
+        const startAll = new Date("2025-01-01T00:00:00.000Z")
+        const endAll = new Date()
 
         const { data: rows, error: logsErr } = await supabase
           .from("drink_logs")
           .select("drink_type,created_at")
           .eq("user_id", user.id)
-          .gte("created_at", start.toISOString())
-          .lt("created_at", end.toISOString())
+          .gte("created_at", startAll.toISOString())
+          .lt("created_at", endAll.toISOString())
           .limit(5000)
 
         if (logsErr) throw logsErr
 
-        const logs = (rows ?? []) as Array<{ drink_type: DrinkType; created_at: string }>
+        const allLogs = (rows ?? []) as Array<{ drink_type: DrinkType; created_at: string }>
 
-        if (logs.length === 0) {
+        if (allLogs.length === 0) {
           setHasData(false)
           setData(null)
           return
         }
 
-        // Daily counts for maxInDay + week bucketing
+        // ✅ Range subset used for avg + graph + “max in a day” + most common/type breakdown
+        const { start: rangeStart, end: rangeEnd } = getRangeBounds(r)
+        const rangeLogs = allLogs.filter((l) => {
+          const t = new Date(l.created_at).getTime()
+          return t >= rangeStart.getTime() && t < rangeEnd.getTime()
+        })
+
+        // Total drinks: keep as historical total (what you said you wanted preserved)
+        const totalDrinks = allLogs.length
+
+        // If the selected range has no logs, we still show analytics (not EmptyState),
+        // but avg/graph will be 0 for that range.
         const dayCount = new Map<string, number>()
         const typeCount = new Map<DrinkType, number>()
 
-        for (const l of logs) {
+        for (const l of rangeLogs) {
           const dt = new Date(l.created_at)
           const dayKey = toLocalDateKey(dt)
           dayCount.set(dayKey, (dayCount.get(dayKey) ?? 0) + 1)
 
-          // defensive: only count known types
           const t = l.drink_type
           typeCount.set(t, (typeCount.get(t) ?? 0) + 1)
         }
 
-        const totalDrinks = logs.length
+        const rangeDays = Math.max(
+          1,
+          Math.round((rangeEnd.getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000))
+        )
+        const avgPerDay = rangeLogs.length / rangeDays
 
-        const periodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
-        const avgPerDay = totalDrinks / periodDays
+        const maxInDay = dayCount.size > 0 ? Math.max(...Array.from(dayCount.values())) : 0
 
-        const maxInDay = Math.max(...Array.from(dayCount.values()))
+        const mostCommonType =
+          Array.from(typeCount.entries())
+            .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
+            .map((x) => x[0])[0] ?? ("Beer" as DrinkType)
 
-        // Most common type (tie-breaker: deterministic alphabetical by label)
-        const mostCommonType = Array.from(typeCount.entries())
-          .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
-          .map((x) => x[0])[0] as DrinkType
-
-        // Drinks per day (display buckets)
         let drinksPerDay: { day: string; count: number }[] = []
 
         if (r === "week") {
           drinksPerDay = Array.from({ length: 7 }).map((_, i) => {
-            const d = addDays(start, i)
+            const d = addDays(rangeStart, i)
             const label = d.toLocaleString("en-US", { weekday: "short" })
             const key = toLocalDateKey(d)
             return { day: label, count: dayCount.get(key) ?? 0 }
           })
         } else if (r === "month") {
-          // Force exactly W1..W4 (days 1-7, 8-14, 15-21, 22-end)
-          const weekBuckets = [0, 0, 0, 0]
-          for (const l of logs) {
+          const buckets = [0, 0, 0, 0]
+          for (const l of rangeLogs) {
             const dt = new Date(l.created_at)
-            const dom = dt.getDate() // 1..31
-            const idx = Math.min(3, Math.floor((dom - 1) / 7))
-            weekBuckets[idx] += 1
+            const daysFromStart = Math.floor((startOfDay(dt).getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000))
+            const idx = Math.min(3, Math.max(0, Math.floor(daysFromStart / 7)))
+            buckets[idx] += 1
           }
           drinksPerDay = [
-            { day: "W1", count: weekBuckets[0] },
-            { day: "W2", count: weekBuckets[1] },
-            { day: "W3", count: weekBuckets[2] },
-            { day: "W4", count: weekBuckets[3] },
+            { day: "W1", count: buckets[0] },
+            { day: "W2", count: buckets[1] },
+            { day: "W3", count: buckets[2] },
+            { day: "W4", count: buckets[3] },
           ]
         } else {
-          // year: Jan..Dec
-          const monthBuckets = Array.from({ length: 12 }).map(() => 0)
-          for (const l of logs) {
+          // year-ish: bucket by calendar month inside the rolling window
+          const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+
+          const monthBuckets = new Map<string, number>()
+          for (const l of rangeLogs) {
             const dt = new Date(l.created_at)
-            monthBuckets[dt.getMonth()] += 1
+            const k = monthKey(dt)
+            monthBuckets.set(k, (monthBuckets.get(k) ?? 0) + 1)
           }
-          const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-          drinksPerDay = monthLabels.map((m, i) => ({ day: m, count: monthBuckets[i] }))
+
+          // Build last 12 calendar months ending this month
+          const now = new Date()
+          const months: { key: string; label: string }[] = []
+          for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            const key = monthKey(d)
+            const label = d.toLocaleString("en-US", { month: "short" }) + " '" + String(d.getFullYear()).slice(-2)
+            months.push({ key, label })
+          }
+
+          drinksPerDay = months.map((m) => ({ day: m.label, count: monthBuckets.get(m.key) ?? 0 }))
         }
 
         const typeBreakdown = Array.from(typeCount.entries())
@@ -304,7 +320,7 @@ export default function AnalyticsPage() {
           .map(([type, count]) => ({
             type,
             count,
-            percentage: totalDrinks > 0 ? (count / totalDrinks) * 100 : 0,
+            percentage: rangeLogs.length > 0 ? (count / rangeLogs.length) * 100 : 0,
           }))
           .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type))
 
@@ -318,7 +334,6 @@ export default function AnalyticsPage() {
           typeBreakdown,
         })
       } catch {
-        // keep UI unchanged; treat errors like "no data" rather than adding new error UI
         setHasData(false)
         setData(null)
       } finally {
