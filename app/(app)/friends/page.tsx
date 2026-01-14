@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Loader2, Search, ArrowUpDown, Plus, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -69,9 +70,6 @@ function sortLabel(s: FriendSort) {
   return "Oldest"
 }
 
-/**
- * ✅ Same popup style as Profile page
- */
 function OverlayPage({
   title,
   children,
@@ -129,7 +127,6 @@ export default function FriendsPage() {
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
-  // ✅ neutral toast popup
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const toastTimerRef = React.useRef<number | null>(null)
 
@@ -145,7 +142,6 @@ export default function FriendsPage() {
     }
   }, [])
 
-  // ✅ Local optimistic pending requests so search results stay as "pending"
   const [outgoingPendingIds, setOutgoingPendingIds] = React.useState<Record<string, true>>({})
 
   async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
@@ -170,7 +166,6 @@ export default function FriendsPage() {
 
       setMeId(user.id)
 
-      // ✅ Friends list from your view
       const { data: rows, error: fErr } = await supabase
         .from("friends_with_stats")
         .select("user_id,friend_id,friendship_created_at,username,display_name,avatar_path,friend_count,drink_count")
@@ -196,7 +191,6 @@ export default function FriendsPage() {
       )
       setFriends(mappedFriends)
 
-      // ✅ Pending incoming requests via server route (service role)
       const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
       if (sessErr) throw sessErr
       const token = sessRes.session?.access_token
@@ -239,7 +233,6 @@ export default function FriendsPage() {
     loadFriends()
   }, [loadFriends])
 
-  // ✅ Clear local pending once they become a real friend
   React.useEffect(() => {
     if (!friends.length) return
     setOutgoingPendingIds((prev) => {
@@ -255,7 +248,6 @@ export default function FriendsPage() {
     })
   }, [friends])
 
-  // Search (debounced)
   React.useEffect(() => {
     if (!meId) return
     const q = query.trim()
@@ -287,7 +279,6 @@ export default function FriendsPage() {
         const base = (json?.items ?? []) as SearchProfileRow[]
         const friendIdSet = new Set(friends.map((f) => f.id))
 
-        // ✅ Filter out me + anyone I’m already friends with
         const filtered = base.filter((p) => p.id !== meId && !friendIdSet.has(p.id))
 
         const mapped: UiPerson[] = await Promise.all(
@@ -349,15 +340,12 @@ export default function FriendsPage() {
 
       if (json?.autoAccepted) {
         showToast("Friend added!")
-        // ✅ remove from search results if they became a friend
         setSearchResults((prev) => prev.filter((p) => p.id !== friendId))
       } else {
         showToast("Request sent!")
 
-        // ✅ persist local pending so it doesn't revert after refetch
         setOutgoingPendingIds((prev) => ({ ...prev, [friendId]: true }))
 
-        // ✅ immediately flip to “pending” so it shows a checkmark
         setSearchResults((prev) => prev.map((p) => (p.id === friendId ? { ...p, outgoingPending: true } : p)))
       }
 
@@ -399,7 +387,6 @@ export default function FriendsPage() {
     }
   }
 
-  // ✅ Remove friend modal state
   const [removeOpen, setRemoveOpen] = React.useState(false)
   const [removeBusy, setRemoveBusy] = React.useState(false)
   const [removeError, setRemoveError] = React.useState<string | null>(null)
@@ -481,7 +468,6 @@ export default function FriendsPage() {
           <h2 className="text-2xl font-bold">Friends</h2>
         </div>
 
-        {/* ✅ Toast popup (between title and search bar) */}
         {toastMsg ? (
           <div className="mt-3 rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
             {toastMsg}
@@ -494,7 +480,6 @@ export default function FriendsPage() {
           </div>
         ) : null}
 
-        {/* Search bar */}
         <div className="mt-4 flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
           <Search className="h-4 w-4 opacity-60" />
           <input
@@ -506,7 +491,6 @@ export default function FriendsPage() {
           {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
         </div>
 
-        {/* Sort control */}
         <div className="mt-3 flex items-center justify-end">
           <div className="relative">
             <button
@@ -547,7 +531,6 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        {/* Search results */}
         {query.trim().length ? (
           <div className="mt-4 space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Search results</div>
@@ -559,36 +542,37 @@ export default function FriendsPage() {
             {searchResults.map((p) => (
               <article key={p.id} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-3">
-                  {p.avatarUrl ? (
-                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                      <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                      {p.username[0]?.toUpperCase() ?? "U"}
-                    </div>
-                  )}
-
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{p.displayName}</div>
-                    <div className="text-xs opacity-60">@{p.username}</div>
-
-                    <div className="mt-2 flex gap-4 text-sm">
-                      <div>
-                        <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                  <Link href={`/profile/${p.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    {p.avatarUrl ? (
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                        <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                       </div>
-                      <div>
-                        <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                        {p.username[0]?.toUpperCase() ?? "U"}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold hover:underline">{p.displayName}</div>
+                      <div className="text-xs opacity-60">@{p.username}</div>
+
+                      <div className="mt-2 flex gap-4 text-sm">
+                        <div>
+                          <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                        </div>
+                        <div>
+                          <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
-                  {/* ✅ If outgoing pending, show checkmark instead of plus */}
                   {p.outgoingPending ? (
                     <button
                       type="button"
                       disabled
-                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white opacity-70"
+                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white opacity-70 shrink-0"
                       aria-label="Request pending"
                       title="Request pending"
                     >
@@ -598,7 +582,7 @@ export default function FriendsPage() {
                     <button
                       type="button"
                       onClick={() => addFriend(p.id)}
-                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white shrink-0"
                       aria-label="Add friend"
                       title="Add friend"
                     >
@@ -611,7 +595,6 @@ export default function FriendsPage() {
           </div>
         ) : null}
 
-        {/* ✅ Pending requests (above Your friends) */}
         <div className="mt-6 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
 
@@ -621,31 +604,33 @@ export default function FriendsPage() {
             pending.map((p) => (
               <article key={p.friendshipId} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-3">
-                  {p.avatarUrl ? (
-                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                      <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                      {p.username[0]?.toUpperCase() ?? "U"}
-                    </div>
-                  )}
-
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{p.displayName}</div>
-                    <div className="text-xs opacity-60">@{p.username}</div>
-
-                    <div className="mt-2 flex gap-4 text-sm">
-                      <div>
-                        <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                  <Link href={`/profile/${p.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    {p.avatarUrl ? (
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                        <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                       </div>
-                      <div>
-                        <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                        {p.username[0]?.toUpperCase() ?? "U"}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold hover:underline">{p.displayName}</div>
+                      <div className="text-xs opacity-60">@{p.username}</div>
+
+                      <div className="mt-2 flex gap-4 text-sm">
+                        <div>
+                          <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
+                        </div>
+                        <div>
+                          <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => respondToRequest(p.friendshipId, "accepted")}
@@ -682,7 +667,6 @@ export default function FriendsPage() {
           )}
         </div>
 
-        {/* Friends list */}
         <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
 
@@ -694,35 +678,36 @@ export default function FriendsPage() {
             friendsSorted.map((f) => (
               <article key={f.id} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-3">
-                  {f.avatarUrl ? (
-                    <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                      <Image src={f.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                      {f.username[0]?.toUpperCase() ?? "U"}
-                    </div>
-                  )}
-
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{f.displayName}</div>
-                    <div className="text-xs opacity-60">@{f.username}</div>
-
-                    <div className="mt-2 flex gap-4 text-sm">
-                      <div>
-                        <span className="font-bold">{f.friendCount}</span> <span className="opacity-60">Friends</span>
+                  <Link href={`/profile/${f.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    {f.avatarUrl ? (
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                        <Image src={f.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                       </div>
-                      <div>
-                        <span className="font-bold">{f.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
+                        {f.username[0]?.toUpperCase() ?? "U"}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold hover:underline">{f.displayName}</div>
+                      <div className="text-xs opacity-60">@{f.username}</div>
+
+                      <div className="mt-2 flex gap-4 text-sm">
+                        <div>
+                          <span className="font-bold">{f.friendCount}</span> <span className="opacity-60">Friends</span>
+                        </div>
+                        <div>
+                          <span className="font-bold">{f.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
-                  {/* ✅ Remove friend (X icon) */}
                   <button
                     type="button"
                     onClick={() => openRemove(f)}
-                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99] shrink-0"
                     style={{ width: "30px", height: "30px" }}
                     aria-label="Remove friend"
                     title="Remove friend"
@@ -736,7 +721,6 @@ export default function FriendsPage() {
         </div>
       </div>
 
-      {/* ✅ Remove friend popup */}
       {removeOpen && removeTarget ? (
         <OverlayPage
           title="Remove friend"

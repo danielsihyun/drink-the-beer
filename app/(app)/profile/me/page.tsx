@@ -837,10 +837,10 @@ export default function ProfilePage() {
           <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {/* PROFILE CARD */}
             <div className="relative rounded-2xl border bg-background/50 p-3">
-              <div className="flex items-start gap-4">
+              <div className="flex items-center gap-4">
                 <div className="relative">
                   {current.avatarUrl ? (
-                    <div className="relative h-20 w-20 overflow-hidden rounded-full">
+                    <div className="relative h-24 w-24 overflow-hidden rounded-full">
                       <Image
                         src={current.avatarUrl || "/placeholder.svg"}
                         alt="Profile"
@@ -851,7 +851,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div
-                      className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
+                      className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white"
                       style={{ backgroundColor: current.avatarColor }}
                     >
                       {current.username[0]?.toUpperCase() ?? "Y"}
@@ -909,7 +909,7 @@ export default function ProfilePage() {
                     </>
                   )}
 
-                  <p className="mt-2 text-xs opacity-50">Joined {profile.joinDate}</p>
+                  <p className="mt-1 text-xs opacity-50">Joined {profile.joinDate}</p>
 
                   {/* tighter spacing to align with icon row */}
                   <div className="mt-1 flex items-center justify-between pr-20 text-sm">

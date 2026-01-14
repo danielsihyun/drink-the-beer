@@ -336,23 +336,25 @@ function FeedContent() {
             {items.map((it) => (
               <article key={it.id} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-2">
-                  {it.avatarUrl ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full">
-                      <Image src={it.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: "#4ECDC4" }}
-                    >
-                      {it.username[0]?.toUpperCase() ?? "U"}
-                    </div>
-                  )}
+                  <Link href={`/profile/${it.username}`} className="flex items-center gap-2 flex-1 min-w-0">
+                    {it.avatarUrl ? (
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                        <Image src={it.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                      </div>
+                    ) : (
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                        style={{ backgroundColor: "#4ECDC4" }}
+                      >
+                        {it.username[0]?.toUpperCase() ?? "U"}
+                      </div>
+                    )}
 
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{it.username}</p>
-                    <p className="text-xs opacity-60">{it.timestampLabel}</p>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium hover:underline">{it.username}</p>
+                      <p className="text-xs opacity-60">{it.timestampLabel}</p>
+                    </div>
+                  </Link>
 
                   <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
                     {it.drink_type}
