@@ -4,7 +4,7 @@ import * as React from "react"
 import { Suspense } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
+import { FilePenLine, Heart, Loader2, Plus, Trash2, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -35,6 +35,10 @@ type FeedItem = {
   avatarUrl: string | null
   isMine: boolean
   timestampLabel: string
+
+  // ✅ Cheers state
+  cheersCount: number
+  cheeredByMe: boolean
 }
 
 function formatCardTimestamp(iso: string) {
@@ -64,7 +68,11 @@ function OverlayPage({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="container max-w-2xl px-4">
         <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
@@ -97,6 +105,8 @@ function FeedContent() {
   const [items, setItems] = React.useState<FeedItem[]>([])
   const [refreshing, setRefreshing] = React.useState(false)
 
+  const [viewerId, setViewerId] = React.useState<string | null>(null)
+
   const [postedBanner, setPostedBanner] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
@@ -107,6 +117,9 @@ function FeedContent() {
   const [postCaption, setPostCaption] = React.useState("")
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
+
+  // Prevent double-tapping cheers while a request is in-flight for that post
+  const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
 
   React.useEffect(() => {
     const posted = searchParams.get("posted")
@@ -123,6 +136,40 @@ function FeedContent() {
     return () => window.clearTimeout(t)
   }, [postedBanner])
 
+  const loadCheersState = React.useCallback(
+    async (postIds: string[], currentViewerId: string) => {
+      if (!postIds.length) return
+
+      // RPC returns: { drink_log_id, cheers_count, cheered }
+      const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", {
+        post_ids: postIds,
+        viewer_id: currentViewerId,
+      })
+
+      if (rpcErr) throw rpcErr
+
+      const rows = (data ?? []) as Array<{
+        drink_log_id: string
+        cheers_count: number
+        cheered: boolean
+      }>
+
+      const byId = new Map<string, { count: number; cheered: boolean }>()
+      for (const r of rows) {
+        byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) })
+      }
+
+      setItems((prev) =>
+        prev.map((it) => {
+          const s = byId.get(it.id)
+          if (!s) return it
+          return { ...it, cheersCount: s.count, cheeredByMe: s.cheered }
+        })
+      )
+    },
+    [supabase]
+  )
+
   const load = React.useCallback(async () => {
     setError(null)
     try {
@@ -134,6 +181,8 @@ function FeedContent() {
         router.replace("/login?redirectTo=%2Ffeed")
         return
       }
+
+      setViewerId(user.id)
 
       const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
       if (sessErr) throw sessErr
@@ -162,17 +211,24 @@ function FeedContent() {
         avatarUrl: it.avatarUrl ?? null,
         isMine: it.user_id === user.id,
         timestampLabel: formatCardTimestamp(it.created_at),
+
+        // ✅ default until we load from RPC
+        cheersCount: 0,
+        cheeredByMe: false,
       }))
 
       mapped.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-
       setItems(mapped)
+
+      // ✅ load cheers counts + whether viewer cheered
+      const ids = mapped.map((m) => m.id)
+      await loadCheersState(ids, user.id)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase])
+  }, [router, supabase, loadCheersState])
 
   React.useEffect(() => {
     load()
@@ -248,7 +304,11 @@ function FeedContent() {
     setPostError(null)
     setPostBusy(true)
     try {
-      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", active.id).eq("user_id", active.user_id)
+      const { error: delErr } = await supabase
+        .from("drink_logs")
+        .delete()
+        .eq("id", active.id)
+        .eq("user_id", active.user_id)
       if (delErr) throw delErr
 
       if (active.photo_path) {
@@ -263,6 +323,69 @@ function FeedContent() {
       setPostError(e?.message ?? "Could not delete post.")
     } finally {
       setPostBusy(false)
+    }
+  }
+
+  async function toggleCheers(it: FeedItem) {
+    if (!viewerId) return
+    if (cheersBusy[it.id]) return
+
+    // Optimistic UI
+    const nextCheered = !it.cheeredByMe
+    const nextCount = Math.max(0, it.cheersCount + (nextCheered ? 1 : -1))
+
+    setCheersBusy((p) => ({ ...p, [it.id]: true }))
+    setItems((prev) =>
+      prev.map((p) =>
+        p.id === it.id
+          ? {
+              ...p,
+              cheeredByMe: nextCheered,
+              cheersCount: nextCount,
+            }
+          : p
+      )
+    )
+
+    try {
+      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
+        p_drink_log_id: it.id,
+        p_user_id: viewerId,
+      })
+      if (rpcErr) throw rpcErr
+
+      // RPC returns one row: { cheered, cheers_count }
+      const row = Array.isArray(data) ? data[0] : data
+      const cheered = Boolean(row?.cheered)
+      const cheers_count = Number(row?.cheers_count ?? nextCount)
+
+      // Reconcile with server truth
+      setItems((prev) =>
+        prev.map((p) =>
+          p.id === it.id
+            ? {
+                ...p,
+                cheeredByMe: cheered,
+                cheersCount: cheers_count,
+              }
+            : p
+        )
+      )
+    } catch {
+      // Roll back on failure
+      setItems((prev) =>
+        prev.map((p) =>
+          p.id === it.id
+            ? {
+                ...p,
+                cheeredByMe: it.cheeredByMe,
+                cheersCount: it.cheersCount,
+              }
+            : p
+        )
+      )
+    } finally {
+      setCheersBusy((p) => ({ ...p, [it.id]: false }))
     }
   }
 
@@ -297,7 +420,7 @@ function FeedContent() {
           <div className="flex items-center gap-2">
             <Link
               href="/log"
-              className="inline-flex items-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white h-10 justify-center"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white"
             >
               <Plus className="h-4 w-4" />
               <span className="leading-none">Log</span>
@@ -336,7 +459,7 @@ function FeedContent() {
             {items.map((it) => (
               <article key={it.id} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-2">
-                  <Link href={`/profile/${it.username}`} className="flex items-center gap-2 flex-1 min-w-0">
+                  <Link href={`/profile/${it.username}`} className="flex min-w-0 flex-1 items-center gap-2">
                     {it.avatarUrl ? (
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
                         <Image src={it.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
@@ -350,7 +473,7 @@ function FeedContent() {
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium hover:underline">{it.username}</p>
                       <p className="text-xs opacity-60">{it.timestampLabel}</p>
                     </div>
@@ -373,6 +496,35 @@ function FeedContent() {
                   </div>
                 </div>
 
+                {/* ✅ Cheers row: under picture, above caption; aligned with picture left edge */}
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => toggleCheers(it)}
+                    disabled={!!cheersBusy[it.id]}
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium",
+                      "transition-transform active:scale-[0.99]",
+                      it.cheeredByMe ? "border-black bg-black text-white" : "bg-transparent hover:bg-foreground/5",
+                      cheersBusy[it.id] ? "opacity-70" : "",
+                    ].join(" ")}
+                    aria-pressed={it.cheeredByMe}
+                    aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
+                    title={it.cheeredByMe ? "Uncheer" : "Cheer"}
+                  >
+                    {cheersBusy[it.id] ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Heart className="h-4 w-4" />
+                    )}
+                    Cheers
+                  </button>
+
+                  <div className="text-sm opacity-60">
+                    {it.cheersCount} {it.cheersCount === 1 ? "Cheer" : "Cheers"}
+                  </div>
+                </div>
+
                 <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
                   <div className="flex h-7.5 items-center pl-2">
                     {it.caption ? (
@@ -387,7 +539,7 @@ function FeedContent() {
                       <button
                         type="button"
                         onClick={() => openEdit(it)}
-                        className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-120 active:scale-[0.99]"
+                        className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
                         style={{ width: "30px", height: "30px" }}
                         aria-label="Edit post"
                         title="Edit"
@@ -398,7 +550,7 @@ function FeedContent() {
                       <button
                         type="button"
                         onClick={() => openDelete(it)}
-                        className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-120 active:scale-[0.99]"
+                        className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
                         style={{ width: "30px", height: "30px" }}
                         aria-label="Delete post"
                         title="Delete"
@@ -570,25 +722,27 @@ function FeedContent() {
 
 export default function FeedPage() {
   return (
-    <Suspense fallback={
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Feed</h2>
-          <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
-        </div>
+    <Suspense
+      fallback={
+        <div className="container max-w-2xl px-3 py-1.5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Feed</h2>
+            <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
+          </div>
 
-        <div className="mt-6 space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
-              <div className="h-4 w-40 rounded bg-foreground/10" />
-              <div className="mt-2 h-3 w-24 rounded bg-foreground/10" />
-              <div className="mt-4 h-64 rounded-xl bg-foreground/10" />
-              <div className="mt-3 h-7 w-20 rounded-full bg-foreground/10" />
-            </div>
-          ))}
+          <div className="mt-6 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
+                <div className="h-4 w-40 rounded bg-foreground/10" />
+                <div className="mt-2 h-3 w-24 rounded bg-foreground/10" />
+                <div className="mt-4 h-64 rounded-xl bg-foreground/10" />
+                <div className="mt-3 h-7 w-20 rounded-full bg-foreground/10" />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <FeedContent />
     </Suspense>
   )
