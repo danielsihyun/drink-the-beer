@@ -5,6 +5,7 @@ import Image from "next/image"
 import { ArrowLeft, ArrowUpDown, Loader2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
@@ -43,6 +44,7 @@ type UiProfile = {
 
 interface DrinkLog {
   id: string
+  visibleUsername?: string;
   userId: string
   photoPath: string
   createdAt: string
@@ -50,6 +52,9 @@ interface DrinkLog {
   photoUrl: string
   drinkType: DrinkType
   caption?: string
+  // ✅ Cheers state
+  cheersCount: number
+  cheeredByMe: boolean
 }
 
 interface GroupedDrinks {
@@ -102,6 +107,82 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
+// ✅ Custom clinking wine glasses icon
+interface CheersIconProps {
+  filled?: boolean
+  className?: string
+}
+
+function CheersIcon({ filled = false, className }: CheersIconProps) {
+  return (
+    <svg
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Right wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Clink sparkles - only show when filled */}
+      {filled && (
+        <g stroke="#fbbf24">
+          {/* Center line - vertical */}
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          {/* Left line - mirrored from right */}
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          {/* Right line - angled +45° (going up-right) */}
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
@@ -146,7 +227,19 @@ function EmptyState() {
   )
 }
 
-function DrinkLogCard({ log, profile }: { log: DrinkLog; profile: UiProfile }) {
+function DrinkLogCard({
+  log,
+  profile,
+  onToggleCheers,
+  cheersBusy,
+  cheersAnimating,
+}: {
+  log: DrinkLog
+  profile: UiProfile
+  onToggleCheers: (log: DrinkLog) => void
+  cheersBusy: boolean
+  cheersAnimating: boolean
+}) {
   return (
     <article className="rounded-2xl border bg-background/50 p-3">
       <div className="flex items-center gap-2">
@@ -179,12 +272,47 @@ function DrinkLogCard({ log, profile }: { log: DrinkLog; profile: UiProfile }) {
         </div>
       </div>
 
-      <div className="mt-3 flex h-7.5 items-center pl-2">
-        {log.caption ? (
-          <p className="text-sm leading-relaxed">{log.caption}</p>
-        ) : (
-          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+      {/* ✅ Cheers button with wine glasses icon */}
+      <div className="-mt-0 flex items-center gap-0">
+        <button
+          type="button"
+          onClick={() => onToggleCheers(log)}
+          disabled={cheersBusy}
+          className={cn(
+            "relative inline-flex items-center justify-center p-1",
+            "transition-all duration-200",
+            log.cheeredByMe ? "text-amber-500" : "text-foreground",
+            cheersBusy ? "opacity-70" : "",
+            cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+          )}
+          aria-pressed={log.cheeredByMe}
+          aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
+          title={log.cheeredByMe ? "Uncheer" : "Cheer"}
+        >
+          <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
+
+          {/* Burst effect on cheer */}
+          {cheersAnimating && log.cheeredByMe && (
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+            </span>
+          )}
+        </button>
+
+        {/* Count outside the button */}
+        {log.cheersCount > 0 && (
+          <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
         )}
+      </div>
+
+      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-center gap-3">
+        <div className="flex h-7.5 items-center pl-2">
+          {log.caption ? (
+            <p className="text-sm leading-relaxed">{log.caption}</p>
+          ) : (
+            <p className="text-sm leading-relaxed opacity-50">No caption</p>
+          )}
+        </div>
       </div>
     </article>
   )
@@ -258,11 +386,49 @@ export default function UserProfilePage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
+  const [viewerId, setViewerId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile | null>(null)
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
 
   const [granularity, setGranularity] = React.useState<Granularity>("Drink")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
+
+  // ✅ Cheers state
+  const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
+  const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
+
+  const loadCheersState = React.useCallback(
+    async (postIds: string[], currentViewerId: string) => {
+      if (!postIds.length) return
+
+      const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", {
+        post_ids: postIds,
+        viewer_id: currentViewerId,
+      })
+
+      if (rpcErr) throw rpcErr
+
+      const rows = (data ?? []) as Array<{
+        drink_log_id: string
+        cheers_count: number
+        cheered: boolean
+      }>
+
+      const byId = new Map<string, { count: number; cheered: boolean }>()
+      for (const r of rows) {
+        byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) })
+      }
+
+      setLogs((prev) =>
+        prev.map((it) => {
+          const s = byId.get(it.id)
+          if (!s) return it
+          return { ...it, cheersCount: s.count, cheeredByMe: s.cheered }
+        }),
+      )
+    },
+    [supabase],
+  )
 
   const load = React.useCallback(async () => {
     setError(null)
@@ -275,6 +441,8 @@ export default function UserProfilePage() {
         router.replace("/login?redirectTo=%2Ffeed")
         return
       }
+
+      setViewerId(userRes.user.id)
 
       const { data: prof, error: profErr } = await supabase
         .from("profile_public_stats")
@@ -324,11 +492,18 @@ export default function UserProfilePage() {
             photoUrl: data?.signedUrl ?? "",
             drinkType: r.drink_type,
             caption: r.caption ?? undefined,
+            // ✅ default until we load from RPC
+            cheersCount: 0,
+            cheeredByMe: false,
           }
         })
       )
 
       setLogs(mapped)
+
+      // ✅ load cheers counts + whether viewer cheered
+      const ids = mapped.map((m) => m.id)
+      await loadCheersState(ids, userRes.user.id)
 
       const ui: UiProfile = {
         username: p.username,
@@ -346,11 +521,64 @@ export default function UserProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, username])
+  }, [router, supabase, username, loadCheersState])
 
   React.useEffect(() => {
     load()
   }, [load])
+
+  // ✅ Toggle cheers function
+  async function toggleCheers(log: DrinkLog) {
+    if (!viewerId) return
+    if (cheersBusy[log.id]) return
+
+    const nextCheered = !log.cheeredByMe
+    const nextCount = Math.max(0, log.cheersCount + (nextCheered ? 1 : -1))
+
+    if (nextCheered) {
+      setCheersAnimating((p) => ({ ...p, [log.id]: true }))
+      setTimeout(() => setCheersAnimating((p) => ({ ...p, [log.id]: false })), 600)
+    }
+
+    setCheersBusy((p) => ({ ...p, [log.id]: true }))
+    setLogs((prev) =>
+      prev.map((p) =>
+        p.id === log.id
+          ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount }
+          : p,
+      ),
+    )
+
+    try {
+      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
+        p_drink_log_id: log.id,
+        p_user_id: viewerId,
+      })
+      if (rpcErr) throw rpcErr
+
+      const row = Array.isArray(data) ? data[0] : data
+      const cheered = Boolean(row?.cheered)
+      const cheers_count = Number(row?.cheers_count ?? nextCount)
+
+      setLogs((prev) =>
+        prev.map((p) =>
+          p.id === log.id
+            ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count }
+            : p,
+        ),
+      )
+    } catch {
+      setLogs((prev) =>
+        prev.map((p) =>
+          p.id === log.id
+            ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount }
+            : p,
+        ),
+      )
+    } finally {
+      setCheersBusy((p) => ({ ...p, [log.id]: false }))
+    }
+  }
 
   const getGroupedDrinks = (): GroupedDrinks[] => {
     if (granularity === "Drink") return []
@@ -469,7 +697,16 @@ export default function UserProfilePage() {
             ) : (
               <div className="space-y-4">
                 {granularity === "Drink"
-                  ? logs.map((log) => <DrinkLogCard key={log.id} log={log} profile={profile} />)
+                  ? logs.map((log) => (
+                      <DrinkLogCard
+                        key={log.id}
+                        log={log}
+                        profile={profile}
+                        onToggleCheers={toggleCheers}
+                        cheersBusy={!!cheersBusy[log.id]}
+                        cheersAnimating={!!cheersAnimating[log.id]}
+                      />
+                    ))
                   : groupedDrinks.map((group, index) => (
                       <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
                     ))}

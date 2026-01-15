@@ -594,8 +594,8 @@ function FeedContent() {
                   </div>
                 </div>
 
-                {/* ✅ Cheers button with wine glasses icon */}
-                <div className="mt-0 flex items-center gap-0">
+                {/* ✅ Cheers button with wine glasses icon, space between pic and cheers */} 
+                <div className="-mt-0 flex items-center gap-0">
                   <button
                     type="button"
                     onClick={() => toggleCheers(it)}
@@ -634,7 +634,7 @@ function FeedContent() {
                   )}
                 </div>
 
-                <div className="-mt-1.5 grid grid-cols-[1fr_auto] items-center gap-3">
+                <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-center gap-3">
                   <div className="flex h-7.5 items-center pl-2">
                     {it.caption ? (
                       <p className="text-sm leading-relaxed">{it.caption}</p>
