@@ -59,59 +59,76 @@ function formatCardTimestamp(iso: string) {
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
 }
 
-// ✅ Custom beer mug icon from v0
-function CheersIcon({ filled, className }: { filled?: boolean; className?: string }) {
+// ✅ Custom clinking wine glasses icon
+interface CheersIconProps {
+  filled?: boolean
+  className?: string
+}
+
+function CheersIcon({ filled = false, className }: CheersIconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
-      strokeWidth={1.5}
     >
-      {/* Beer mug body */}
-      <path
-        d="M5 6h10v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6z"
-        className={cn(
-          "transition-all duration-300",
-          filled ? "fill-amber-500 stroke-amber-600" : "fill-transparent stroke-current"
-        )}
-      />
-      {/* Handle */}
-      <path
-        d="M15 8h2a2 2 0 012 2v2a2 2 0 01-2 2h-2"
-        fill="transparent"
-        className={cn(
-          "transition-all duration-300",
-          filled ? "stroke-amber-600" : "stroke-current"
-        )}
-      />
-      {/* Foam top */}
-      <path
-        d="M4 6c0-1 .5-2 2-2h1c.5-1 1.5-1.5 2.5-1.5S12 3 12.5 4h1c1.5 0 2 1 2 2H4z"
-        className={cn(
-          "transition-all duration-300",
-          filled ? "fill-amber-100 stroke-amber-300" : "fill-transparent stroke-current"
-        )}
-      />
-      {/* Bubbles (visible when filled) */}
-      {filled && (
-        <>
-          <circle cx="7" cy="12" r="0.5" className="fill-amber-200 animate-pulse" />
-          <circle
-            cx="10"
-            cy="10"
-            r="0.5"
-            className="fill-amber-200 animate-pulse"
-            style={{ animationDelay: "0.1s" }}
+      {/* Left wine glass - tilted right (toward center) */}
+      <g transform="rotate(15, 8, 16)">
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M5 8.5h6l-.8 6a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 7z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
           />
-          <circle
-            cx="12"
-            cy="14"
-            r="0.5"
-            className="fill-amber-200 animate-pulse"
-            style={{ animationDelay: "0.2s" }}
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Right wine glass - tilted left (toward center) */}
+      <g transform="rotate(-15, 24, 16)">
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M21 8.5h6l-.8 6a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-6z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
           />
-        </>
-      )}
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Clink sparkles - center vertical, left -45°, right +45° */}
+      <g stroke={filled ? "#fbbf24" : "currentColor"} opacity={filled ? 1 : 0.5}>
+        {/* Center line - vertical */}
+        <path d="M16 -0.5v3" strokeWidth="1.5" />
+        {/* Left line - mirrored from right */}
+        <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+        {/* Right line - angled +45° (going up-right) */}
+        <path d="M19 3l2-2" strokeWidth="1.5" />
+      </g>
     </svg>
   )
 }
@@ -575,14 +592,14 @@ function FeedContent() {
                   </div>
                 </div>
 
-                {/* ✅ Cheers button with beer mug icon */}
-                <div className="mt-3 flex items-center">
+                {/* ✅ Cheers button with wine glasses icon */}
+                <div className="mt-0 flex items-center gap-0">
                   <button
                     type="button"
                     onClick={() => toggleCheers(it)}
                     disabled={!!cheersBusy[it.id]}
                     className={cn(
-                      "relative inline-flex items-center gap-1.5 text-sm font-medium p-1",
+                      "relative inline-flex items-center justify-center p-1",
                       "transition-all duration-200",
                       it.cheeredByMe ? "text-amber-500" : "text-foreground/70 hover:text-foreground",
                       cheersBusy[it.id] ? "opacity-70" : "",
@@ -593,22 +610,33 @@ function FeedContent() {
                     title={it.cheeredByMe ? "Uncheer" : "Cheer"}
                   >
                     {cheersBusy[it.id] ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
+                      <Loader2 className="h-10 w-10 animate-spin" />
                     ) : (
-                      <CheersIcon filled={it.cheeredByMe} className="h-6 w-6" />
+                      <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
                     )}
-                    {it.cheersCount > 0 && <span>{it.cheersCount}</span>}
 
-                    {/* Burst effect on cheer */}
+                    {/* Burst effect on cheer - keep at h-8 w-8 */}
                     {cheersAnimating[it.id] && it.cheeredByMe && (
                       <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="absolute h-10 w-10 animate-ping rounded-full bg-amber-400/30" />
+                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y" />
                       </span>
                     )}
+                    {cheersAnimating[it.id] && it.cheeredByMe && (
+                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 -translate-y-0.25 -translate-x-0.25" />
+                      </span>
+                    )}
+                    
+                    
                   </button>
+
+                  {/* Count outside the button, always gray */}
+                  {it.cheersCount > 0 && (
+                    <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{it.cheersCount}</span>
+                  )}
                 </div>
 
-                <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
+                <div className="-mt-1.5 grid grid-cols-[1fr_auto] items-center gap-3">
                   <div className="flex h-7.5 items-center pl-2">
                     {it.caption ? (
                       <p className="text-sm leading-relaxed">{it.caption}</p>
