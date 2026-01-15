@@ -7,6 +7,7 @@ import Link from "next/link"
 import { FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
@@ -58,28 +59,59 @@ function formatCardTimestamp(iso: string) {
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
 }
 
-// ✅ Custom clinking glasses icon
-function CheersIcon({ className }: { className?: string }) {
+// ✅ Custom beer mug icon from v0
+function CheersIcon({ filled, className }: { filled?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       className={className}
+      strokeWidth={1.5}
     >
-      {/* Left glass */}
-      <path d="M8 2v3" />
-      <path d="M5 5h6l-1 9H6L5 5z" />
-      <path d="M7.5 14v6" />
-      <path d="M5 20h5" />
-      {/* Right glass */}
-      <path d="M16 2v3" />
-      <path d="M13 5h6l-1 9h-4l-1-9z" />
-      <path d="M16.5 14v6" />
-      <path d="M14 20h5" />
+      {/* Beer mug body */}
+      <path
+        d="M5 6h10v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6z"
+        className={cn(
+          "transition-all duration-300",
+          filled ? "fill-amber-500 stroke-amber-600" : "fill-transparent stroke-current"
+        )}
+      />
+      {/* Handle */}
+      <path
+        d="M15 8h2a2 2 0 012 2v2a2 2 0 01-2 2h-2"
+        fill="transparent"
+        className={cn(
+          "transition-all duration-300",
+          filled ? "stroke-amber-600" : "stroke-current"
+        )}
+      />
+      {/* Foam top */}
+      <path
+        d="M4 6c0-1 .5-2 2-2h1c.5-1 1.5-1.5 2.5-1.5S12 3 12.5 4h1c1.5 0 2 1 2 2H4z"
+        className={cn(
+          "transition-all duration-300",
+          filled ? "fill-amber-100 stroke-amber-300" : "fill-transparent stroke-current"
+        )}
+      />
+      {/* Bubbles (visible when filled) */}
+      {filled && (
+        <>
+          <circle cx="7" cy="12" r="0.5" className="fill-amber-200 animate-pulse" />
+          <circle
+            cx="10"
+            cy="10"
+            r="0.5"
+            className="fill-amber-200 animate-pulse"
+            style={{ animationDelay: "0.1s" }}
+          />
+          <circle
+            cx="12"
+            cy="14"
+            r="0.5"
+            className="fill-amber-200 animate-pulse"
+            style={{ animationDelay: "0.2s" }}
+          />
+        </>
+      )}
     </svg>
   )
 }
@@ -147,6 +179,9 @@ function FeedContent() {
   // Prevent double-tapping cheers while a request is in-flight for that post
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
 
+  // Track animation state for burst effect
+  const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
+
   React.useEffect(() => {
     const posted = searchParams.get("posted")
     if (posted === "1") {
@@ -190,10 +225,10 @@ function FeedContent() {
           const s = byId.get(it.id)
           if (!s) return it
           return { ...it, cheersCount: s.count, cheeredByMe: s.cheered }
-        })
+        }),
       )
     },
-    [supabase]
+    [supabase],
   )
 
   const load = React.useCallback(async () => {
@@ -310,8 +345,8 @@ function FeedContent() {
                 drink_type: postDrinkType,
                 caption: nextCaption.length ? nextCaption : null,
               }
-            : p
-        )
+            : p,
+        ),
       )
 
       setEditOpen(false)
@@ -360,6 +395,12 @@ function FeedContent() {
     const nextCheered = !it.cheeredByMe
     const nextCount = Math.max(0, it.cheersCount + (nextCheered ? 1 : -1))
 
+    // Trigger animation only when cheering (not uncheering)
+    if (nextCheered) {
+      setCheersAnimating((p) => ({ ...p, [it.id]: true }))
+      setTimeout(() => setCheersAnimating((p) => ({ ...p, [it.id]: false })), 600)
+    }
+
     setCheersBusy((p) => ({ ...p, [it.id]: true }))
     setItems((prev) =>
       prev.map((p) =>
@@ -369,8 +410,8 @@ function FeedContent() {
               cheeredByMe: nextCheered,
               cheersCount: nextCount,
             }
-          : p
-      )
+          : p,
+      ),
     )
 
     try {
@@ -394,8 +435,8 @@ function FeedContent() {
                 cheeredByMe: cheered,
                 cheersCount: cheers_count,
               }
-            : p
-        )
+            : p,
+        ),
       )
     } catch {
       // Roll back on failure
@@ -407,8 +448,8 @@ function FeedContent() {
                 cheeredByMe: it.cheeredByMe,
                 cheersCount: it.cheersCount,
               }
-            : p
-        )
+            : p,
+        ),
       )
     } finally {
       setCheersBusy((p) => ({ ...p, [it.id]: false }))
@@ -488,7 +529,13 @@ function FeedContent() {
                   <Link href={`/profile/${it.username}`} className="flex min-w-0 flex-1 items-center gap-2">
                     {it.avatarUrl ? (
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
-                        <Image src={it.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+                        <Image
+                          src={it.avatarUrl || "/placeholder.svg"}
+                          alt="Profile"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
                       </div>
                     ) : (
                       <div
@@ -513,7 +560,13 @@ function FeedContent() {
                 <div className="mt-3 overflow-hidden rounded-xl border">
                   <div className="relative aspect-square w-full">
                     {it.photoUrl ? (
-                      <Image src={it.photoUrl} alt={`${it.drink_type} drink`} fill className="object-cover" unoptimized />
+                      <Image
+                        src={it.photoUrl || "/placeholder.svg"}
+                        alt={`${it.drink_type} drink`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-foreground/5 text-sm opacity-70">
                         Image unavailable
@@ -522,28 +575,36 @@ function FeedContent() {
                   </div>
                 </div>
 
-                {/* ✅ Cheers button: icon only with count beside it */}
+                {/* ✅ Cheers button with beer mug icon */}
                 <div className="mt-3 flex items-center">
                   <button
                     type="button"
                     onClick={() => toggleCheers(it)}
                     disabled={!!cheersBusy[it.id]}
-                    className={[
-                      "inline-flex items-center gap-1.5 text-sm font-medium",
-                      "transition-transform active:scale-[0.95]",
+                    className={cn(
+                      "relative inline-flex items-center gap-1.5 text-sm font-medium p-1",
+                      "transition-all duration-200",
                       it.cheeredByMe ? "text-amber-500" : "text-foreground/70 hover:text-foreground",
                       cheersBusy[it.id] ? "opacity-70" : "",
-                    ].join(" ")}
+                      cheersAnimating[it.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+                    )}
                     aria-pressed={it.cheeredByMe}
                     aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
                     title={it.cheeredByMe ? "Uncheer" : "Cheer"}
                   >
                     {cheersBusy[it.id] ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
-                      <CheersIcon className={`h-5 w-5 ${it.cheeredByMe ? "fill-amber-500/20" : ""}`} />
+                      <CheersIcon filled={it.cheeredByMe} className="h-6 w-6" />
                     )}
                     {it.cheersCount > 0 && <span>{it.cheersCount}</span>}
+
+                    {/* Burst effect on cheer */}
+                    {cheersAnimating[it.id] && it.cheeredByMe && (
+                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="absolute h-10 w-10 animate-ping rounded-full bg-amber-400/30" />
+                      </span>
+                    )}
                   </button>
                 </div>
 
@@ -608,7 +669,13 @@ function FeedContent() {
 
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={active.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={active.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
@@ -622,11 +689,11 @@ function FeedContent() {
                     key={t}
                     type="button"
                     onClick={() => setPostDrinkType(t)}
-                    className={[
+                    className={cn(
                       "rounded-full border px-4 py-2 text-sm",
                       "active:scale-[0.99]",
                       selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-foreground/5",
-                    ].join(" ")}
+                    )}
                     aria-pressed={selected}
                   >
                     {t}
@@ -707,7 +774,13 @@ function FeedContent() {
 
           <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={active.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={active.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
