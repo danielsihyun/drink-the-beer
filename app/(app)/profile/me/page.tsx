@@ -1,5 +1,6 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -56,6 +57,8 @@ interface DrinkLog {
   photoUrl: string
   drinkType: DrinkType
   caption?: string
+  cheersCount: number
+  cheeredByMe: boolean
 }
 
 interface GroupedDrinks {
@@ -119,6 +122,82 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
+// ✅ Custom clinking wine glasses icon
+interface CheersIconProps {
+  filled?: boolean
+  className?: string
+}
+
+function CheersIcon({ filled = false, className }: CheersIconProps) {
+  return (
+    <svg
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Right wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Clink sparkles - only show when filled */}
+      {filled && (
+        <g stroke="#fbbf24">
+          {/* Center line - vertical */}
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          {/* Left line - mirrored from right */}
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          {/* Right line - angled +45° (going up-right) */}
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
@@ -177,30 +256,29 @@ function EmptyState() {
   )
 }
 
-
 function DrinkLogCard({
   log,
   profile,
   onEdit,
   onDelete,
+  onToggleCheers,
+  cheersBusy,
+  cheersAnimating,
 }: {
   log: DrinkLog
   profile: UiProfile
   onEdit: (log: DrinkLog) => void
   onDelete: (log: DrinkLog) => void
+  onToggleCheers: (log: DrinkLog) => void
+  cheersBusy: boolean
+  cheersAnimating: boolean
 }) {
   return (
     <article className="rounded-2xl border bg-background/50 p-3">
       <div className="flex items-center gap-2">
         {profile.avatarUrl ? (
           <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
+            <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
           </div>
         ) : (
           <div
@@ -233,14 +311,43 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* Caption + actions row */}
-      <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div className="flex h-7.5 items-center pl-2">
-          {log.caption ? (
-            <p className="text-sm leading-relaxed">{log.caption}</p>
-          ) : (
-            <p className="text-sm leading-relaxed opacity-50">No caption</p>
+      {/* ✅ Cheers button with wine glasses icon */}
+      <div className="-mt-0 flex items-center gap-0">
+        <button
+          type="button"
+          onClick={() => onToggleCheers(log)}
+          disabled={cheersBusy}
+          className={cn(
+            "relative inline-flex items-center justify-center p-1",
+            "transition-all duration-200",
+            log.cheeredByMe ? "text-amber-500" : "text-foreground",
+            cheersBusy ? "opacity-70" : "",
+            cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
           )}
+          aria-pressed={log.cheeredByMe}
+          aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
+          title={log.cheeredByMe ? "Uncheer" : "Cheer"}
+        >
+          <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
+
+          {/* Burst effect on cheer */}
+          {cheersAnimating && log.cheeredByMe && (
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+            </span>
+          )}
+        </button>
+
+        {/* Count outside the button */}
+        {log.cheersCount > 0 && (
+          <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
+        )}
+      </div>
+
+      {/* Caption + actions row */}
+      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-center gap-3">
+        <div className="flex h-7.5 items-center pl-2">
+          {log.caption ? <p className="text-sm leading-relaxed">{log.caption}</p> : <p className="text-sm leading-relaxed opacity-50">No caption</p>}
         </div>
 
         <div className="flex items-end justify-end gap-1">
@@ -299,13 +406,7 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
               zIndex: displayDrinks.length - index,
             }}
           >
-            <Image
-              src={drink.photoUrl || "/placeholder.svg"}
-              alt={`${drink.drinkType} drink`}
-              fill
-              className="object-cover"
-              unoptimized
-            />
+            <Image src={drink.photoUrl || "/placeholder.svg"} alt={`${drink.drinkType} drink`} fill className="object-cover" unoptimized />
           </div>
         ))}
 
@@ -353,11 +454,7 @@ function OverlayPage({
   onClose: () => void
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
-      role="dialog"
-      aria-modal="true"
-    >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6" role="dialog" aria-modal="true">
       {/* Match the feed container width */}
       <div className="container max-w-2xl px-4">
         {/* Modal = 80% of the feed container width */}
@@ -381,7 +478,6 @@ function OverlayPage({
     </div>
   )
 }
-
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -413,6 +509,10 @@ export default function ProfilePage() {
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
 
+  // ✅ Cheers state
+  const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
+  const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
+
   // ✅ Profile-card actions
   const [passwordOpen, setPasswordOpen] = React.useState(false)
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false)
@@ -436,6 +536,39 @@ export default function ProfilePage() {
     if (success) t = setTimeout(() => setSuccess(null), 4000)
     return () => clearTimeout(t)
   }, [success])
+
+  const loadCheersState = React.useCallback(
+    async (postIds: string[], currentViewerId: string) => {
+      if (!postIds.length) return
+
+      const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", {
+        post_ids: postIds,
+        viewer_id: currentViewerId,
+      })
+
+      if (rpcErr) throw rpcErr
+
+      const rows = (data ?? []) as Array<{
+        drink_log_id: string
+        cheers_count: number
+        cheered: boolean
+      }>
+
+      const byId = new Map<string, { count: number; cheered: boolean }>()
+      for (const r of rows) {
+        byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) })
+      }
+
+      setLogs((prev) =>
+        prev.map((it) => {
+          const s = byId.get(it.id)
+          if (!s) return it
+          return { ...it, cheersCount: s.count, cheeredByMe: s.cheered }
+        }),
+      )
+    },
+    [supabase],
+  )
 
   const load = React.useCallback(async () => {
     setError(null)
@@ -494,13 +627,19 @@ export default function ProfilePage() {
             photoUrl: data?.signedUrl ?? "",
             drinkType: r.drink_type,
             caption: r.caption ?? undefined,
+            // ✅ default until we load from RPC
+            cheersCount: 0,
+            cheeredByMe: false,
           }
-        })
+        }),
       )
 
       setLogs(mapped)
 
-      
+      // ✅ load cheers counts + whether viewer cheered
+      const ids = mapped.map((m) => m.id)
+      await loadCheersState(ids, user.id)
+
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
         username: p.username,
@@ -519,7 +658,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [router, supabase])
+  }, [router, supabase, loadCheersState])
 
   React.useEffect(() => {
     load()
@@ -670,10 +809,8 @@ export default function ProfilePage() {
 
       setLogs((prev) =>
         prev.map((l) =>
-          l.id === activePost.id
-            ? { ...l, drinkType: postDrinkType, caption: nextCaption.length ? nextCaption : undefined }
-            : l
-        )
+          l.id === activePost.id ? { ...l, drinkType: postDrinkType, caption: nextCaption.length ? nextCaption : undefined } : l,
+        ),
       )
 
       setEditPostOpen(false)
@@ -710,6 +847,44 @@ export default function ProfilePage() {
       setPostError(e?.message ?? "Could not delete post.")
     } finally {
       setPostBusy(false)
+    }
+  }
+
+  async function toggleCheers(log: DrinkLog) {
+    if (!userId) return
+    if (cheersBusy[log.id]) return
+
+    const nextCheered = !log.cheeredByMe
+    const nextCount = Math.max(0, log.cheersCount + (nextCheered ? 1 : -1))
+
+    if (nextCheered) {
+      setCheersAnimating((p) => ({ ...p, [log.id]: true }))
+      setTimeout(() => setCheersAnimating((p) => ({ ...p, [log.id]: false })), 600)
+    }
+
+    setCheersBusy((p) => ({ ...p, [log.id]: true }))
+    setLogs((prev) =>
+      prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p)),
+    )
+
+    try {
+      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
+        p_drink_log_id: log.id,
+        p_user_id: userId,
+      })
+      if (rpcErr) throw rpcErr
+
+      const row = Array.isArray(data) ? data[0] : data
+      const cheered = Boolean(row?.cheered)
+      const cheers_count = Number(row?.cheers_count ?? nextCount)
+
+      setLogs((prev) => prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count } : p)))
+    } catch {
+      setLogs((prev) =>
+        prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount } : p)),
+      )
+    } finally {
+      setCheersBusy((p) => ({ ...p, [log.id]: false }))
     }
   }
 
@@ -820,9 +995,7 @@ export default function ProfilePage() {
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
         ) : null}
 
         {success ? (
@@ -841,13 +1014,7 @@ export default function ProfilePage() {
                 <div className="relative">
                   {current.avatarUrl ? (
                     <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                      <Image
-                        src={current.avatarUrl || "/placeholder.svg"}
-                        alt="Profile"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                      <Image src={current.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
                     </div>
                   ) : (
                     <div
@@ -894,9 +1061,7 @@ export default function ProfilePage() {
                         <input
                           type="text"
                           value={editedProfile.username}
-                          onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
-                          }
+                          onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })}
                           className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
                           placeholder="username"
                         />
@@ -915,12 +1080,10 @@ export default function ProfilePage() {
                   <div className="mt-1 flex items-center justify-between pr-20 text-sm">
                     <div className="flex gap-4">
                       <div>
-                        <span className="font-bold">{profile.friendCount}</span>{" "}
-                        <span className="opacity-60">Friends</span>
+                        <span className="font-bold">{profile.friendCount}</span> <span className="opacity-60">Friends</span>
                       </div>
                       <div>
-                        <span className="font-bold">{profile.drinkCount}</span>{" "}
-                        <span className="opacity-60">Drinks</span>
+                        <span className="font-bold">{profile.drinkCount}</span> <span className="opacity-60">Drinks</span>
                       </div>
                     </div>
                   </div>
@@ -1044,15 +1207,15 @@ export default function ProfilePage() {
                           profile={current}
                           onEdit={openEditPost}
                           onDelete={openDeletePost}
+                          onToggleCheers={toggleCheers}
+                          cheersBusy={!!cheersBusy[log.id]}
+                          cheersAnimating={!!cheersAnimating[log.id]}
                         />
                       ))
-                    : groupedDrinks.map((group, index) => (
-                        <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
-                      ))}
+                    : groupedDrinks.map((group, index) => <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />)}
                 </div>
               )}
             </div>
-
           </div>
         )}
       </div>
@@ -1068,9 +1231,7 @@ export default function ProfilePage() {
           }}
         >
           {pwError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {pwError}
-            </div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{pwError}</div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-4">
@@ -1151,9 +1312,7 @@ export default function ProfilePage() {
           }}
         >
           {delError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {delError}
-            </div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{delError}</div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-4">
@@ -1163,9 +1322,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">This is permanent</div>
-                <p className="mt-1 text-sm opacity-70">
-                  This will delete your profile and posts. This cannot be undone.
-                </p>
+                <p className="mt-1 text-sm opacity-70">This will delete your profile and posts. This cannot be undone.</p>
               </div>
             </div>
 
@@ -1220,21 +1377,13 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {postError}
-            </div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{postError}</div>
           ) : null}
 
           {/* smaller preview so modal stays compact */}
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
@@ -1315,9 +1464,7 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {postError}
-            </div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{postError}</div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-3">
@@ -1335,13 +1482,7 @@ export default function ProfilePage() {
           {/* smaller preview so modal stays compact */}
           <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
 
