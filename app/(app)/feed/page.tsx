@@ -4,7 +4,7 @@ import * as React from "react"
 import { Suspense } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { FilePenLine, Heart, Loader2, Plus, Trash2, X } from "lucide-react"
+import { FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -56,6 +56,32 @@ function formatCardTimestamp(iso: string) {
   if (hours === 0) hours = 12
 
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
+}
+
+// ✅ Custom clinking glasses icon
+function CheersIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left glass */}
+      <path d="M8 2v3" />
+      <path d="M5 5h6l-1 9H6L5 5z" />
+      <path d="M7.5 14v6" />
+      <path d="M5 20h5" />
+      {/* Right glass */}
+      <path d="M16 2v3" />
+      <path d="M13 5h6l-1 9h-4l-1-9z" />
+      <path d="M16.5 14v6" />
+      <path d="M14 20h5" />
+    </svg>
+  )
 }
 
 function OverlayPage({
@@ -496,16 +522,16 @@ function FeedContent() {
                   </div>
                 </div>
 
-                {/* ✅ Cheers row: under picture, above caption; aligned with picture left edge */}
-                <div className="mt-3 flex items-center justify-between">
+                {/* ✅ Cheers button: icon only with count beside it */}
+                <div className="mt-3 flex items-center">
                   <button
                     type="button"
                     onClick={() => toggleCheers(it)}
                     disabled={!!cheersBusy[it.id]}
                     className={[
-                      "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium",
-                      "transition-transform active:scale-[0.99]",
-                      it.cheeredByMe ? "border-black bg-black text-white" : "bg-transparent hover:bg-foreground/5",
+                      "inline-flex items-center gap-1.5 text-sm font-medium",
+                      "transition-transform active:scale-[0.95]",
+                      it.cheeredByMe ? "text-amber-500" : "text-foreground/70 hover:text-foreground",
                       cheersBusy[it.id] ? "opacity-70" : "",
                     ].join(" ")}
                     aria-pressed={it.cheeredByMe}
@@ -513,16 +539,12 @@ function FeedContent() {
                     title={it.cheeredByMe ? "Uncheer" : "Cheer"}
                   >
                     {cheersBusy[it.id] ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      <Heart className="h-4 w-4" />
+                      <CheersIcon className={`h-5 w-5 ${it.cheeredByMe ? "fill-amber-500/20" : ""}`} />
                     )}
-                    Cheers
+                    {it.cheersCount > 0 && <span>{it.cheersCount}</span>}
                   </button>
-
-                  <div className="text-sm opacity-60">
-                    {it.cheersCount} {it.cheersCount === 1 ? "Cheer" : "Cheers"}
-                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
