@@ -76,12 +76,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - tilted right (toward center) */}
-      <g transform="rotate(15, 8, 16)">
+      {/* Left wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
         {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
-            d="M5 8.5h6l-.8 6a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 7z"
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
             fill="rgba(251, 191, 36, 0.9)"
             stroke="none"
           />
@@ -97,12 +97,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - tilted left (toward center) */}
-      <g transform="rotate(-15, 24, 16)">
+      {/* Right wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
         {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
-            d="M21 8.5h6l-.8 6a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-6z"
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
             fill="rgba(251, 191, 36, 0.9)"
             stroke="none"
           />
@@ -118,17 +118,19 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - center vertical, left -45°, right +45° */}
-      <g stroke={filled ? "#fbbf24" : "currentColor"} opacity={filled ? 1 : 0.5}>
-        {/* Center line - vertical */}
-        <path d="M16 -0.5v3" strokeWidth="1.5" />
-        {/* Left line - mirrored from right */}
-        <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+      {/* Clink sparkles - only show when filled */}
+      {filled && (
+        <g stroke="#fbbf24">
+          {/* Center line - vertical */}
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          {/* Left line - mirrored from right */}
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
-        {/* Right line - angled +45° (going up-right) */}
-        <path d="M19 3l2-2" strokeWidth="1.5" />
-      </g>
+      )}
     </svg>
   )
 }
@@ -601,7 +603,7 @@ function FeedContent() {
                     className={cn(
                       "relative inline-flex items-center justify-center p-1",
                       "transition-all duration-200",
-                      it.cheeredByMe ? "text-amber-500" : "text-foreground/70 hover:text-foreground",
+                      it.cheeredByMe ? "text-amber-500" : "text-foreground",
                       cheersBusy[it.id] ? "opacity-70" : "",
                       cheersAnimating[it.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
                     )}
@@ -609,11 +611,7 @@ function FeedContent() {
                     aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
                     title={it.cheeredByMe ? "Uncheer" : "Cheer"}
                   >
-                    {cheersBusy[it.id] ? (
-                      <Loader2 className="h-10 w-10 animate-spin" />
-                    ) : (
-                      <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
-                    )}
+                    <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
 
                     {/* Burst effect on cheer - keep at h-8 w-8 */}
                     {cheersAnimating[it.id] && it.cheeredByMe && (
@@ -623,7 +621,7 @@ function FeedContent() {
                     )}
                     {cheersAnimating[it.id] && it.cheeredByMe && (
                       <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 -translate-y-0.25 -translate-x-0.25" />
+                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
                       </span>
                     )}
                     
