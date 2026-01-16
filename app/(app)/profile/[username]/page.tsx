@@ -305,8 +305,8 @@ function DrinkLogCard({
         )}
       </div>
 
-      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div className="flex h-7.5 items-center pl-2">
+      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-start gap-3">
+        <div className="flex items-start pl-2 py-1">
           {log.caption ? (
             <p className="text-sm leading-relaxed">{log.caption}</p>
           ) : (
