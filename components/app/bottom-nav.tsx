@@ -39,6 +39,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const supabase = createClient()
 
+  const [userId, setUserId] = React.useState<string | null>(null)
   const [pendingRequestCount, setPendingRequestCount] = React.useState(0)
   const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
 
@@ -47,6 +48,8 @@ export function BottomNav() {
     try {
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr || !userRes.user) return
+
+      setUserId(userRes.user.id)
 
       const { count, error: countErr } = await supabase
         .from("friendships")
@@ -137,6 +140,67 @@ export function BottomNav() {
     return () => window.removeEventListener("refresh-nav-badges", handleRefreshNav)
   }, [loadPendingRequests, loadUnseenCheers])
 
+  // ✅ Realtime subscription for friend requests
+  React.useEffect(() => {
+    if (!userId) return
+
+    const friendshipsChannel = supabase
+      .channel("friendships-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to INSERT, UPDATE, DELETE
+          schema: "public",
+          table: "friendships",
+          filter: `addressee_id=eq.${userId}`,
+        },
+        () => {
+          // Reload pending requests when friendships table changes
+          loadPendingRequests()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(friendshipsChannel)
+    }
+  }, [userId, supabase, loadPendingRequests])
+
+  // ✅ Realtime subscription for cheers on user's posts
+  React.useEffect(() => {
+    if (!userId) return
+    if (pathname === "/profile/me") return // Don't update badge while on profile
+
+    const cheersChannel = supabase
+      .channel("cheers-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT", // Only listen to new cheers
+          schema: "public",
+          table: "drink_cheers",
+        },
+        async (payload) => {
+          // Check if this cheer is on one of the user's posts
+          const { data: drinkLog } = await supabase
+            .from("drink_logs")
+            .select("user_id")
+            .eq("id", payload.new.drink_log_id)
+            .single()
+
+          // If the cheer is on the current user's post and not self-cheer
+          if (drinkLog?.user_id === userId && payload.new.user_id !== userId) {
+            loadUnseenCheers()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(cheersChannel)
+    }
+  }, [userId, supabase, loadUnseenCheers, pathname])
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">
       <div className="mx-auto max-w-md">
@@ -144,12 +208,10 @@ export function BottomNav() {
           {navItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
-            
+
             // Determine which badge to show
             const showFriendsBadge = item.href === "/friends" && pendingRequestCount > 0
             const showProfileBadge = item.href === "/profile/me" && unseenCheersCount > 0
-            const badgeCount = showFriendsBadge ? pendingRequestCount : showProfileBadge ? unseenCheersCount : 0
-            const showBadge = showFriendsBadge || showProfileBadge
 
             return (
               <li key={item.href} className="flex-1">
@@ -162,9 +224,14 @@ export function BottomNav() {
                 >
                   <div className="relative">
                     <Icon className={cn("h-5 w-5", isActive && "fill-primary/20")} />
-                    {showBadge && (
+                    {showFriendsBadge && (
                       <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {badgeCount > 9 ? "9+" : badgeCount}
+                        {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+                      </span>
+                    )}
+                    {showProfileBadge && (
+                      <span className="absolute -right-2.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {unseenCheersCount > 9 ? "9+" : unseenCheersCount}
                       </span>
                     )}
                   </div>
