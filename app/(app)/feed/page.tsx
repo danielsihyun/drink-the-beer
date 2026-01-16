@@ -657,7 +657,7 @@ function FeedContent() {
                 </div>
 
                 {/* Caption - full width */}
-                <div className="-mt-1.5 -mb-1 pl-2">
+                <div className="-mt-1.5 mb-1 pl-2">
                   {it.caption ? (
                     <p className="text-sm leading-relaxed">{it.caption}</p>
                   ) : (
