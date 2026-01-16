@@ -1,12 +1,12 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
@@ -22,7 +22,6 @@ type DrinkLogRow = {
   created_at: string
 }
 
-// 1) REPLACE your ProfileRow type with this (matches your profile_public_stats columns)
 type ProfileRow = {
   id: string
   username: string
@@ -32,7 +31,6 @@ type ProfileRow = {
   drink_count: number | null
 }
 
-// 2) ADD this type (for join date from profiles)
 type ProfileMetaRow = {
   created_at: string | null
 }
@@ -50,6 +48,7 @@ type UiProfile = {
 
 interface DrinkLog {
   id: string
+  visibleUsername?: string
   userId: string
   photoPath: string
   createdAt: string
@@ -57,6 +56,7 @@ interface DrinkLog {
   photoUrl: string
   drinkType: DrinkType
   caption?: string
+  // ✅ Cheers state
   cheersCount: number
   cheeredByMe: boolean
 }
@@ -278,7 +278,13 @@ function DrinkLogCard({
       <div className="flex items-center gap-2">
         {profile.avatarUrl ? (
           <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+            <Image
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
         ) : (
           <div
@@ -311,46 +317,42 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* ✅ Cheers button with wine glasses icon */}
-      <div className="-mt-0 flex items-center gap-0">
-        <button
-          type="button"
-          onClick={() => onToggleCheers(log)}
-          disabled={cheersBusy}
-          className={cn(
-            "relative inline-flex items-center justify-center p-1",
-            "transition-all duration-200",
-            log.cheeredByMe ? "text-amber-500" : "text-foreground",
-            cheersBusy ? "opacity-70" : "",
-            cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+      {/* ✅ Cheers button + edit/delete on same row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-0">
+          <button
+            type="button"
+            onClick={() => onToggleCheers(log)}
+            disabled={cheersBusy}
+            className={cn(
+              "relative inline-flex items-center justify-center p-1",
+              "transition-all duration-200",
+              log.cheeredByMe ? "text-amber-500" : "text-foreground",
+              cheersBusy ? "opacity-70" : "",
+              cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+            )}
+            aria-pressed={log.cheeredByMe}
+            aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
+            title={log.cheeredByMe ? "Uncheer" : "Cheer"}
+          >
+            <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
+
+            {/* Burst effect on cheer */}
+            {cheersAnimating && log.cheeredByMe && (
+              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+              </span>
+            )}
+          </button>
+
+          {/* Count outside the button */}
+          {log.cheersCount > 0 && (
+            <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
           )}
-          aria-pressed={log.cheeredByMe}
-          aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
-          title={log.cheeredByMe ? "Uncheer" : "Cheer"}
-        >
-          <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
-
-          {/* Burst effect on cheer */}
-          {cheersAnimating && log.cheeredByMe && (
-            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-            </span>
-          )}
-        </button>
-
-        {/* Count outside the button */}
-        {log.cheersCount > 0 && (
-          <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
-        )}
-      </div>
-
-      {/* Caption + actions row */}
-      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-start gap-3">
-        <div className="flex items-start pl-2 py-1">
-          {log.caption ? <p className="text-sm leading-relaxed">{log.caption}</p> : <p className="text-sm leading-relaxed opacity-50">No caption</p>}
         </div>
 
-        <div className="flex items-end justify-end gap-1">
+        {/* Edit/Delete buttons */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => onEdit(log)}
@@ -373,6 +375,15 @@ function DrinkLogCard({
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      {/* Caption - full width */}
+      <div className="-mt-1.5 mb-1 pl-2">
+        {log.caption ? (
+          <p className="text-sm leading-relaxed">{log.caption}</p>
+        ) : (
+          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        )}
       </div>
     </article>
   )
@@ -406,7 +417,13 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
               zIndex: displayDrinks.length - index,
             }}
           >
-            <Image src={drink.photoUrl || "/placeholder.svg"} alt={`${drink.drinkType} drink`} fill className="object-cover" unoptimized />
+            <Image
+              src={drink.photoUrl || "/placeholder.svg"}
+              alt={`${drink.drinkType} drink`}
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
         ))}
 
@@ -437,13 +454,6 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
   )
 }
 
-/**
- * ✅ Updated OverlayPage:
- * - Darkens the background
- * - Leaves ~10% margin on left/right (w-[90vw], px-[5vw])
- * - Modal is centered and smaller than the screen
- * - Body scrolls inside modal if needed
- */
 function OverlayPage({
   title,
   children,
@@ -454,10 +464,12 @@ function OverlayPage({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6" role="dialog" aria-modal="true">
-      {/* Match the feed container width */}
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="container max-w-2xl px-4">
-        {/* Modal = 80% of the feed container width */}
         <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="text-base font-semibold">{title}</div>
@@ -631,7 +643,7 @@ export default function ProfilePage() {
             cheersCount: 0,
             cheeredByMe: false,
           }
-        }),
+        })
       )
 
       setLogs(mapped)
@@ -663,6 +675,59 @@ export default function ProfilePage() {
   React.useEffect(() => {
     load()
   }, [load])
+
+  // ✅ Toggle cheers function
+  async function toggleCheers(log: DrinkLog) {
+    if (!userId) return
+    if (cheersBusy[log.id]) return
+
+    const nextCheered = !log.cheeredByMe
+    const nextCount = Math.max(0, log.cheersCount + (nextCheered ? 1 : -1))
+
+    if (nextCheered) {
+      setCheersAnimating((p) => ({ ...p, [log.id]: true }))
+      setTimeout(() => setCheersAnimating((p) => ({ ...p, [log.id]: false })), 600)
+    }
+
+    setCheersBusy((p) => ({ ...p, [log.id]: true }))
+    setLogs((prev) =>
+      prev.map((p) =>
+        p.id === log.id
+          ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount }
+          : p,
+      ),
+    )
+
+    try {
+      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
+        p_drink_log_id: log.id,
+        p_user_id: userId,
+      })
+      if (rpcErr) throw rpcErr
+
+      const row = Array.isArray(data) ? data[0] : data
+      const cheered = Boolean(row?.cheered)
+      const cheers_count = Number(row?.cheers_count ?? nextCount)
+
+      setLogs((prev) =>
+        prev.map((p) =>
+          p.id === log.id
+            ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count }
+            : p,
+        ),
+      )
+    } catch {
+      setLogs((prev) =>
+        prev.map((p) =>
+          p.id === log.id
+            ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount }
+            : p,
+        ),
+      )
+    } finally {
+      setCheersBusy((p) => ({ ...p, [log.id]: false }))
+    }
+  }
 
   const handleEditClick = () => {
     setEditedProfile(profile)
@@ -809,8 +874,10 @@ export default function ProfilePage() {
 
       setLogs((prev) =>
         prev.map((l) =>
-          l.id === activePost.id ? { ...l, drinkType: postDrinkType, caption: nextCaption.length ? nextCaption : undefined } : l,
-        ),
+          l.id === activePost.id
+            ? { ...l, drinkType: postDrinkType, caption: nextCaption.length ? nextCaption : undefined }
+            : l
+        )
       )
 
       setEditPostOpen(false)
@@ -847,44 +914,6 @@ export default function ProfilePage() {
       setPostError(e?.message ?? "Could not delete post.")
     } finally {
       setPostBusy(false)
-    }
-  }
-
-  async function toggleCheers(log: DrinkLog) {
-    if (!userId) return
-    if (cheersBusy[log.id]) return
-
-    const nextCheered = !log.cheeredByMe
-    const nextCount = Math.max(0, log.cheersCount + (nextCheered ? 1 : -1))
-
-    if (nextCheered) {
-      setCheersAnimating((p) => ({ ...p, [log.id]: true }))
-      setTimeout(() => setCheersAnimating((p) => ({ ...p, [log.id]: false })), 600)
-    }
-
-    setCheersBusy((p) => ({ ...p, [log.id]: true }))
-    setLogs((prev) =>
-      prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p)),
-    )
-
-    try {
-      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
-        p_drink_log_id: log.id,
-        p_user_id: userId,
-      })
-      if (rpcErr) throw rpcErr
-
-      const row = Array.isArray(data) ? data[0] : data
-      const cheered = Boolean(row?.cheered)
-      const cheers_count = Number(row?.cheers_count ?? nextCount)
-
-      setLogs((prev) => prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count } : p)))
-    } catch {
-      setLogs((prev) =>
-        prev.map((p) => (p.id === log.id ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount } : p)),
-      )
-    } finally {
-      setCheersBusy((p) => ({ ...p, [log.id]: false }))
     }
   }
 
@@ -995,7 +1024,9 @@ export default function ProfilePage() {
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
         ) : null}
 
         {success ? (
@@ -1014,7 +1045,13 @@ export default function ProfilePage() {
                 <div className="relative">
                   {current.avatarUrl ? (
                     <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                      <Image src={current.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+                      <Image
+                        src={current.avatarUrl || "/placeholder.svg"}
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                   ) : (
                     <div
@@ -1061,7 +1098,9 @@ export default function ProfilePage() {
                         <input
                           type="text"
                           value={editedProfile.username}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })}
+                          onChange={(e) =>
+                            setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
+                          }
                           className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
                           placeholder="username"
                         />
@@ -1080,10 +1119,12 @@ export default function ProfilePage() {
                   <div className="mt-1 flex items-center justify-between pr-20 text-sm">
                     <div className="flex gap-4">
                       <div>
-                        <span className="font-bold">{profile.friendCount}</span> <span className="opacity-60">Friends</span>
+                        <span className="font-bold">{profile.friendCount}</span>{" "}
+                        <span className="opacity-60">Friends</span>
                       </div>
                       <div>
-                        <span className="font-bold">{profile.drinkCount}</span> <span className="opacity-60">Drinks</span>
+                        <span className="font-bold">{profile.drinkCount}</span>{" "}
+                        <span className="opacity-60">Drinks</span>
                       </div>
                     </div>
                   </div>
@@ -1212,7 +1253,9 @@ export default function ProfilePage() {
                           cheersAnimating={!!cheersAnimating[log.id]}
                         />
                       ))
-                    : groupedDrinks.map((group, index) => <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />)}
+                    : groupedDrinks.map((group, index) => (
+                        <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
+                      ))}
                 </div>
               )}
             </div>
@@ -1231,7 +1274,9 @@ export default function ProfilePage() {
           }}
         >
           {pwError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{pwError}</div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {pwError}
+            </div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-4">
@@ -1312,7 +1357,9 @@ export default function ProfilePage() {
           }}
         >
           {delError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{delError}</div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {delError}
+            </div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-4">
@@ -1322,7 +1369,9 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold">This is permanent</div>
-                <p className="mt-1 text-sm opacity-70">This will delete your profile and posts. This cannot be undone.</p>
+                <p className="mt-1 text-sm opacity-70">
+                  This will delete your profile and posts. This cannot be undone.
+                </p>
               </div>
             </div>
 
@@ -1377,13 +1426,21 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{postError}</div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {postError}
+            </div>
           ) : null}
 
           {/* smaller preview so modal stays compact */}
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={activePost.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 
@@ -1464,7 +1521,9 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{postError}</div>
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {postError}
+            </div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-3">
@@ -1482,7 +1541,13 @@ export default function ProfilePage() {
           {/* smaller preview so modal stays compact */}
           <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
-              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image
+                src={activePost.photoUrl || "/placeholder.svg"}
+                alt="Post photo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
           </div>
 

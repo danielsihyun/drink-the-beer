@@ -594,57 +594,43 @@ function FeedContent() {
                   </div>
                 </div>
 
-                {/* ✅ Cheers button with wine glasses icon, space between pic and cheers */} 
-                <div className="-mt- flex items-center gap-0">
-                  <button
-                    type="button"
-                    onClick={() => toggleCheers(it)}
-                    disabled={!!cheersBusy[it.id]}
-                    className={cn(
-                      "relative inline-flex items-center justify-center p-1",
-                      "transition-all duration-200",
-                      it.cheeredByMe ? "text-amber-500" : "text-foreground",
-                      cheersBusy[it.id] ? "opacity-70" : "",
-                      cheersAnimating[it.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-                    )}
-                    aria-pressed={it.cheeredByMe}
-                    aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
-                    title={it.cheeredByMe ? "Uncheer" : "Cheer"}
-                  >
-                    <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
+                {/* ✅ Cheers button + edit/delete on same row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleCheers(it)}
+                      disabled={!!cheersBusy[it.id]}
+                      className={cn(
+                        "relative inline-flex items-center justify-center p-1",
+                        "transition-all duration-200",
+                        it.cheeredByMe ? "text-amber-500" : "text-foreground",
+                        cheersBusy[it.id] ? "opacity-70" : "",
+                        cheersAnimating[it.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+                      )}
+                      aria-pressed={it.cheeredByMe}
+                      aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
+                      title={it.cheeredByMe ? "Uncheer" : "Cheer"}
+                    >
+                      <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
 
-                    {/* Burst effect on cheer - keep at h-8 w-8 */}
-                    {cheersAnimating[it.id] && it.cheeredByMe && (
-                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y" />
-                      </span>
-                    )}
-                    {cheersAnimating[it.id] && it.cheeredByMe && (
-                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-                      </span>
-                    )}
-                    
-                    
-                  </button>
+                      {/* Burst effect on cheer */}
+                      {cheersAnimating[it.id] && it.cheeredByMe && (
+                        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+                        </span>
+                      )}
+                    </button>
 
-                  {/* Count outside the button, always gray */}
-                  {it.cheersCount > 0 && (
-                    <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{it.cheersCount}</span>
-                  )}
-                </div>
-
-                <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-start gap-3">
-                  <div className="flex items-start pl-2">
-                    {it.caption ? (
-                      <p className="text-sm leading-relaxed">{it.caption}</p>
-                    ) : (
-                      <p className="text-sm leading-relaxed opacity-50">No caption</p>
+                    {/* Count outside the button */}
+                    {it.cheersCount > 0 && (
+                      <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{it.cheersCount}</span>
                     )}
                   </div>
 
-                  {it.isMine ? (
-                    <div className="flex items-end justify-end gap-1">
+                  {/* Edit/Delete buttons - only for own posts */}
+                  {it.isMine && (
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => openEdit(it)}
@@ -667,8 +653,15 @@ function FeedContent() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
+                  )}
+                </div>
+
+                {/* Caption - full width */}
+                <div className="-mt-1.5 -mb-1 pl-2">
+                  {it.caption ? (
+                    <p className="text-sm leading-relaxed">{it.caption}</p>
                   ) : (
-                    <div />
+                    <p className="text-sm leading-relaxed opacity-50">No caption</p>
                   )}
                 </div>
               </article>
