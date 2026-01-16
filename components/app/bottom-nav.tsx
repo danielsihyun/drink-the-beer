@@ -40,6 +40,7 @@ export function BottomNav() {
   const supabase = createClient()
 
   const [pendingRequestCount, setPendingRequestCount] = React.useState(0)
+  const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
 
   // Load pending friend requests count
   const loadPendingRequests = React.useCallback(async () => {
@@ -61,15 +62,80 @@ export function BottomNav() {
     }
   }, [supabase])
 
-  // Load on mount
-  React.useEffect(() => {
-    loadPendingRequests()
-  }, [loadPendingRequests])
+  // Load unseen cheers count
+  const loadUnseenCheers = React.useCallback(async () => {
+    try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !userRes.user) return
 
-  // Reload when pathname changes (e.g., after accepting/declining a request)
+      const { data, error: rpcErr } = await supabase.rpc("get_unseen_cheers_count", {
+        p_user_id: userRes.user.id,
+      })
+
+      if (rpcErr) throw rpcErr
+
+      setUnseenCheersCount(data ?? 0)
+    } catch (e) {
+      console.error("Failed to load unseen cheers:", e)
+    }
+  }, [supabase])
+
+  // Mark profile as seen (update last_seen timestamp)
+  const markProfileSeen = React.useCallback(async () => {
+    try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !userRes.user) return
+
+      // Upsert the last seen timestamp
+      const { error: upsertErr } = await supabase
+        .from("user_last_seen")
+        .upsert(
+          {
+            user_id: userRes.user.id,
+            profile_last_seen: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        )
+
+      if (upsertErr) throw upsertErr
+
+      // Clear the badge immediately
+      setUnseenCheersCount(0)
+    } catch (e) {
+      console.error("Failed to mark profile seen:", e)
+    }
+  }, [supabase])
+
+  // Load counts on mount
   React.useEffect(() => {
     loadPendingRequests()
-  }, [pathname, loadPendingRequests])
+    loadUnseenCheers()
+  }, [loadPendingRequests, loadUnseenCheers])
+
+  // Handle pathname changes
+  React.useEffect(() => {
+    // Refresh friends count when navigating (handles accept/reject)
+    loadPendingRequests()
+
+    // When user visits profile, mark as seen
+    if (pathname === "/profile/me") {
+      markProfileSeen()
+    } else {
+      // Refresh unseen cheers when not on profile
+      loadUnseenCheers()
+    }
+  }, [pathname, loadPendingRequests, loadUnseenCheers, markProfileSeen])
+
+  // Expose a way for other components to trigger a refresh
+  React.useEffect(() => {
+    const handleRefreshNav = () => {
+      loadPendingRequests()
+      loadUnseenCheers()
+    }
+
+    window.addEventListener("refresh-nav-badges", handleRefreshNav)
+    return () => window.removeEventListener("refresh-nav-badges", handleRefreshNav)
+  }, [loadPendingRequests, loadUnseenCheers])
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">
@@ -78,7 +144,12 @@ export function BottomNav() {
           {navItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
-            const showBadge = item.href === "/friends" && pendingRequestCount > 0
+            
+            // Determine which badge to show
+            const showFriendsBadge = item.href === "/friends" && pendingRequestCount > 0
+            const showProfileBadge = item.href === "/profile/me" && unseenCheersCount > 0
+            const badgeCount = showFriendsBadge ? pendingRequestCount : showProfileBadge ? unseenCheersCount : 0
+            const showBadge = showFriendsBadge || showProfileBadge
 
             return (
               <li key={item.href} className="flex-1">
@@ -93,7 +164,7 @@ export function BottomNav() {
                     <Icon className={cn("h-5 w-5", isActive && "fill-primary/20")} />
                     {showBadge && (
                       <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+                        {badgeCount > 9 ? "9+" : badgeCount}
                       </span>
                     )}
                   </div>

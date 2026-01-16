@@ -350,6 +350,9 @@ export default function FriendsPage() {
       }
 
       await loadFriends()
+      
+      // ✅ Refresh nav badges
+      window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not add friend.")
     }
@@ -380,6 +383,9 @@ export default function FriendsPage() {
       showToast(action === "accepted" ? "Friend added!" : "Request rejected")
 
       await loadFriends()
+      
+      // ✅ Refresh nav badges immediately after accept/reject
+      window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not update request.")
     } finally {
@@ -425,6 +431,9 @@ export default function FriendsPage() {
       setRemoveTarget(null)
       showToast("Friend removed.")
       await loadFriends()
+      
+      // ✅ Refresh nav badges
+      window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setRemoveError(e?.message ?? "Could not remove friend.")
     } finally {
