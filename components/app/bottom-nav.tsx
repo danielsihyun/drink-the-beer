@@ -149,13 +149,12 @@ export function BottomNav() {
       .on(
         "postgres_changes",
         {
-          event: "*", // Listen to INSERT, UPDATE, DELETE
+          event: "*",
           schema: "public",
           table: "friendships",
           filter: `addressee_id=eq.${userId}`,
         },
         () => {
-          // Reload pending requests when friendships table changes
           loadPendingRequests()
         }
       )
@@ -166,32 +165,24 @@ export function BottomNav() {
     }
   }, [userId, supabase, loadPendingRequests])
 
-  // ✅ Realtime subscription for cheers on user's posts
+  // ✅ Realtime subscription for cheers - simplified to always refresh on any change
   React.useEffect(() => {
     if (!userId) return
-    if (pathname === "/profile/me") return // Don't update badge while on profile
+    if (pathname === "/profile/me") return
 
     const cheersChannel = supabase
       .channel("cheers-changes")
       .on(
         "postgres_changes",
         {
-          event: "INSERT", // Only listen to new cheers
+          event: "*", // Listen to INSERT, UPDATE, and DELETE
           schema: "public",
           table: "drink_cheers",
         },
-        async (payload) => {
-          // Check if this cheer is on one of the user's posts
-          const { data: drinkLog } = await supabase
-            .from("drink_logs")
-            .select("user_id")
-            .eq("id", payload.new.drink_log_id)
-            .single()
-
-          // If the cheer is on the current user's post and not self-cheer
-          if (drinkLog?.user_id === userId && payload.new.user_id !== userId) {
-            loadUnseenCheers()
-          }
+        () => {
+          // Simply refresh the count on any change to drink_cheers
+          // The RPC function will calculate the correct count
+          loadUnseenCheers()
         }
       )
       .subscribe()
@@ -230,7 +221,7 @@ export function BottomNav() {
                       </span>
                     )}
                     {showProfileBadge && (
-                      <span className="absolute -right-2.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                         {unseenCheersCount > 9 ? "9+" : unseenCheersCount}
                       </span>
                     )}
