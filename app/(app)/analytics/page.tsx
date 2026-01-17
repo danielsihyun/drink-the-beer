@@ -18,7 +18,7 @@ import {
   Cell,
 } from "recharts"
 
-type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
+type TimeRange = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
 
 type DrinkLogRow = {
   id: string
@@ -32,7 +32,15 @@ type DrinkEntry = {
   types: string[]
 }
 
+type DrinkLogEntry = {
+  timestamp: number
+  cumulativeCount: number
+  drinkType: string
+  displayTime: string
+}
+
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
+  { key: "1D", label: "1D" },
   { key: "1W", label: "1W" },
   { key: "1M", label: "1M" },
   { key: "3M", label: "3M" },
@@ -43,11 +51,23 @@ const timeRangeOptions: { key: TimeRange; label: string }[] = [
 
 const PIE_COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa", "#fb923c", "#2dd4bf"]
 
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function parseLocalDateString(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
 function transformDrinkLogs(logs: DrinkLogRow[]): DrinkEntry[] {
   const byDate: Record<string, { count: number; types: string[] }> = {}
 
   for (const log of logs) {
-    const date = new Date(log.created_at).toISOString().split("T")[0]
+    const date = getLocalDateString(new Date(log.created_at))
 
     if (!byDate[date]) {
       byDate[date] = { count: 0, types: [] }
@@ -71,7 +91,7 @@ function getTimeRangeLabel(value: TimeRange): string {
 }
 
 function formatTooltipDate(dateStr: string): string {
-  const date = new Date(dateStr)
+  const date = parseLocalDateString(dateStr)
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -81,11 +101,30 @@ function formatTooltipDate(dateStr: string): string {
 }
 
 function formatAxisDate(dateStr: string): string {
-  const date = new Date(dateStr)
+  const date = parseLocalDateString(dateStr)
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+  })
+}
+
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+function formatTimeWithDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   })
 }
 
@@ -226,16 +265,6 @@ function DrinkChart({
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-            onMouseMove={(state) => {
-              if (state?.activePayload?.[0]) {
-                setHoveredValue(state.activePayload[0].payload.count)
-                setHoveredDate(state.activePayload[0].payload.displayDate)
-              }
-            }}
-            onMouseLeave={() => {
-              setHoveredValue(null)
-              setHoveredDate(null)
-            }}
           >
             <defs>
               <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
@@ -296,6 +325,130 @@ function DrinkChart({
                 stroke: "#1a1a2e",
                 strokeWidth: 2,
               }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  )
+}
+
+function DrinkTimelineChart({
+  data,
+}: {
+  data: DrinkLogEntry[]
+}) {
+  const totalDrinks = data.length
+  const primaryColor = "#4ade80"
+
+  if (data.length === 0) {
+    return (
+      <Card className="bg-card border-border p-4 space-y-4">
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Last 24 Hours</p>
+          <p className="text-4xl font-bold text-foreground">
+            0
+            <span className="text-lg font-normal text-muted-foreground ml-2">drinks</span>
+          </p>
+        </div>
+        <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+          No drinks logged in the last 24 hours
+        </div>
+      </Card>
+    )
+  }
+
+  const startTime = data[0].timestamp
+  const endTime = data[data.length - 1].timestamp
+  
+  const isSameTime = startTime === endTime
+  const minPadding = 10 * 60 * 1000 // 10 minutes
+  const calculatedPadding = (endTime - startTime) * 0.05
+  const padding = isSameTime ? 30 * 60 * 1000 : Math.max(calculatedPadding, minPadding)
+  const domainStart = isSameTime ? startTime - 30 * 60 * 1000 : startTime
+  const domainEnd = isSameTime ? endTime + 30 * 60 * 1000 : endTime
+  const tickValues = isSameTime ? [startTime] : [startTime, endTime]
+
+  return (
+    <Card className="bg-card border-border p-4 space-y-4">
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Total</p>
+        <p className="text-4xl font-bold text-foreground">
+          {totalDrinks}
+          <span className="text-lg font-normal text-muted-foreground ml-2">
+            {totalDrinks === 1 ? "drink" : "drinks"}
+          </span>
+        </p>
+      </div>
+
+      <div className="h-[200px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={data}
+            margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+          >
+            <defs>
+              <linearGradient id="colorTimeline" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={primaryColor} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={primaryColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="timestamp"
+              type="number"
+              domain={[domainStart, domainEnd]}
+              axisLine={false}
+              tickLine={false}
+              ticks={tickValues}
+              interval={0}
+              tick={({ x, y, payload }) => {
+                const isFirst = payload.value === startTime && !isSameTime
+                return (
+                  <text
+                    x={x}
+                    y={y + 12}
+                    fill="#666"
+                    fontSize={12}
+                    textAnchor={isSameTime ? "middle" : isFirst ? "start" : "end"}
+                  >
+                    {formatTime(payload.value)}
+                  </text>
+                )
+              }}
+            />
+            <YAxis hide domain={[0, totalDrinks + 0.5]} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload?.[0]) {
+                  const entry = payload[0].payload as DrinkLogEntry
+                  return (
+                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                      <p className="text-sm font-medium text-foreground">
+                        Drink #{entry.cumulativeCount}: {entry.drinkType}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.displayTime}
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              }}
+            />
+            <Area
+              type="stepAfter"
+              dataKey="cumulativeCount"
+              stroke={primaryColor}
+              strokeWidth={2}
+              fill="url(#colorTimeline)"
+              dot={false}
+              activeDot={{
+                r: 6,
+                fill: primaryColor,
+                stroke: "#1a1a2e",
+                strokeWidth: 2,
+              }}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -398,6 +551,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [allData, setAllData] = React.useState<DrinkEntry[]>([])
+  const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
 
   React.useEffect(() => {
@@ -421,8 +575,10 @@ export default function AnalyticsPage() {
 
         if (logsErr) throw logsErr
 
-        const transformed = transformDrinkLogs((logs ?? []) as DrinkLogRow[])
+        const typedLogs = (logs ?? []) as DrinkLogRow[]
+        const transformed = transformDrinkLogs(typedLogs)
         setAllData(transformed)
+        setAllLogs(typedLogs)
       } catch (e: any) {
         setError(e?.message ?? "Could not load analytics.")
       } finally {
@@ -433,11 +589,32 @@ export default function AnalyticsPage() {
     load()
   }, [router, supabase])
 
-  const filteredData = React.useMemo(() => {
+  const timelineData = React.useMemo((): DrinkLogEntry[] => {
     const now = new Date()
-    now.setHours(23, 59, 59, 999)
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+    const recentLogs = allLogs.filter((log) => {
+      const logDate = new Date(log.created_at)
+      return logDate >= twentyFourHoursAgo && logDate <= now
+    })
+
+    return recentLogs.map((log, index) => ({
+      timestamp: new Date(log.created_at).getTime(),
+      cumulativeCount: index + 1,
+      drinkType: log.drink_type,
+      displayTime: formatTimeWithDate(new Date(log.created_at).getTime()),
+    }))
+  }, [allLogs])
+
+  const filteredData = React.useMemo(() => {
+    if (timeRange === "1D") {
+      return []
+    }
+
+    const now = new Date()
+    const todayStr = getLocalDateString(now)
     let startDate: Date
-  
+
     switch (timeRange) {
       case "1W":
         startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
@@ -461,34 +638,48 @@ export default function AnalyticsPage() {
         startDate = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
     }
     startDate.setHours(0, 0, 0, 0)
-  
+
     const dataByDate = new Map<string, DrinkEntry>()
     for (const entry of allData) {
       dataByDate.set(entry.date, entry)
     }
-  
+
     const result: DrinkEntry[] = []
     const current = new Date(startDate)
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
-  
-    while (current <= today) {
-      const dateStr = current.toISOString().split("T")[0]
+
+    while (getLocalDateString(current) <= todayStr) {
+      const dateStr = getLocalDateString(current)
       const existing = dataByDate.get(dateStr)
-  
+
       if (existing) {
         result.push(existing)
       } else {
         result.push({ date: dateStr, count: 0, types: [] })
       }
-  
+
       current.setDate(current.getDate() + 1)
     }
-  
+
     return result
   }, [allData, timeRange])
 
   const kpiData = React.useMemo(() => {
+    if (timeRange === "1D") {
+      const typeCounts: Record<string, number> = {}
+      timelineData.forEach((entry) => {
+        typeCounts[entry.drinkType] = (typeCounts[entry.drinkType] || 0) + 1
+      })
+      const mostCommon =
+        Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A"
+
+      return {
+        totalDrinks: timelineData.length,
+        avgPerDay: timelineData.length,
+        mostInADay: timelineData.length,
+        mostCommon,
+      }
+    }
+
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
     const mostInADay = Math.max(...filteredData.map((d) => d.count), 0)
@@ -504,9 +695,17 @@ export default function AnalyticsPage() {
       Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A"
 
     return { totalDrinks, avgPerDay, mostInADay, mostCommon }
-  }, [filteredData])
+  }, [filteredData, timelineData, timeRange])
 
   const breakdownData = React.useMemo(() => {
+    if (timeRange === "1D") {
+      const typeCounts: Record<string, number> = {}
+      timelineData.forEach((entry) => {
+        typeCounts[entry.drinkType] = (typeCounts[entry.drinkType] || 0) + 1
+      })
+      return Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
+    }
+
     const typeCounts: Record<string, number> = {}
     filteredData.forEach((day) => {
       day.types.forEach((type) => {
@@ -515,7 +714,7 @@ export default function AnalyticsPage() {
     })
 
     return Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
-  }, [filteredData])
+  }, [filteredData, timelineData, timeRange])
 
   if (loading) {
     return (
@@ -564,7 +763,11 @@ export default function AnalyticsPage() {
 
       <div className="space-y-4">
         <KpiCards data={kpiData} />
-        <DrinkChart data={filteredData} timeRange={timeRange} />
+        {timeRange === "1D" ? (
+          <DrinkTimelineChart data={timelineData} />
+        ) : (
+          <DrinkChart data={filteredData} timeRange={timeRange} />
+        )}
         <DrinkBreakdown data={breakdownData} />
       </div>
     </div>
