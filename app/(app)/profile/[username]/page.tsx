@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, ArrowUpDown, Lock, Clock } from "lucide-react"
+import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -218,7 +218,17 @@ function EmptyState() {
   )
 }
 
-function LockedState({ username }: { username: string }) {
+function LockedState({
+  username,
+  friendshipStatus,
+  onSendRequest,
+  requestBusy,
+}: {
+  username: string
+  friendshipStatus: FriendshipStatus
+  onSendRequest: () => void
+  requestBusy: boolean
+}) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
       <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-foreground/30">
@@ -228,6 +238,22 @@ function LockedState({ username }: { username: string }) {
       <p className="max-w-sm text-sm opacity-70">
         Send {username} a friend request to see their drinks.
       </p>
+
+      {friendshipStatus === "none" && (
+        <button
+          type="button"
+          onClick={onSendRequest}
+          disabled={requestBusy}
+          className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border bg-black px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {requestBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4" />
+          )}
+          Add Friend
+        </button>
+      )}
     </div>
   )
 }
@@ -411,6 +437,8 @@ export default function UserProfilePage() {
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
 
+  const [requestBusy, setRequestBusy] = React.useState(false)
+
   const loadCheersState = React.useCallback(
     async (postIds: string[], currentViewerId: string) => {
       if (!postIds.length) return
@@ -459,7 +487,6 @@ export default function UserProfilePage() {
       const currentUserId = userRes.user.id
       setViewerId(currentUserId)
 
-      // Get the profile
       const { data: prof, error: profErr } = await supabase
         .from("profile_public_stats")
         .select("id,username,display_name,avatar_path,friend_count,drink_count")
@@ -477,13 +504,11 @@ export default function UserProfilePage() {
 
       const p = prof as ProfileRow
 
-      // If viewing own profile, redirect to /profile/me
       if (p.id === currentUserId) {
         router.replace("/profile/me")
         return
       }
 
-      // Check friendship status
       const { data: friendshipData, error: friendshipErr } = await supabase
         .from("friendships")
         .select("requester_id, addressee_id, status")
@@ -509,7 +534,6 @@ export default function UserProfilePage() {
       }
       setFriendshipStatus(status)
 
-      // Get join date
       const { data: meta, error: metaErr } = await supabase
         .from("profiles")
         .select("created_at")
@@ -518,7 +542,6 @@ export default function UserProfilePage() {
       if (metaErr) throw metaErr
       const m = meta as ProfileMetaRow
 
-      // Get avatar
       let avatarSignedUrl: string | null = null
       if (p.avatar_path) {
         const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
@@ -537,7 +560,6 @@ export default function UserProfilePage() {
       }
       setProfile(ui)
 
-      // Only load drink logs if they are friends
       if (status === "friends") {
         const { data: rows, error: logsErr } = await supabase
           .from("drink_logs")
@@ -584,94 +606,108 @@ export default function UserProfilePage() {
     load()
   }, [load])
 
- // ✅ Realtime subscription for friendship changes
-React.useEffect(() => {
-  if (!viewerId || !profile?.id) return
+  // ✅ Realtime subscription for friendship changes
+  React.useEffect(() => {
+    if (!viewerId || !profile?.id) return
 
-  const profileUserId = profile.id
+    const profileUserId = profile.id
 
-  // Track the friendship ID between viewer and profile owner
-  let friendshipId: string | null = null
+    let friendshipId: string | null = null
 
-  const fetchFriendshipId = async () => {
-    const { data } = await supabase
-      .from("friendships")
-      .select("id")
-      .or(
-        `and(requester_id.eq.${viewerId},addressee_id.eq.${profileUserId}),and(requester_id.eq.${profileUserId},addressee_id.eq.${viewerId})`
-      )
-      .maybeSingle()
+    const fetchFriendshipId = async () => {
+      const { data } = await supabase
+        .from("friendships")
+        .select("id")
+        .or(
+          `and(requester_id.eq.${viewerId},addressee_id.eq.${profileUserId}),and(requester_id.eq.${profileUserId},addressee_id.eq.${viewerId})`
+        )
+        .maybeSingle()
 
-    friendshipId = data?.id ?? null
-    console.log("[Profile] Tracking friendship ID:", friendshipId)
-  }
+      friendshipId = data?.id ?? null
+    }
 
-  fetchFriendshipId()
+    fetchFriendshipId()
 
-  console.log("[Profile] Setting up realtime subscription")
-  console.log("[Profile] Viewer ID:", viewerId)
-  console.log("[Profile] Profile ID:", profileUserId)
+    const friendshipsChannel = supabase
+      .channel(`profile-friendships-${profileUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+        },
+        (payload) => {
+          const newRow = payload.new as any
+          const oldRow = payload.old as any
 
-  const friendshipsChannel = supabase
-    .channel(`profile-friendships-${profileUserId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "friendships",
-      },
-      (payload) => {
-        console.log("[Profile] Realtime event received:", payload)
+          let shouldReload = false
 
-        const newRow = payload.new as any
-        const oldRow = payload.old as any
+          if (payload.eventType === "DELETE") {
+            const deletedId = oldRow?.id
+            if (deletedId && deletedId === friendshipId) {
+              shouldReload = true
+            }
+          } else {
+            const involvesViewerAndProfile =
+              (newRow?.requester_id === viewerId && newRow?.addressee_id === profileUserId) ||
+              (newRow?.requester_id === profileUserId && newRow?.addressee_id === viewerId) ||
+              (oldRow?.requester_id === viewerId && oldRow?.addressee_id === profileUserId) ||
+              (oldRow?.requester_id === profileUserId && oldRow?.addressee_id === viewerId)
 
-        let shouldReload = false
-
-        if (payload.eventType === "DELETE") {
-          // Check if the deleted friendship ID matches ours
-          const deletedId = oldRow?.id
-          if (deletedId && deletedId === friendshipId) {
-            console.log("[Profile] DELETE detected for this friendship:", deletedId)
-            shouldReload = true
-          }
-        } else {
-          // For INSERT/UPDATE, check if it involves both users
-          const involvesViewerAndProfile =
-            (newRow?.requester_id === viewerId && newRow?.addressee_id === profileUserId) ||
-            (newRow?.requester_id === profileUserId && newRow?.addressee_id === viewerId) ||
-            (oldRow?.requester_id === viewerId && oldRow?.addressee_id === profileUserId) ||
-            (oldRow?.requester_id === profileUserId && oldRow?.addressee_id === viewerId)
-
-          if (involvesViewerAndProfile) {
-            console.log("[Profile] INSERT/UPDATE involves viewer and profile")
-            shouldReload = true
-            // Update tracked friendship ID for new friendships
-            if (payload.eventType === "INSERT" && newRow?.id) {
-              friendshipId = newRow.id
+            if (involvesViewerAndProfile) {
+              shouldReload = true
+              if (payload.eventType === "INSERT" && newRow?.id) {
+                friendshipId = newRow.id
+              }
             }
           }
-        }
 
-        if (shouldReload) {
-          console.log("[Profile] Reloading profile...")
-          load().then(() => {
-            // Refresh the friendship ID after reload
-            fetchFriendshipId()
-          })
+          if (shouldReload) {
+            load().then(() => {
+              fetchFriendshipId()
+            })
+          }
         }
-      }
-    )
-    .subscribe((status) => {
-      console.log("[Profile] Subscription status:", status)
-    })
+      )
+      .subscribe()
 
-  return () => {
-    console.log("[Profile] Cleaning up subscription")
-    supabase.removeChannel(friendshipsChannel)
+    return () => {
+      supabase.removeChannel(friendshipsChannel)
+    }
+  }, [viewerId, profile?.id, supabase, load])
+
+  async function sendFriendRequest() {
+    if (!viewerId || !profile?.id) return
+    setRequestBusy(true)
+
+    try {
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      const token = sessRes.session?.access_token
+      if (!token) throw new Error("Missing session token.")
+
+      const res = await fetch("/api/friends/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ friendId: profile.id }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not send request.")
+
+      await load()
+
+      window.dispatchEvent(new Event("refresh-nav-badges"))
+    } catch (e: any) {
+      setError(e?.message ?? "Could not send friend request.")
+    } finally {
+      setRequestBusy(false)
+    }
   }
-}, [viewerId, profile?.id, supabase, load])
 
   async function toggleCheers(log: DrinkLog) {
     if (!viewerId) return
@@ -734,17 +770,22 @@ React.useEffect(() => {
 
   const groupedDrinks = getGroupedDrinks()
 
-  // Determine what to show in the timeline section
   const renderTimeline = () => {
     if (friendshipStatus === "pending_outgoing") {
       return <PendingRequestState username={profile?.username ?? username} />
     }
 
     if (friendshipStatus === "none" || friendshipStatus === "pending_incoming") {
-      return <LockedState username={profile?.username ?? username} />
+      return (
+        <LockedState
+          username={profile?.username ?? username}
+          friendshipStatus={friendshipStatus}
+          onSendRequest={sendFriendRequest}
+          requestBusy={requestBusy}
+        />
+      )
     }
 
-    // friendshipStatus === "friends"
     if (logs.length === 0) {
       return <EmptyState />
     }
@@ -795,7 +836,6 @@ React.useEffect(() => {
         <LoadingSkeleton />
       ) : profile ? (
         <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          {/* PROFILE CARD */}
           <div className="relative rounded-2xl border bg-background/50 p-3">
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
