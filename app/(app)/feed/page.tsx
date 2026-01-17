@@ -478,12 +478,19 @@ function FeedContent() {
   if (loading) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Feed</h2>
-          <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
+  
+          <Link
+            href="/log"
+            className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+          >
+            <Plus className="h-4 w-4" />
+            Log
+          </Link>
         </div>
-
-        <div className="mt-6 space-y-4">
+  
+        <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
               <div className="h-4 w-40 rounded bg-foreground/10" />
@@ -500,28 +507,26 @@ function FeedContent() {
   return (
     <>
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Feed</h2>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/log"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border bg-black px-4 text-sm font-medium text-white"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="leading-none">Log</span>
-            </Link>
-          </div>
+          <Link
+            href="/log"
+            className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+          >
+            <Plus className="h-4 w-4" />
+            Log
+          </Link>
         </div>
 
         {postedBanner ? (
-          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             Posted!
           </div>
         ) : null}
 
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
           </div>
         ) : null}
@@ -541,7 +546,7 @@ function FeedContent() {
             <p className="mt-1 max-w-sm text-sm opacity-70">Add your friends to build out your feed!</p>
           </div>
         ) : (
-          <div className="mt-6 space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {items.map((it) => (
               <article key={it.id} className="rounded-2xl border bg-background/50 p-3">
                 <div className="flex items-center gap-2">
@@ -839,12 +844,19 @@ export default function FeedPage() {
     <Suspense
       fallback={
         <div className="container max-w-2xl px-3 py-1.5">
-          <div className="flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-2xl font-bold">Feed</h2>
-            <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
+
+            <Link
+              href="/log"
+              className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Log
+            </Link>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
                 <div className="h-4 w-40 rounded bg-foreground/10" />

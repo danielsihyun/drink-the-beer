@@ -509,11 +509,36 @@ export default function FriendsPage() {
       <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
-          <div className="h-10 w-24 animate-pulse rounded-full bg-foreground/10" />
+  
+          <div className="relative">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              {sortLabel(sort)}
+            </button>
+          </div>
         </div>
-
-        <div className="h-11 animate-pulse rounded-xl bg-foreground/10" />
-        <div className="mt-4 space-y-3">
+  
+        <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
+          <Search className="h-4 w-4 opacity-60" />
+          <input
+            placeholder="Search people by username or name…"
+            className="w-full bg-transparent text-sm outline-none"
+            disabled
+          />
+        </div>
+  
+        <div className="mt-6 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
+          <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
+            <div className="h-3 w-32 rounded bg-foreground/10" />
+          </div>
+        </div>
+  
+        <div className="mt-6 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
               <div className="flex items-center gap-3">
@@ -523,7 +548,6 @@ export default function FriendsPage() {
                   <div className="h-2 w-20 rounded bg-foreground/10" />
                 </div>
               </div>
-              <div className="mt-3 h-3 w-40 rounded bg-foreground/10" />
             </div>
           ))}
         </div>
