@@ -248,88 +248,71 @@ export default function FriendsPage() {
     })
   }, [friends])
 
-// ✅ Realtime subscription for friendships changes
-React.useEffect(() => {
-  if (!meId) return
+  // ✅ Realtime subscription for friendships changes
+  React.useEffect(() => {
+    if (!meId) return
 
-  // Build a set of friendship IDs that involve the current user
-  // We need to fetch these once for DELETE matching
-  let myFriendshipIds = new Set<string>()
+    let myFriendshipIds = new Set<string>()
 
-  const fetchMyFriendshipIds = async () => {
-    const { data } = await supabase
-      .from("friendships")
-      .select("id")
-      .or(`requester_id.eq.${meId},addressee_id.eq.${meId}`)
-    
-    myFriendshipIds = new Set((data ?? []).map((r) => r.id))
-    console.log("[Friends] Tracking friendship IDs:", myFriendshipIds)
-  }
+    const fetchMyFriendshipIds = async () => {
+      const { data } = await supabase
+        .from("friendships")
+        .select("id")
+        .or(`requester_id.eq.${meId},addressee_id.eq.${meId}`)
 
-  fetchMyFriendshipIds()
+      myFriendshipIds = new Set((data ?? []).map((r) => r.id))
+    }
 
-  console.log("[Friends] Setting up realtime subscription for user:", meId)
+    fetchMyFriendshipIds()
 
-  const friendshipsChannel = supabase
-    .channel("friends-page-friendships")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "friendships",
-      },
-      (payload) => {
-        console.log("[Friends] Realtime event received:", payload)
+    const friendshipsChannel = supabase
+      .channel("friends-page-friendships")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+        },
+        (payload) => {
+          const newRow = payload.new as any
+          const oldRow = payload.old as any
 
-        const newRow = payload.new as any
-        const oldRow = payload.old as any
+          let shouldReload = false
 
-        let shouldReload = false
+          if (payload.eventType === "DELETE") {
+            const deletedId = oldRow?.id
+            if (deletedId && myFriendshipIds.has(deletedId)) {
+              shouldReload = true
+            }
+          } else {
+            const involvesMe =
+              newRow?.requester_id === meId ||
+              newRow?.addressee_id === meId ||
+              oldRow?.requester_id === meId ||
+              oldRow?.addressee_id === meId
 
-        if (payload.eventType === "DELETE") {
-          // Check if the deleted friendship ID was one of ours
-          const deletedId = oldRow?.id
-          if (deletedId && myFriendshipIds.has(deletedId)) {
-            console.log("[Friends] DELETE detected for my friendship:", deletedId)
-            shouldReload = true
-          }
-        } else {
-          // For INSERT/UPDATE, check if it involves the current user
-          const involvesMe =
-            newRow?.requester_id === meId ||
-            newRow?.addressee_id === meId ||
-            oldRow?.requester_id === meId ||
-            oldRow?.addressee_id === meId
-
-          if (involvesMe) {
-            console.log("[Friends] INSERT/UPDATE involves me")
-            shouldReload = true
-            // Also update our tracked IDs for new friendships
-            if (payload.eventType === "INSERT" && newRow?.id) {
-              myFriendshipIds.add(newRow.id)
+            if (involvesMe) {
+              shouldReload = true
+              if (payload.eventType === "INSERT" && newRow?.id) {
+                myFriendshipIds.add(newRow.id)
+              }
             }
           }
-        }
 
-        if (shouldReload) {
-          console.log("[Friends] Reloading friends list...")
-          loadFriends().then(() => {
-            // Refresh the friendship IDs after reload
-            fetchMyFriendshipIds()
-          })
+          if (shouldReload) {
+            loadFriends().then(() => {
+              fetchMyFriendshipIds()
+            })
+          }
         }
-      }
-    )
-    .subscribe((status) => {
-      console.log("[Friends] Subscription status:", status)
-    })
+      )
+      .subscribe()
 
-  return () => {
-    console.log("[Friends] Cleaning up subscription")
-    supabase.removeChannel(friendshipsChannel)
-  }
-}, [meId, supabase, loadFriends])
+    return () => {
+      supabase.removeChannel(friendshipsChannel)
+    }
+  }, [meId, supabase, loadFriends])
 
   React.useEffect(() => {
     if (!meId) return
@@ -434,7 +417,6 @@ React.useEffect(() => {
 
       await loadFriends()
 
-      // Refresh nav badges
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not add friend.")
@@ -467,7 +449,6 @@ React.useEffect(() => {
 
       await loadFriends()
 
-      // Refresh nav badges immediately after accept/reject
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not update request.")
@@ -515,7 +496,6 @@ React.useEffect(() => {
       showToast("Friend removed.")
       await loadFriends()
 
-      // Refresh nav badges
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setRemoveError(e?.message ?? "Could not remove friend.")
@@ -527,12 +507,12 @@ React.useEffect(() => {
   if (loading) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
-          <div className="h-9 w-24 animate-pulse rounded-full bg-foreground/10" />
+          <div className="h-10 w-24 animate-pulse rounded-full bg-foreground/10" />
         </div>
 
-        <div className="mt-4 h-11 animate-pulse rounded-xl bg-foreground/10" />
+        <div className="h-11 animate-pulse rounded-xl bg-foreground/10" />
         <div className="mt-4 space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
@@ -556,39 +536,14 @@ React.useEffect(() => {
   return (
     <>
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
-        </div>
 
-        {toastMsg ? (
-          <div className="mt-3 rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
-            {toastMsg}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-4 flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
-          <Search className="h-4 w-4 opacity-60" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search people by username or name…"
-            className="w-full bg-transparent text-sm outline-none"
-          />
-          {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
-        </div>
-
-        <div className="mt-3 flex items-center justify-end">
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowSortMenu(!showSortMenu)}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
             >
               <ArrowUpDown className="h-4 w-4" />
               {sortLabel(sort)}
@@ -621,6 +576,29 @@ React.useEffect(() => {
               </div>
             ) : null}
           </div>
+        </div>
+
+        {toastMsg ? (
+          <div className="mb-4 rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
+            {toastMsg}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
+          <Search className="h-4 w-4 opacity-60" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search people by username or name…"
+            className="w-full bg-transparent text-sm outline-none"
+          />
+          {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
         </div>
 
         {query.trim().length ? (
