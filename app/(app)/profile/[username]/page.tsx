@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, ArrowUpDown, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowUpDown, Lock, Clock } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -33,6 +33,7 @@ type ProfileMetaRow = {
 }
 
 type UiProfile = {
+  id: string
   username: string
   displayName: string
   joinDate: string
@@ -42,9 +43,11 @@ type UiProfile = {
   avatarUrl: string | null
 }
 
+type FriendshipStatus = "none" | "friends" | "pending_outgoing" | "pending_incoming"
+
 interface DrinkLog {
   id: string
-  visibleUsername?: string;
+  visibleUsername?: string
   userId: string
   photoPath: string
   createdAt: string
@@ -52,7 +55,6 @@ interface DrinkLog {
   photoUrl: string
   drinkType: DrinkType
   caption?: string
-  // ✅ Cheers state
   cheersCount: number
   cheeredByMe: boolean
 }
@@ -107,7 +109,6 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
-// ✅ Custom clinking wine glasses icon
 interface CheersIconProps {
   filled?: boolean
   className?: string
@@ -124,9 +125,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
@@ -134,7 +133,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -145,9 +143,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
@@ -155,7 +151,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -166,16 +161,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - only show when filled */}
       {filled && (
         <g stroke="#fbbf24">
-          {/* Center line - vertical */}
           <path d="M16 -0.5v3" strokeWidth="1.5" />
-          {/* Left line - mirrored from right */}
           <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
             <path d="M19 3l2-2" strokeWidth="1.5" />
           </g>
-          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
       )}
@@ -227,6 +218,34 @@ function EmptyState() {
   )
 }
 
+function LockedState({ username }: { username: string }) {
+  return (
+    <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-foreground/30">
+        <Lock className="h-8 w-8 opacity-50" />
+      </div>
+      <h3 className="mb-2 text-lg font-semibold">This account is private</h3>
+      <p className="max-w-sm text-sm opacity-70">
+        Send {username} a friend request to see their drinks.
+      </p>
+    </div>
+  )
+}
+
+function PendingRequestState({ username }: { username: string }) {
+  return (
+    <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-foreground/30">
+        <Clock className="h-8 w-8 opacity-50" />
+      </div>
+      <h3 className="mb-2 text-lg font-semibold">Friend request sent</h3>
+      <p className="max-w-sm text-sm opacity-70">
+        Waiting for {username} to accept your request.
+      </p>
+    </div>
+  )
+}
+
 function DrinkLogCard({
   log,
   profile,
@@ -272,8 +291,7 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* ✅ Cheers button with wine glasses icon */}
-      <div className="-mt-0 flex items-center gap-0">
+      <div className="flex items-center gap-0">
         <button
           type="button"
           onClick={() => onToggleCheers(log)}
@@ -291,7 +309,6 @@ function DrinkLogCard({
         >
           <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
 
-          {/* Burst effect on cheer */}
           {cheersAnimating && log.cheeredByMe && (
             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
@@ -299,20 +316,17 @@ function DrinkLogCard({
           )}
         </button>
 
-        {/* Count outside the button */}
         {log.cheersCount > 0 && (
           <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
         )}
       </div>
 
-      <div className="-mt-2 -mb-0.5 grid grid-cols-[1fr_auto] items-start gap-3">
-        <div className="flex items-start pl-2 py-1">
-          {log.caption ? (
-            <p className="text-sm leading-relaxed">{log.caption}</p>
-          ) : (
-            <p className="text-sm leading-relaxed opacity-50">No caption</p>
-          )}
-        </div>
+      <div className="-mt-1.5 mb-1 pl-2">
+        {log.caption ? (
+          <p className="text-sm leading-relaxed">{log.caption}</p>
+        ) : (
+          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        )}
       </div>
     </article>
   )
@@ -389,11 +403,11 @@ export default function UserProfilePage() {
   const [viewerId, setViewerId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile | null>(null)
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
+  const [friendshipStatus, setFriendshipStatus] = React.useState<FriendshipStatus>("none")
 
   const [granularity, setGranularity] = React.useState<Granularity>("Drink")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
-  // ✅ Cheers state
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
 
@@ -442,8 +456,10 @@ export default function UserProfilePage() {
         return
       }
 
-      setViewerId(userRes.user.id)
+      const currentUserId = userRes.user.id
+      setViewerId(currentUserId)
 
+      // Get the profile
       const { data: prof, error: profErr } = await supabase
         .from("profile_public_stats")
         .select("id,username,display_name,avatar_path,friend_count,drink_count")
@@ -461,51 +477,56 @@ export default function UserProfilePage() {
 
       const p = prof as ProfileRow
 
-      const { data: meta, error: metaErr } = await supabase.from("profiles").select("created_at").eq("id", p.id).single()
+      // If viewing own profile, redirect to /profile/me
+      if (p.id === currentUserId) {
+        router.replace("/profile/me")
+        return
+      }
+
+      // Check friendship status
+      const { data: friendshipData, error: friendshipErr } = await supabase
+        .from("friendships")
+        .select("requester_id, addressee_id, status")
+        .or(
+          `and(requester_id.eq.${currentUserId},addressee_id.eq.${p.id}),and(requester_id.eq.${p.id},addressee_id.eq.${currentUserId})`
+        )
+        .limit(1)
+        .maybeSingle()
+
+      if (friendshipErr) throw friendshipErr
+
+      let status: FriendshipStatus = "none"
+      if (friendshipData) {
+        if (friendshipData.status === "accepted") {
+          status = "friends"
+        } else if (friendshipData.status === "pending") {
+          if (friendshipData.requester_id === currentUserId) {
+            status = "pending_outgoing"
+          } else {
+            status = "pending_incoming"
+          }
+        }
+      }
+      setFriendshipStatus(status)
+
+      // Get join date
+      const { data: meta, error: metaErr } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .eq("id", p.id)
+        .single()
       if (metaErr) throw metaErr
       const m = meta as ProfileMetaRow
 
+      // Get avatar
       let avatarSignedUrl: string | null = null
       if (p.avatar_path) {
         const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
         avatarSignedUrl = data?.signedUrl ?? null
       }
 
-      const { data: rows, error: logsErr } = await supabase
-        .from("drink_logs")
-        .select("id,user_id,photo_path,drink_type,caption,created_at")
-        .eq("user_id", p.id)
-        .order("created_at", { ascending: false })
-        .limit(200)
-      if (logsErr) throw logsErr
-
-      const base = (rows ?? []) as DrinkLogRow[]
-      const mapped: DrinkLog[] = await Promise.all(
-        base.map(async (r) => {
-          const { data } = await supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60)
-          return {
-            id: r.id,
-            userId: r.user_id,
-            photoPath: r.photo_path,
-            createdAt: r.created_at,
-            timestampLabel: formatCardTimestamp(r.created_at),
-            photoUrl: data?.signedUrl ?? "",
-            drinkType: r.drink_type,
-            caption: r.caption ?? undefined,
-            // ✅ default until we load from RPC
-            cheersCount: 0,
-            cheeredByMe: false,
-          }
-        })
-      )
-
-      setLogs(mapped)
-
-      // ✅ load cheers counts + whether viewer cheered
-      const ids = mapped.map((m) => m.id)
-      await loadCheersState(ids, userRes.user.id)
-
       const ui: UiProfile = {
+        id: p.id,
         username: p.username,
         displayName: p.display_name,
         joinDate: formatJoinDate(m.created_at),
@@ -514,8 +535,44 @@ export default function UserProfilePage() {
         avatarColor: "#4ECDC4",
         avatarUrl: avatarSignedUrl,
       }
-
       setProfile(ui)
+
+      // Only load drink logs if they are friends
+      if (status === "friends") {
+        const { data: rows, error: logsErr } = await supabase
+          .from("drink_logs")
+          .select("id,user_id,photo_path,drink_type,caption,created_at")
+          .eq("user_id", p.id)
+          .order("created_at", { ascending: false })
+          .limit(200)
+        if (logsErr) throw logsErr
+
+        const base = (rows ?? []) as DrinkLogRow[]
+        const mapped: DrinkLog[] = await Promise.all(
+          base.map(async (r) => {
+            const { data } = await supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60)
+            return {
+              id: r.id,
+              userId: r.user_id,
+              photoPath: r.photo_path,
+              createdAt: r.created_at,
+              timestampLabel: formatCardTimestamp(r.created_at),
+              photoUrl: data?.signedUrl ?? "",
+              drinkType: r.drink_type,
+              caption: r.caption ?? undefined,
+              cheersCount: 0,
+              cheeredByMe: false,
+            }
+          })
+        )
+
+        setLogs(mapped)
+
+        const ids = mapped.map((m) => m.id)
+        await loadCheersState(ids, currentUserId)
+      } else {
+        setLogs([])
+      }
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading this profile.")
     } finally {
@@ -527,7 +584,6 @@ export default function UserProfilePage() {
     load()
   }, [load])
 
-  // ✅ Toggle cheers function
   async function toggleCheers(log: DrinkLog) {
     if (!viewerId) return
     if (cheersBusy[log.id]) return
@@ -543,9 +599,7 @@ export default function UserProfilePage() {
     setCheersBusy((p) => ({ ...p, [log.id]: true }))
     setLogs((prev) =>
       prev.map((p) =>
-        p.id === log.id
-          ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount }
-          : p,
+        p.id === log.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p,
       ),
     )
 
@@ -562,17 +616,13 @@ export default function UserProfilePage() {
 
       setLogs((prev) =>
         prev.map((p) =>
-          p.id === log.id
-            ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count }
-            : p,
+          p.id === log.id ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count } : p,
         ),
       )
     } catch {
       setLogs((prev) =>
         prev.map((p) =>
-          p.id === log.id
-            ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount }
-            : p,
+          p.id === log.id ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount } : p,
         ),
       )
     } finally {
@@ -594,6 +644,43 @@ export default function UserProfilePage() {
   }
 
   const groupedDrinks = getGroupedDrinks()
+
+  // Determine what to show in the timeline section
+  const renderTimeline = () => {
+    if (friendshipStatus === "pending_outgoing") {
+      return <PendingRequestState username={profile?.username ?? username} />
+    }
+
+    if (friendshipStatus === "none" || friendshipStatus === "pending_incoming") {
+      return <LockedState username={profile?.username ?? username} />
+    }
+
+    // friendshipStatus === "friends"
+    if (logs.length === 0) {
+      return <EmptyState />
+    }
+
+    return (
+      <div className="space-y-4">
+        {granularity === "Drink"
+          ? logs.map((log) => (
+              <DrinkLogCard
+                key={log.id}
+                log={log}
+                profile={profile!}
+                onToggleCheers={toggleCheers}
+                cheersBusy={!!cheersBusy[log.id]}
+                cheersAnimating={!!cheersAnimating[log.id]}
+              />
+            ))
+          : groupedDrinks.map((group, index) => (
+              <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
+            ))}
+      </div>
+    )
+  }
+
+  const showSortControls = friendshipStatus === "friends" && logs.length > 0
 
   return (
     <div className="container max-w-2xl px-3 py-1.5">
@@ -660,58 +747,41 @@ export default function UserProfilePage() {
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold">{profile.username}'s Timeline</h3>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowSortMenu(!showSortMenu)}
-                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  {granularity}
-                </button>
+              {showSortControls && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    {granularity}
+                  </button>
 
-                {showSortMenu && (
-                  <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
-                    {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => {
-                          setGranularity(option)
-                          setShowSortMenu(false)
-                        }}
-                        className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                          granularity === option ? "font-semibold" : ""
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  {showSortMenu && (
+                    <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
+                      {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setGranularity(option)
+                            setShowSortMenu(false)
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
+                            granularity === option ? "font-semibold" : ""
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {logs.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <div className="space-y-4">
-                {granularity === "Drink"
-                  ? logs.map((log) => (
-                      <DrinkLogCard
-                        key={log.id}
-                        log={log}
-                        profile={profile}
-                        onToggleCheers={toggleCheers}
-                        cheersBusy={!!cheersBusy[log.id]}
-                        cheersAnimating={!!cheersAnimating[log.id]}
-                      />
-                    ))
-                  : groupedDrinks.map((group, index) => (
-                      <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
-                    ))}
-              </div>
-            )}
+            {renderTimeline()}
           </div>
         </div>
       ) : null}

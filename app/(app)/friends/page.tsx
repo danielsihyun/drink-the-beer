@@ -248,6 +248,43 @@ export default function FriendsPage() {
     })
   }, [friends])
 
+  // ✅ Realtime subscription for friendships changes
+  React.useEffect(() => {
+    if (!meId) return
+
+    const friendshipsChannel = supabase
+      .channel("friends-page-friendships")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+        },
+        (payload) => {
+          const newRow = payload.new as any
+          const oldRow = payload.old as any
+
+          // Check if this change involves the current user
+          const involvesMe =
+            newRow?.requester_id === meId ||
+            newRow?.addressee_id === meId ||
+            oldRow?.requester_id === meId ||
+            oldRow?.addressee_id === meId
+
+          if (involvesMe) {
+            // Reload friends and pending requests
+            loadFriends()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(friendshipsChannel)
+    }
+  }, [meId, supabase, loadFriends])
+
   React.useEffect(() => {
     if (!meId) return
     const q = query.trim()
@@ -350,8 +387,8 @@ export default function FriendsPage() {
       }
 
       await loadFriends()
-      
-      // ✅ Refresh nav badges
+
+      // Refresh nav badges
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not add friend.")
@@ -383,8 +420,8 @@ export default function FriendsPage() {
       showToast(action === "accepted" ? "Friend added!" : "Request rejected")
 
       await loadFriends()
-      
-      // ✅ Refresh nav badges immediately after accept/reject
+
+      // Refresh nav badges immediately after accept/reject
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not update request.")
@@ -431,8 +468,8 @@ export default function FriendsPage() {
       setRemoveTarget(null)
       showToast("Friend removed.")
       await loadFriends()
-      
-      // ✅ Refresh nav badges
+
+      // Refresh nav badges
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setRemoveError(e?.message ?? "Could not remove friend.")
