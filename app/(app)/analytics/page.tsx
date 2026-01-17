@@ -33,12 +33,12 @@ type DrinkEntry = {
 }
 
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
-  { key: "1W", label: "Last 7 Days" },
-  { key: "1M", label: "Last 30 Days" },
-  { key: "3M", label: "Last 3 Months" },
-  { key: "6M", label: "Last 6 Months" },
-  { key: "1Y", label: "Last Year" },
-  { key: "YTD", label: "Year to Date" },
+  { key: "1W", label: "1W" },
+  { key: "1M", label: "1M" },
+  { key: "3M", label: "3M" },
+  { key: "6M", label: "6M" },
+  { key: "1Y", label: "1Y" },
+  { key: "YTD", label: "YTD" },
 ]
 
 const PIE_COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa", "#fb923c", "#2dd4bf"]
@@ -70,15 +70,23 @@ function getTimeRangeLabel(value: TimeRange): string {
   return timeRangeOptions.find((opt) => opt.key === value)?.label ?? value
 }
 
-function formatChartDate(dateStr: string, timeRange: TimeRange): string {
+function formatTooltipDate(dateStr: string): string {
   const date = new Date(dateStr)
-  const options: Intl.DateTimeFormatOptions =
-    timeRange === "1W"
-      ? { weekday: "short" }
-      : timeRange === "1M" || timeRange === "3M"
-        ? { month: "short", day: "numeric" }
-        : { month: "short", year: "2-digit" }
-  return date.toLocaleDateString("en-US", options)
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatAxisDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
 }
 
 function TimeRangeSelector({
@@ -190,7 +198,7 @@ function DrinkChart({
   const chartData = data.map((entry) => ({
     date: entry.date,
     count: entry.count,
-    displayDate: formatChartDate(entry.date, timeRange),
+    displayDate: formatTooltipDate(entry.date),
   }))
 
   const currentTotal = hoveredValue ?? data.reduce((sum, d) => sum + d.count, 0)
@@ -198,82 +206,99 @@ function DrinkChart({
 
   const primaryColor = "#4ade80"
 
+  const startDate = data.length > 0 ? data[0].date : ""
+  const endDate = data.length > 0 ? data[data.length - 1].date : ""
+
   return (
     <Card className="bg-card border-border p-4 space-y-4">
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">{displayDate}</p>
         <p className="text-4xl font-bold text-foreground">
           {currentTotal}
-          <span className="text-lg font-normal text-muted-foreground ml-2">drinks</span>
+          <span className="text-lg font-normal text-muted-foreground ml-2">
+            {currentTotal === 1 ? "drink" : "drinks"}
+          </span>
         </p>
       </div>
 
-      <div className="h-[200px] -mx-2 overflow-x-auto">
-        <div style={{ minWidth: Math.max(chartData.length * 20, 300), height: "100%" }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={chartData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              onMouseMove={(state) => {
-                if (state?.activePayload?.[0]) {
-                  setHoveredValue(state.activePayload[0].payload.count)
-                  setHoveredDate(state.activePayload[0].payload.displayDate)
+      <div className="h-[200px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+            onMouseMove={(state) => {
+              if (state?.activePayload?.[0]) {
+                setHoveredValue(state.activePayload[0].payload.count)
+                setHoveredDate(state.activePayload[0].payload.displayDate)
+              }
+            }}
+            onMouseLeave={() => {
+              setHoveredValue(null)
+              setHoveredDate(null)
+            }}
+          >
+            <defs>
+              <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={primaryColor} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={primaryColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              axisLine={false}
+              tickLine={false}
+              ticks={[startDate, endDate]}
+              interval={0}
+              tick={({ x, y, payload }) => {
+                const isFirst = payload.value === startDate
+                return (
+                  <text
+                    x={x}
+                    y={y + 12}
+                    fill="#666"
+                    fontSize={12}
+                    textAnchor={isFirst ? "start" : "end"}
+                  >
+                    {formatAxisDate(payload.value)}
+                  </text>
+                )
+              }}
+            />
+            <YAxis hide domain={[0, "auto"]} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload?.[0]) {
+                  const count = payload[0].payload.count
+                  return (
+                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                      <p className="text-sm font-medium text-foreground">
+                        {count} {count === 1 ? "drink" : "drinks"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {payload[0].payload.displayDate}
+                      </p>
+                    </div>
+                  )
                 }
+                return null
               }}
-              onMouseLeave={() => {
-                setHoveredValue(null)
-                setHoveredDate(null)
+            />
+            <Area
+              type="monotone"
+              dataKey="count"
+              stroke={primaryColor}
+              strokeWidth={2}
+              fill="url(#colorCount)"
+              dot={false}
+              activeDot={{
+                r: 6,
+                fill: primaryColor,
+                stroke: "#1a1a2e",
+                strokeWidth: 2,
               }}
-            >
-              <defs>
-                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={primaryColor} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={primaryColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="displayDate"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#666", fontSize: 11 }}
-                interval="preserveStartEnd"
-                minTickGap={40}
-              />
-              <YAxis hide domain={[0, "auto"]} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload?.[0]) {
-                    return (
-                      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-                        <p className="text-sm font-medium text-foreground">
-                          {payload[0].payload.count} drinks
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {payload[0].payload.displayDate}
-                        </p>
-                      </div>
-                    )
-                  }
-                  return null
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="count"
-                stroke={primaryColor}
-                strokeWidth={2}
-                fill="url(#colorCount)"
-                dot={false}
-                activeDot={{
-                  r: 6,
-                  fill: primaryColor,
-                  stroke: "#1a1a2e",
-                  strokeWidth: 2,
-                }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </Card>
   )
@@ -410,32 +435,57 @@ export default function AnalyticsPage() {
 
   const filteredData = React.useMemo(() => {
     const now = new Date()
+    now.setHours(23, 59, 59, 999)
     let startDate: Date
-
+  
     switch (timeRange) {
       case "1W":
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
         break
       case "1M":
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
         break
       case "3M":
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 89 * 24 * 60 * 60 * 1000)
         break
       case "6M":
-        startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 179 * 24 * 60 * 60 * 1000)
         break
       case "1Y":
-        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 364 * 24 * 60 * 60 * 1000)
         break
       case "YTD":
         startDate = new Date(now.getFullYear(), 0, 1)
         break
       default:
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        startDate = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
     }
-
-    return allData.filter((entry) => new Date(entry.date) >= startDate)
+    startDate.setHours(0, 0, 0, 0)
+  
+    const dataByDate = new Map<string, DrinkEntry>()
+    for (const entry of allData) {
+      dataByDate.set(entry.date, entry)
+    }
+  
+    const result: DrinkEntry[] = []
+    const current = new Date(startDate)
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+  
+    while (current <= today) {
+      const dateStr = current.toISOString().split("T")[0]
+      const existing = dataByDate.get(dateStr)
+  
+      if (existing) {
+        result.push(existing)
+      } else {
+        result.push({ date: dateStr, count: 0, types: [] })
+      }
+  
+      current.setDate(current.getDate() + 1)
+    }
+  
+    return result
   }, [allData, timeRange])
 
   const kpiData = React.useMemo(() => {
