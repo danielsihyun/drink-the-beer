@@ -248,24 +248,54 @@ export default function FriendsPage() {
     })
   }, [friends])
 
-  // ✅ Realtime subscription for friendships changes
-  React.useEffect(() => {
-    if (!meId) return
+// ✅ Realtime subscription for friendships changes
+React.useEffect(() => {
+  if (!meId) return
 
-    const friendshipsChannel = supabase
-      .channel("friends-page-friendships")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "friendships",
-        },
-        (payload) => {
-          const newRow = payload.new as any
-          const oldRow = payload.old as any
+  // Build a set of friendship IDs that involve the current user
+  // We need to fetch these once for DELETE matching
+  let myFriendshipIds = new Set<string>()
 
-          // Check if this change involves the current user
+  const fetchMyFriendshipIds = async () => {
+    const { data } = await supabase
+      .from("friendships")
+      .select("id")
+      .or(`requester_id.eq.${meId},addressee_id.eq.${meId}`)
+    
+    myFriendshipIds = new Set((data ?? []).map((r) => r.id))
+    console.log("[Friends] Tracking friendship IDs:", myFriendshipIds)
+  }
+
+  fetchMyFriendshipIds()
+
+  console.log("[Friends] Setting up realtime subscription for user:", meId)
+
+  const friendshipsChannel = supabase
+    .channel("friends-page-friendships")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "friendships",
+      },
+      (payload) => {
+        console.log("[Friends] Realtime event received:", payload)
+
+        const newRow = payload.new as any
+        const oldRow = payload.old as any
+
+        let shouldReload = false
+
+        if (payload.eventType === "DELETE") {
+          // Check if the deleted friendship ID was one of ours
+          const deletedId = oldRow?.id
+          if (deletedId && myFriendshipIds.has(deletedId)) {
+            console.log("[Friends] DELETE detected for my friendship:", deletedId)
+            shouldReload = true
+          }
+        } else {
+          // For INSERT/UPDATE, check if it involves the current user
           const involvesMe =
             newRow?.requester_id === meId ||
             newRow?.addressee_id === meId ||
@@ -273,17 +303,33 @@ export default function FriendsPage() {
             oldRow?.addressee_id === meId
 
           if (involvesMe) {
-            // Reload friends and pending requests
-            loadFriends()
+            console.log("[Friends] INSERT/UPDATE involves me")
+            shouldReload = true
+            // Also update our tracked IDs for new friendships
+            if (payload.eventType === "INSERT" && newRow?.id) {
+              myFriendshipIds.add(newRow.id)
+            }
           }
         }
-      )
-      .subscribe()
 
-    return () => {
-      supabase.removeChannel(friendshipsChannel)
-    }
-  }, [meId, supabase, loadFriends])
+        if (shouldReload) {
+          console.log("[Friends] Reloading friends list...")
+          loadFriends().then(() => {
+            // Refresh the friendship IDs after reload
+            fetchMyFriendshipIds()
+          })
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("[Friends] Subscription status:", status)
+    })
+
+  return () => {
+    console.log("[Friends] Cleaning up subscription")
+    supabase.removeChannel(friendshipsChannel)
+  }
+}, [meId, supabase, loadFriends])
 
   React.useEffect(() => {
     if (!meId) return

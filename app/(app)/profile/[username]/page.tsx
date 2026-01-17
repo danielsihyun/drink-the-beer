@@ -584,6 +584,95 @@ export default function UserProfilePage() {
     load()
   }, [load])
 
+ // ✅ Realtime subscription for friendship changes
+React.useEffect(() => {
+  if (!viewerId || !profile?.id) return
+
+  const profileUserId = profile.id
+
+  // Track the friendship ID between viewer and profile owner
+  let friendshipId: string | null = null
+
+  const fetchFriendshipId = async () => {
+    const { data } = await supabase
+      .from("friendships")
+      .select("id")
+      .or(
+        `and(requester_id.eq.${viewerId},addressee_id.eq.${profileUserId}),and(requester_id.eq.${profileUserId},addressee_id.eq.${viewerId})`
+      )
+      .maybeSingle()
+
+    friendshipId = data?.id ?? null
+    console.log("[Profile] Tracking friendship ID:", friendshipId)
+  }
+
+  fetchFriendshipId()
+
+  console.log("[Profile] Setting up realtime subscription")
+  console.log("[Profile] Viewer ID:", viewerId)
+  console.log("[Profile] Profile ID:", profileUserId)
+
+  const friendshipsChannel = supabase
+    .channel(`profile-friendships-${profileUserId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "friendships",
+      },
+      (payload) => {
+        console.log("[Profile] Realtime event received:", payload)
+
+        const newRow = payload.new as any
+        const oldRow = payload.old as any
+
+        let shouldReload = false
+
+        if (payload.eventType === "DELETE") {
+          // Check if the deleted friendship ID matches ours
+          const deletedId = oldRow?.id
+          if (deletedId && deletedId === friendshipId) {
+            console.log("[Profile] DELETE detected for this friendship:", deletedId)
+            shouldReload = true
+          }
+        } else {
+          // For INSERT/UPDATE, check if it involves both users
+          const involvesViewerAndProfile =
+            (newRow?.requester_id === viewerId && newRow?.addressee_id === profileUserId) ||
+            (newRow?.requester_id === profileUserId && newRow?.addressee_id === viewerId) ||
+            (oldRow?.requester_id === viewerId && oldRow?.addressee_id === profileUserId) ||
+            (oldRow?.requester_id === profileUserId && oldRow?.addressee_id === viewerId)
+
+          if (involvesViewerAndProfile) {
+            console.log("[Profile] INSERT/UPDATE involves viewer and profile")
+            shouldReload = true
+            // Update tracked friendship ID for new friendships
+            if (payload.eventType === "INSERT" && newRow?.id) {
+              friendshipId = newRow.id
+            }
+          }
+        }
+
+        if (shouldReload) {
+          console.log("[Profile] Reloading profile...")
+          load().then(() => {
+            // Refresh the friendship ID after reload
+            fetchFriendshipId()
+          })
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("[Profile] Subscription status:", status)
+    })
+
+  return () => {
+    console.log("[Profile] Cleaning up subscription")
+    supabase.removeChannel(friendshipsChannel)
+  }
+}, [viewerId, profile?.id, supabase, load])
+
   async function toggleCheers(log: DrinkLog) {
     if (!viewerId) return
     if (cheersBusy[log.id]) return
