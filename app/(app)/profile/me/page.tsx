@@ -1,5 +1,6 @@
 "use client"
 
+import { Trophy } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -1188,14 +1189,23 @@ export default function ProfilePage() {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleEditClick}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
-              >
-                <Edit2 className="h-4 w-4" />
-                Edit Profile
-              </button>
+              <div className="flex gap-3">
+                <Link
+                  href="/awards"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Awards
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleEditClick}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Edit Profile
+                </button>
+              </div>
             )}
 
             <div>
