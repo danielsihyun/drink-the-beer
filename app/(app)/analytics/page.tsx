@@ -155,6 +155,27 @@ function KpiCards({
     mostCommon: string
   }
 }) {
+  const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
+  const [fontSize, setFontSize] = React.useState<number | null>(null)
+
+  // Reset font size when data changes
+  React.useLayoutEffect(() => {
+    setFontSize(null)
+  }, [data.mostCommon])
+
+  React.useEffect(() => {
+    if (mostCommonRef.current && fontSize === null) {
+      const element = mostCommonRef.current
+      
+      if (element.scrollWidth > element.clientWidth) {
+        const ratio = element.clientWidth / element.scrollWidth
+        const baseSize = 24
+        const newSize = Math.floor(baseSize * ratio)
+        setFontSize(Math.max(newSize, 12))
+      }
+    }
+  }, [data.mostCommon, fontSize])
+
   const cards = [
     {
       label: "Total Drinks",
@@ -164,7 +185,7 @@ function KpiCards({
     },
     {
       label: "Avg per Day",
-      value: data.avgPerDay.toFixed(1),
+      value: data.avgPerDay.toFixed(2),
       icon: TrendingUp,
       color: "text-chart-2",
     },
@@ -184,15 +205,24 @@ function KpiCards({
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {cards.map((card) => (
-        <Card key={card.label} className="bg-card border-border p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <card.icon className={cn("w-4 h-4", card.color)} />
-            <span className="text-xs text-muted-foreground">{card.label}</span>
-          </div>
-          <p className="text-2xl font-semibold text-foreground truncate">{card.value}</p>
-        </Card>
-      ))}
+      {cards.map((card) => {
+        const isMostCommon = card.label === "Most Common"
+        return (
+          <Card key={card.label} className="bg-card border-border p-3">
+            <div className="flex items-center gap-2">
+              <card.icon className={cn("w-4 h-4", card.color)} />
+              <span className="text-xs text-muted-foreground">{card.label}</span>
+            </div>
+            <p
+              ref={isMostCommon ? mostCommonRef : undefined}
+              className="font-semibold text-foreground truncate -mt-4 h-9 flex items-center text-2xl"
+              style={isMostCommon && fontSize ? { fontSize: `${fontSize}px` } : undefined}
+            >
+              {card.value}
+            </p>
+          </Card>
+        )
+      })}
     </div>
   )
 }
@@ -491,17 +521,19 @@ export default function AnalyticsPage() {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
     const mostInADay = Math.max(...filteredData.map((d) => d.count), 0)
-
+  
     const typeCounts: Record<string, number> = {}
     filteredData.forEach((day) => {
       day.types.forEach((type) => {
         typeCounts[type] = (typeCounts[type] || 0) + 1
       })
     })
-
-    const mostCommon =
-      Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A"
-
+  
+    const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
+    const topCount = sortedTypes[0]?.[1] ?? 0
+    const tiedTypes = sortedTypes.filter(([, count]) => count === topCount).map(([name]) => name)
+    const mostCommon = tiedTypes.length > 0 ? tiedTypes.join("/") : "N/A"
+  
     return { totalDrinks, avgPerDay, mostInADay, mostCommon }
   }, [filteredData])
 
