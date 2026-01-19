@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock } from "lucide-react"
+import { ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter } from "lucide-react"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
 
@@ -49,6 +49,13 @@ const DIFFICULTY_COLORS: Record<Difficulty, { bg: string; border: string; text: 
     text: "text-cyan-400",
     glow: "shadow-cyan-400/20",
   },
+}
+
+const DIFFICULTY_ORDER: Record<Difficulty, number> = {
+  bronze: 0,
+  silver: 1,
+  gold: 2,
+  diamond: 3,
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -212,7 +219,7 @@ function StatsHeader({
 
       <div className="h-2 rounded-full bg-foreground/10 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-amber-600 via-yellow-500 to-cyan-400 transition-all duration-500"
+          className="h-full rounded-full bg-green-500 transition-all duration-500"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -248,6 +255,7 @@ export default function AwardsPage() {
   const [achievements, setAchievements] = React.useState<Achievement[]>([])
   const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all")
+  const [showFilterMenu, setShowFilterMenu] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
@@ -291,6 +299,19 @@ export default function AwardsPage() {
     load()
   }, [router, supabase])
 
+  // Close filter menu when clicking outside
+  React.useEffect(() => {
+    if (!showFilterMenu) return
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-filter-menu]')) {
+        setShowFilterMenu(false)
+      }
+    }
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
+  }, [showFilterMenu])
+
   const unlockedIds = new Set(userAchievements.map((ua) => ua.achievement_id))
   const unlockedMap = new Map(userAchievements.map((ua) => [ua.achievement_id, ua.unlocked_at]))
 
@@ -312,6 +333,10 @@ export default function AwardsPage() {
       }
       groups[achievement.category].push(achievement)
     }
+    // Sort each category's achievements by difficulty: bronze → silver → gold → diamond
+    for (const category in groups) {
+      groups[category].sort((a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty])
+    }
     return groups
   }, [filteredAchievements])
 
@@ -331,7 +356,8 @@ export default function AwardsPage() {
 
   return (
     <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}
@@ -341,6 +367,38 @@ export default function AwardsPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h2 className="text-2xl font-bold">Awards</h2>
+        </div>
+
+        <div className="relative" data-filter-menu>
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu(!showFilterMenu)}
+            className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+          >
+            <Filter className="h-4 w-4" />
+            {selectedCategory === "all" ? "All" : CATEGORY_LABELS[selectedCategory] || selectedCategory}
+          </button>
+
+          {showFilterMenu && (
+            <div className="absolute right-0 top-full z-10 mt-2 w-48 rounded-xl border bg-background shadow-lg max-h-[60vh] overflow-y-auto">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(cat)
+                    setShowFilterMenu(false)
+                  }}
+                  className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
+                    selectedCategory === cat ? "font-semibold bg-foreground/10" : ""
+                  }`}
+                >
+                  {cat === "all" ? "All" : CATEGORY_LABELS[cat] || cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -354,25 +412,6 @@ export default function AwardsPage() {
       ) : (
         <div className="space-y-6">
           <StatsHeader {...stats} />
-
-          {/* Category Filter */}
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 scrollbar-hide">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                  selectedCategory === cat
-                    ? "bg-foreground text-background"
-                    : "bg-foreground/10 hover:bg-foreground/20"
-                )}
-              >
-                {cat === "all" ? "All" : CATEGORY_LABELS[cat] || cat}
-              </button>
-            ))}
-          </div>
 
           {/* Achievements Grid */}
           {Object.entries(groupedAchievements).map(([category, categoryAchievements]) => (

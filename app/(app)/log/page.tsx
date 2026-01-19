@@ -6,6 +6,7 @@ import Cropper from "react-easy-crop"
 import { Camera, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { useAchievements } from "@/contexts/achievement-context"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
@@ -58,6 +59,7 @@ async function getCroppedFile(imageSrc: string, crop: Area, outputMime: string) 
 export default function LogDrinkPage() {
   const supabase = createClient()
   const router = useRouter()
+  const { checkAchievements } = useAchievements()
 
   const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
   const [caption, setCaption] = React.useState("")
@@ -177,6 +179,8 @@ export default function LogDrinkPage() {
         caption: nextCaption.length ? nextCaption : null,
       })
       if (insErr) throw insErr
+
+      await checkAchievements()
 
       resetForm()
       router.replace("/feed?posted=1")
