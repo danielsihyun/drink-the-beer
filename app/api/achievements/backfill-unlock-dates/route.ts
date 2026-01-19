@@ -19,6 +19,13 @@ type DrinkLog = {
   created_at: string
 }
 
+// Add this new type for the partial select
+type DrinkLogPartial = {
+  id: string
+  drink_type: string
+  created_at: string
+}
+
 type UserStats = {
   totalDrinks: number
   uniqueTypes: Set<string>
@@ -350,8 +357,8 @@ export async function POST() {
       // Track drinks per day incrementally
       const drinksByDayMap = new Map<string, number>()
 
-      // Process each drink log chronologically
-      for (const log of logs as DrinkLog[]) {
+      // Process each drink log chronologically - USE DrinkLogPartial HERE
+      for (const log of logs as DrinkLogPartial[]) {
         const logDate = new Date(log.created_at)
         const drinkType = log.drink_type.toLowerCase()
         const dayOfWeek = logDate.getDay()
@@ -503,7 +510,7 @@ export async function POST() {
               let secondDayDate = log.created_at
               if (dayOfWeek === 0) {
                 // This is Sunday, check if Saturday was already logged
-                const saturdayLog = logs.find((l: DrinkLog) => {
+                const saturdayLog = logs.find((l) => {
                   const lDate = new Date(l.created_at)
                   return getLocalDateString(lDate) === saturdayKey
                 })
@@ -512,7 +519,7 @@ export async function POST() {
                 }
               } else {
                 // This is Saturday, check if Sunday was already logged
-                const sundayLog = logs.find((l: DrinkLog) => {
+                const sundayLog = logs.find((l) => {
                   const lDate = new Date(l.created_at)
                   return getLocalDateString(lDate) === weekendKey
                 })
@@ -556,9 +563,10 @@ export async function POST() {
       totalProcessed: userAchievements.length,
       sampleResults: results.slice(0, 10), // Show first 10 for debugging
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.json(
-      { error: error?.message ?? "Unknown error" },
+      { error: message },
       { status: 500 }
     )
   }
