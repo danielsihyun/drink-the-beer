@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Calendar, GlassWater, TrendingUp, Trophy, Star } from "lucide-react"
+import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -204,7 +204,7 @@ function KpiCards({
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 gap-3">
       {cards.map((card) => {
         const isMostCommon = card.label === "Most Common"
         return (
@@ -552,7 +552,17 @@ export default function AnalyticsPage() {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Analytics</h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded-full border p-2"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-2xl font-bold">Analytics</h2>
+          </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
 
@@ -576,7 +586,17 @@ export default function AnalyticsPage() {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Analytics</h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded-full border p-2"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-2xl font-bold">Analytics</h2>
+          </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -589,7 +609,17 @@ export default function AnalyticsPage() {
   return (
     <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Analytics</h2>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center rounded-full border p-2"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-2xl font-bold">Analytics</h2>
+        </div>
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 

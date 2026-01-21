@@ -1,6 +1,6 @@
 "use client"
 
-import { Trophy } from "lucide-react"
+import { Trophy, BarChart3 } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -57,7 +57,6 @@ interface DrinkLog {
   photoUrl: string
   drinkType: DrinkType
   caption?: string
-  // ✅ Cheers state
   cheersCount: number
   cheeredByMe: boolean
 }
@@ -123,7 +122,6 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
-// ✅ Custom clinking wine glasses icon
 interface CheersIconProps {
   filled?: boolean
   className?: string
@@ -140,9 +138,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
@@ -150,7 +146,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -161,9 +156,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
@@ -171,7 +164,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -182,16 +174,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - only show when filled */}
       {filled && (
         <g stroke="#fbbf24">
-          {/* Center line - vertical */}
           <path d="M16 -0.5v3" strokeWidth="1.5" />
-          {/* Left line - mirrored from right */}
           <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
             <path d="M19 3l2-2" strokeWidth="1.5" />
           </g>
-          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
       )}
@@ -318,7 +306,6 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* ✅ Cheers button + edit/delete on same row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-0">
           <button
@@ -338,7 +325,6 @@ function DrinkLogCard({
           >
             <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
 
-            {/* Burst effect on cheer */}
             {cheersAnimating && log.cheeredByMe && (
               <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
@@ -346,13 +332,11 @@ function DrinkLogCard({
             )}
           </button>
 
-          {/* Count outside the button */}
           {log.cheersCount > 0 && (
             <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
           )}
         </div>
 
-        {/* Edit/Delete buttons */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -378,7 +362,6 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* Caption - full width */}
       <div className="-mt-1.5 mb-1 pl-2">
         {log.caption ? (
           <p className="text-sm leading-relaxed">{log.caption}</p>
@@ -522,22 +505,18 @@ export default function ProfilePage() {
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
 
-  // ✅ Cheers state
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
 
-  // ✅ Profile-card actions
   const [passwordOpen, setPasswordOpen] = React.useState(false)
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false)
 
-  // Change password form state
   const [pwCurrent, setPwCurrent] = React.useState("")
   const [pwNew, setPwNew] = React.useState("")
   const [pwConfirm, setPwConfirm] = React.useState("")
   const [pwBusy, setPwBusy] = React.useState(false)
   const [pwError, setPwError] = React.useState<string | null>(null)
 
-  // Delete account confirm state
   const [delConfirm, setDelConfirm] = React.useState("")
   const [delBusy, setDelBusy] = React.useState(false)
   const [delError, setDelError] = React.useState<string | null>(null)
@@ -607,7 +586,6 @@ export default function ProfilePage() {
 
       const p = prof as ProfileRow
 
-      // Join date comes from profiles
       const { data: meta, error: metaErr } = await supabase.from("profiles").select("created_at").eq("id", user.id).single()
       if (metaErr) throw metaErr
 
@@ -640,7 +618,6 @@ export default function ProfilePage() {
             photoUrl: data?.signedUrl ?? "",
             drinkType: r.drink_type,
             caption: r.caption ?? undefined,
-            // ✅ default until we load from RPC
             cheersCount: 0,
             cheeredByMe: false,
           }
@@ -649,7 +626,6 @@ export default function ProfilePage() {
 
       setLogs(mapped)
 
-      // ✅ load cheers counts + whether viewer cheered
       const ids = mapped.map((m) => m.id)
       await loadCheersState(ids, user.id)
 
@@ -677,7 +653,6 @@ export default function ProfilePage() {
     load()
   }, [load])
 
-  // ✅ Toggle cheers function
   async function toggleCheers(log: DrinkLog) {
     if (!userId) return
     if (cheersBusy[log.id]) return
@@ -777,7 +752,6 @@ export default function ProfilePage() {
         throw new Error("Username must be letters, numbers, and underscores only.")
       }
 
-      // Upload avatar if changed
       let nextAvatarPath = profile.avatarPath
       let nextAvatarUrl = profile.avatarUrl
 
@@ -934,7 +908,6 @@ export default function ProfilePage() {
   const groupedDrinks = getGroupedDrinks()
   const current = isEditingProfile ? editedProfile : profile
 
-  // ✅ Change password (real)
   async function onChangePassword() {
     setPwError(null)
     setPwBusy(true)
@@ -970,7 +943,6 @@ export default function ProfilePage() {
     }
   }
 
-  // ✅ Delete account (real via server route)
   async function onDeleteAccount() {
     setDelError(null)
     setDelBusy(true)
@@ -1013,15 +985,26 @@ export default function ProfilePage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Profile</h2>
 
-          <button
-            type="button"
-            onClick={onLogout}
-            disabled={loggingOut}
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-          >
-            {loggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            Log out
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleEditClick}
+              disabled={isEditingProfile}
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+            >
+              <Edit2 className="h-4 w-4" />
+              Edit Profile
+            </button>
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+            >
+              {loggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              Log out
+            </button>
+          </div>
         </div>
 
         {error ? (
@@ -1116,7 +1099,6 @@ export default function ProfilePage() {
 
                   <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
-                  {/* tighter spacing to align with icon row */}
                   <div className="mt-1 flex items-center justify-between pr-20 text-sm">
                     <div className="flex gap-4">
                       <div>
@@ -1132,7 +1114,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* profile-card icons pinned to card bottom-right */}
               {isEditingProfile ? (
                 <div className="absolute bottom-3 right-3 flex items-center gap-1">
                   <button
@@ -1197,14 +1178,13 @@ export default function ProfilePage() {
                   <Trophy className="h-4 w-4" />
                   Awards
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleEditClick}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
+                <Link
+                  href="/analytics"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
                 >
-                  <Edit2 className="h-4 w-4" />
-                  Edit Profile
-                </button>
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </Link>
               </div>
             )}
 
@@ -1273,7 +1253,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ✅ Change Password popup */}
+      {/* Change Password popup */}
       {passwordOpen ? (
         <OverlayPage
           title="Change password"
@@ -1356,7 +1336,7 @@ export default function ProfilePage() {
         </OverlayPage>
       ) : null}
 
-      {/* ✅ Delete Account popup */}
+      {/* Delete Account popup */}
       {deleteAccountOpen ? (
         <OverlayPage
           title="Delete account"
@@ -1441,7 +1421,6 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          {/* smaller preview so modal stays compact */}
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
               <Image
@@ -1548,7 +1527,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* smaller preview so modal stays compact */}
           <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
               <Image

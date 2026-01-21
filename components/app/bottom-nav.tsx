@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Users, Plus, BarChart3, User } from "lucide-react"
+import { Home, Users, Plus, MapPin, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -24,9 +24,9 @@ const navItems = [
     icon: Plus,
   },
   {
-    href: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
+    href: "/map",
+    label: "Map",
+    icon: MapPin,
   },
   {
     href: "/profile/me",
