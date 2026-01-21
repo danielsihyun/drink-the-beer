@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2, Trophy, BarChart3 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -606,7 +607,7 @@ export default function UserProfilePage() {
     load()
   }, [load])
 
-  // ✅ Realtime subscription for friendship changes
+  // Realtime subscription for friendship changes
   React.useEffect(() => {
     if (!viewerId || !profile?.id) return
 
@@ -818,7 +819,7 @@ export default function UserProfilePage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border"
+          className="inline-flex items-center justify-center rounded-full border p-2"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -871,6 +872,26 @@ export default function UserProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Awards and Analytics buttons - only show when friends */}
+          {friendshipStatus === "friends" && (
+            <div className="flex gap-3">
+              <Link
+                href={`/profile/${profile.username}/awards`}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              >
+                <Trophy className="h-4 w-4" />
+                Awards
+              </Link>
+              <Link
+                href={`/profile/${profile.username}/analytics`}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </Link>
+            </div>
+          )}
 
           <div>
             <div className="mb-4 flex items-center justify-between">
