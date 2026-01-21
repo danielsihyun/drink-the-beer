@@ -374,8 +374,15 @@ function DrinkLogCard({
 }
 
 function GroupedDrinkCard({ group, profile, onClick }: { group: GroupedDrinks; profile: UiProfile; onClick: () => void }) {
-  const maxStack = 3
+  const maxStack = Math.min(group.drinks.length, 3)
   const displayDrinks = group.drinks.slice(0, maxStack)
+
+  // Rotation and offset for each card in the stack (bottom to top)
+  const stackStyles = [
+    { rotate: -4, translateX: -6, translateY: 4 },   // Bottom card
+    { rotate: 3, translateX: 4, translateY: -2 },    // Middle card
+    { rotate: 0, translateX: 0, translateY: 0 },     // Top card (front)
+  ]
 
   return (
     <article 
@@ -412,43 +419,40 @@ function GroupedDrinkCard({ group, profile, onClick }: { group: GroupedDrinks; p
         </span>
       </div>
 
-      <div className="relative h-64">
-        {displayDrinks.map((drink, index) => (
-          <div
-            key={drink.id}
-            className="absolute overflow-hidden rounded-xl border-4 border-background shadow-lg"
-            style={{
-              left: `${index * 16}px`,
-              top: `${index * 16}px`,
-              right: `${(displayDrinks.length - 1 - index) * 16}px`,
-              bottom: `${(displayDrinks.length - 1 - index) * 16}px`,
-              zIndex: displayDrinks.length - index,
-            }}
-          >
-            <Image
-              src={drink.photoUrl || "/placeholder.svg"}
-              alt={`${drink.drinkType} drink`}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        ))}
+      <div className="relative mt-3 overflow-hidden rounded-xl border">
+        <div className="relative aspect-square w-full">
+          {/* Render cards from bottom to top */}
+          {displayDrinks.map((drink, index) => {
+            const style = stackStyles[3 - displayDrinks.length + index] || stackStyles[0]
+            
+            return (
+              <div
+                key={drink.id}
+                className="absolute inset-0 overflow-hidden"
+                style={{
+                  transform: `rotate(${style.rotate}deg) translateX(${style.translateX}px) translateY(${style.translateY}px) scale(1.05)`,
+                  zIndex: index,
+                }}
+              >
+                <Image
+                  src={drink.photoUrl || "/placeholder.svg"}
+                  alt={`${drink.drinkType} drink`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            )
+          })}
 
-        {group.count > maxStack && (
-          <div
-            className="absolute flex items-center justify-center rounded-xl border-4 border-background bg-black/80 text-white shadow-lg"
-            style={{
-              left: `${maxStack * 16}px`,
-              top: `${maxStack * 16}px`,
-              right: 0,
-              bottom: 0,
-              zIndex: 0,
-            }}
-          >
-            <span className="text-2xl font-bold">+{group.count - maxStack}</span>
-          </div>
-        )}
+          {group.count > maxStack && (
+            <div 
+              className="absolute bottom-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-white text-sm font-bold shadow-lg"
+            >
+              +{group.count - maxStack}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -579,30 +583,30 @@ function DrinkCarouselModal({
             <span className="absolute top-3 right-3 inline-flex rounded-full border bg-background/90 px-3 py-1 text-xs font-medium">
               {currentDrink.drinkType}
             </span>
-          </div>
 
-          {/* Dots indicator */}
-          {group.drinks.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {group.drinks.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setCurrentIndex(index)
-                  }}
-                  className={cn(
-                    "h-2 w-2 rounded-full transition-all",
-                    index === currentIndex
-                      ? "bg-white w-4"
-                      : "bg-white/50 hover:bg-white/70"
-                  )}
-                  aria-label={`Go to drink ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
+            {/* Dots indicator */}
+            {group.drinks.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {group.drinks.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setCurrentIndex(index)
+                    }}
+                    className={cn(
+                      "h-2 w-2 rounded-full transition-all",
+                      index === currentIndex
+                        ? "bg-white w-4"
+                        : "bg-white/50 hover:bg-white/70"
+                    )}
+                    aria-label={`Go to drink ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Bottom section with actions and caption */}
           <div className="p-3">
