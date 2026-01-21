@@ -567,7 +567,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="animate-pulse rounded-xl border bg-background/50 p-4">
                 <div className="h-3 w-16 rounded bg-foreground/10" />
