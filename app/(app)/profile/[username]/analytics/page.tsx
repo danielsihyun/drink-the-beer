@@ -111,7 +111,7 @@ function TimeRangeSelector({
   const [showMenu, setShowMenu] = React.useState(false)
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setShowMenu(!showMenu)}
@@ -145,6 +145,65 @@ function TimeRangeSelector({
   )
 }
 
+function ResponsiveTitle({ text }: { text: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [fontSize, setFontSize] = React.useState(24)
+  const baseSize = 24
+  const minSize = 16
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const calculateSize = () => {
+      const containerWidth = container.clientWidth
+      if (containerWidth === 0) return
+
+      // Create a temporary span to measure text width at base size
+      const measureSpan = document.createElement('span')
+      measureSpan.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: ${baseSize}px;
+        font-weight: 700;
+        font-family: inherit;
+      `
+      measureSpan.textContent = text
+      document.body.appendChild(measureSpan)
+      
+      const textWidth = measureSpan.offsetWidth
+      document.body.removeChild(measureSpan)
+
+      if (textWidth > containerWidth) {
+        const ratio = containerWidth / textWidth
+        const newSize = Math.max(Math.floor(baseSize * ratio * 0.95), minSize)
+        setFontSize(newSize)
+      } else {
+        setFontSize(baseSize)
+      }
+    }
+
+    calculateSize()
+
+    const resizeObserver = new ResizeObserver(calculateSize)
+    resizeObserver.observe(container)
+
+    return () => resizeObserver.disconnect()
+  }, [text])
+
+  return (
+    <div ref={containerRef} className="min-w-0 flex-1 overflow-hidden">
+      <h2
+        className="font-bold whitespace-nowrap"
+        style={{ fontSize: `${fontSize}px`, lineHeight: '1.25' }}
+      >
+        {text}
+      </h2>
+    </div>
+  )
+}
+
 function KpiCards({
   data,
 }: {
@@ -158,6 +217,7 @@ function KpiCards({
   const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
   const [fontSize, setFontSize] = React.useState<number | null>(null)
 
+  // Reset font size when data changes
   React.useLayoutEffect(() => {
     setFontSize(null)
   }, [data.mostCommon])
@@ -428,7 +488,6 @@ export default function FriendAnalyticsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [allData, setAllData] = React.useState<DrinkEntry[]>([])
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
-  const [displayName, setDisplayName] = React.useState<string>(username)
 
   React.useEffect(() => {
     async function load() {
@@ -463,7 +522,6 @@ export default function FriendAnalyticsPage() {
         }
 
         const profileUserId = profileData.id
-        setDisplayName(profileData.display_name || username)
 
         // If viewing own profile, redirect to /analytics
         if (profileUserId === viewerId) {
@@ -595,20 +653,22 @@ export default function FriendAnalyticsPage() {
     return Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
   }, [filteredData])
 
+  const titleText = `${username}'s Analytics`
+
   if (loading) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
+              className="inline-flex items-center justify-center rounded-full border p-2 shrink-0"
               aria-label="Go back"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold">{displayName}'s Analytics</h2>
+            <ResponsiveTitle text={titleText} />
           </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
@@ -632,17 +692,17 @@ export default function FriendAnalyticsPage() {
   if (error) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
+              className="inline-flex items-center justify-center rounded-full border p-2 shrink-0"
               aria-label="Go back"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold">{displayName}'s Analytics</h2>
+            <ResponsiveTitle text={titleText} />
           </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
@@ -655,17 +715,17 @@ export default function FriendAnalyticsPage() {
 
   return (
     <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={() => router.back()}
-            className="inline-flex items-center justify-center rounded-full border p-2"
+            className="inline-flex items-center justify-center rounded-full border p-2 shrink-0"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h2 className="text-2xl font-bold">{displayName}'s Analytics</h2>
+          <ResponsiveTitle text={titleText} />
         </div>
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
