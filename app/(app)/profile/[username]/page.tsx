@@ -359,60 +359,172 @@ function DrinkLogCard({
   )
 }
 
-function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
-  const maxStack = 3
-  const displayDrinks = group.drinks.slice(0, maxStack)
+function GroupedDrinkCard({ 
+  group, 
+  profile,
+  onToggleCheers,
+  cheersBusy,
+  cheersAnimating,
+}: { 
+  group: GroupedDrinks
+  profile: UiProfile
+  onToggleCheers: (log: DrinkLog) => void
+  cheersBusy: Record<string, boolean>
+  cheersAnimating: Record<string, boolean>
+}) {
+  const [currentIndex, setCurrentIndex] = React.useState(0)
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+
+  const currentDrink = group.drinks[currentIndex]
+
+  // Handle scroll to update current index
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    const scrollLeft = container.scrollLeft
+    const itemWidth = container.offsetWidth
+    const newIndex = Math.round(scrollLeft / itemWidth)
+    
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < group.drinks.length) {
+      setCurrentIndex(newIndex)
+    }
+  }, [currentIndex, group.drinks.length])
+
+  // Scroll to specific index when dot is clicked
+  const scrollToIndex = (index: number) => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    const itemWidth = container.offsetWidth
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: 'smooth'
+    })
+  }
+
+  if (!currentDrink) return null
 
   return (
-    <article className="rounded-2xl border bg-background/50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h4 className="font-semibold">{group.label}</h4>
-          <p className="text-sm opacity-60">
-            {group.count} {group.count === 1 ? "drink" : "drinks"}
-          </p>
+    <article className="rounded-2xl border bg-background/50 p-3">
+      <div className="flex items-center gap-2">
+        {profile.avatarUrl ? (
+          <div className="relative h-10 w-10 overflow-hidden rounded-full">
+            <Image
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+            style={{ backgroundColor: profile.avatarColor }}
+          >
+            {profile.username[0]?.toUpperCase() ?? "U"}
+          </div>
+        )}
+
+        <div className="flex-1 pl-[2px]">
+          <p className="text-sm font-medium">{profile.username}</p>
+          <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
+        </div>
+
+        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+          {currentDrink.drinkType}
+        </span>
+      </div>
+
+      <div className="mt-3 overflow-hidden rounded-xl border">
+        <div className="relative">
+          {/* Scrollable image container with native scroll-snap */}
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ 
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            {group.drinks.map((drink) => (
+              <div 
+                key={drink.id}
+                className="relative aspect-square w-full flex-shrink-0 snap-start snap-always"
+              >
+                <Image
+                  src={drink.photoUrl || "/placeholder.svg"}
+                  alt={`${drink.drinkType} drink`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Dots indicator */}
+          {group.drinks.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+              {group.drinks.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    scrollToIndex(index)
+                  }}
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-200",
+                    index === currentIndex
+                      ? "bg-white w-4"
+                      : "bg-white/50 hover:bg-white/70 w-2"
+                  )}
+                  aria-label={`Go to drink ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="relative h-64">
-        {displayDrinks.map((drink, index) => (
-          <div
-            key={drink.id}
-            className="absolute overflow-hidden rounded-xl border-4 border-background shadow-lg transition-transform hover:z-10 hover:scale-105"
-            style={{
-              left: `${index * 16}px`,
-              top: `${index * 16}px`,
-              right: `${(displayDrinks.length - 1 - index) * 16}px`,
-              bottom: `${(displayDrinks.length - 1 - index) * 16}px`,
-              zIndex: displayDrinks.length - index,
-            }}
-          >
-            <Image src={drink.photoUrl} alt={`${drink.drinkType} drink`} fill className="object-cover" unoptimized />
-          </div>
-        ))}
+      <div className="flex items-center gap-0">
+        <button
+          type="button"
+          onClick={() => onToggleCheers(currentDrink)}
+          disabled={cheersBusy[currentDrink.id]}
+          className={cn(
+            "relative inline-flex items-center justify-center p-1",
+            "transition-all duration-200",
+            currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
+            cheersBusy[currentDrink.id] ? "opacity-70" : "",
+            cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+          )}
+          aria-pressed={currentDrink.cheeredByMe}
+          aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+          title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+        >
+          <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
 
-        {group.count > maxStack && (
-          <div
-            className="absolute flex items-center justify-center rounded-xl border-4 border-background bg-black/80 text-white shadow-lg"
-            style={{
-              left: `${maxStack * 16}px`,
-              top: `${maxStack * 16}px`,
-              right: 0,
-              bottom: 0,
-              zIndex: 0,
-            }}
-          >
-            <span className="text-2xl font-bold">+{group.count - maxStack}</span>
-          </div>
+          {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+            </span>
+          )}
+        </button>
+
+        {currentDrink.cheersCount > 0 && (
+          <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{currentDrink.cheersCount}</span>
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {Array.from(new Set(group.drinks.map((d) => d.drinkType))).map((type) => (
-          <span key={type} className="inline-flex rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
-            {type}
-          </span>
-        ))}
+      <div className="-mt-1.5 mb-1 pl-2">
+        {currentDrink.caption ? (
+          <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
+        ) : (
+          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        )}
       </div>
     </article>
   )
@@ -432,7 +544,7 @@ export default function UserProfilePage() {
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
   const [friendshipStatus, setFriendshipStatus] = React.useState<FriendshipStatus>("none")
 
-  const [granularity, setGranularity] = React.useState<Granularity>("Drink")
+  const [granularity, setGranularity] = React.useState<Granularity>("Day")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
@@ -766,7 +878,12 @@ export default function UserProfilePage() {
       groups[label].push(log)
     }
 
-    return Object.entries(groups).map(([label, drinks]) => ({ label, drinks, count: drinks.length }))
+    return Object.entries(groups).map(([label, drinks]) => ({
+      label,
+      // Reverse to show oldest first (chronological order within the group)
+      drinks: [...drinks].reverse(),
+      count: drinks.length,
+    }))
   }
 
   const groupedDrinks = getGroupedDrinks()
@@ -805,7 +922,14 @@ export default function UserProfilePage() {
               />
             ))
           : groupedDrinks.map((group, index) => (
-              <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
+              <GroupedDrinkCard 
+                key={`${group.label}-${index}`} 
+                group={group}
+                profile={profile!}
+                onToggleCheers={toggleCheers}
+                cheersBusy={cheersBusy}
+                cheersAnimating={cheersAnimating}
+              />
             ))}
       </div>
     )
@@ -910,7 +1034,7 @@ export default function UserProfilePage() {
 
                   {showSortMenu && (
                     <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
-                      {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
+                      {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
                         <button
                           key={option}
                           type="button"

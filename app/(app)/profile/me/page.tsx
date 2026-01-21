@@ -391,37 +391,34 @@ function GroupedDrinkCard({
   cheersAnimating: Record<string, boolean>
 }) {
   const [currentIndex, setCurrentIndex] = React.useState(0)
-  const [touchStart, setTouchStart] = React.useState<number | null>(null)
-  const [touchEnd, setTouchEnd] = React.useState<number | null>(null)
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
 
   const currentDrink = group.drinks[currentIndex]
-  const minSwipeDistance = 50
 
-  const goToPrev = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev))
-  }
+  // Handle scroll to update current index
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    const scrollLeft = container.scrollLeft
+    const itemWidth = container.offsetWidth
+    const newIndex = Math.round(scrollLeft / itemWidth)
+    
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < group.drinks.length) {
+      setCurrentIndex(newIndex)
+    }
+  }, [currentIndex, group.drinks.length])
 
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev < group.drinks.length - 1 ? prev + 1 : prev))
-  }
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) goToNext()
-    if (isRightSwipe) goToPrev()
+  // Scroll to specific index when dot is clicked
+  const scrollToIndex = (index: number) => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    const itemWidth = container.offsetWidth
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: 'smooth'
+    })
   }
 
   if (!currentDrink) return null
@@ -458,37 +455,49 @@ function GroupedDrinkCard({
         </span>
       </div>
 
-      <div 
-        className="mt-3 overflow-hidden rounded-xl border"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <div className="relative aspect-square w-full">
-          <Image
-            src={currentDrink.photoUrl || "/placeholder.svg"}
-            alt={`${currentDrink.drinkType} drink`}
-            fill
-            className="object-cover"
-            unoptimized
-          />
+      <div className="mt-3 overflow-hidden rounded-xl border">
+        <div className="relative">
+          {/* Scrollable image container with native scroll-snap */}
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ 
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            {group.drinks.map((drink) => (
+              <div 
+                key={drink.id}
+                className="relative aspect-square w-full flex-shrink-0 snap-start snap-always"
+              >
+                <Image
+                  src={drink.photoUrl || "/placeholder.svg"}
+                  alt={`${drink.drinkType} drink`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            ))}
+          </div>
 
           {/* Dots indicator */}
           {group.drinks.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               {group.drinks.map((_, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    setCurrentIndex(index)
+                    scrollToIndex(index)
                   }}
                   className={cn(
-                    "h-2 w-2 rounded-full transition-all",
+                    "h-2 rounded-full transition-all duration-200",
                     index === currentIndex
                       ? "bg-white w-4"
-                      : "bg-white/50 hover:bg-white/70"
+                      : "bg-white/50 hover:bg-white/70 w-2"
                   )}
                   aria-label={`Go to drink ${index + 1}`}
                 />
