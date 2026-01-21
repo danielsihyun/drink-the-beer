@@ -373,26 +373,50 @@ function DrinkLogCard({
   )
 }
 
-function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
+function GroupedDrinkCard({ group, profile, onClick }: { group: GroupedDrinks; profile: UiProfile; onClick: () => void }) {
   const maxStack = 3
   const displayDrinks = group.drinks.slice(0, maxStack)
 
   return (
-    <article className="rounded-2xl border bg-background/50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h4 className="font-semibold">{group.label}</h4>
-          <p className="text-sm opacity-60">
-            {group.count} {group.count === 1 ? "drink" : "drinks"}
-          </p>
+    <article 
+      className="rounded-2xl border bg-background/50 p-3 cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.99]"
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        {profile.avatarUrl ? (
+          <div className="relative h-10 w-10 overflow-hidden rounded-full">
+            <Image
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+            style={{ backgroundColor: profile.avatarColor }}
+          >
+            {profile.username[0]?.toUpperCase() ?? "Y"}
+          </div>
+        )}
+
+        <div className="flex-1 pl-[2px]">
+          <p className="text-sm font-medium">{profile.username}</p>
+          <p className="text-xs opacity-60">{group.label}</p>
         </div>
+
+        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+          {group.count} {group.count === 1 ? "drink" : "drinks"}
+        </span>
       </div>
 
       <div className="relative h-64">
         {displayDrinks.map((drink, index) => (
           <div
             key={drink.id}
-            className="absolute overflow-hidden rounded-xl border-4 border-background shadow-lg transition-transform hover:z-10 hover:scale-105"
+            className="absolute overflow-hidden rounded-xl border-4 border-background shadow-lg"
             style={{
               left: `${index * 16}px`,
               top: `${index * 16}px`,
@@ -435,6 +459,256 @@ function GroupedDrinkCard({ group }: { group: GroupedDrinks }) {
         ))}
       </div>
     </article>
+  )
+}
+
+function DrinkCarouselModal({
+  group,
+  profile,
+  onClose,
+  onEdit,
+  onDelete,
+  onToggleCheers,
+  cheersBusy,
+  cheersAnimating,
+}: {
+  group: GroupedDrinks
+  profile: UiProfile
+  onClose: () => void
+  onEdit: (log: DrinkLog) => void
+  onDelete: (log: DrinkLog) => void
+  onToggleCheers: (log: DrinkLog) => void
+  cheersBusy: Record<string, boolean>
+  cheersAnimating: Record<string, boolean>
+}) {
+  const [currentIndex, setCurrentIndex] = React.useState(0)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [touchStart, setTouchStart] = React.useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = React.useState<number | null>(null)
+
+  const currentDrink = group.drinks[currentIndex]
+  const minSwipeDistance = 50
+
+  const goToPrev = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev))
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev < group.drinks.length - 1 ? prev + 1 : prev))
+  }
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe) goToNext()
+    if (isRightSwipe) goToPrev()
+  }
+
+  // Keyboard navigation
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goToPrev()
+      if (e.key === "ArrowRight") goToNext()
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+
+  if (!currentDrink) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="relative w-full max-w-lg mx-4">
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-12 right-0 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Header with date */}
+        <div className="mb-3 text-center">
+          <h3 className="text-lg font-semibold text-white">{group.label}</h3>
+          <p className="text-sm text-white/60">
+            {currentIndex + 1} of {group.drinks.length}
+          </p>
+        </div>
+
+        {/* Carousel container */}
+        <div
+          ref={containerRef}
+          className="relative overflow-hidden rounded-2xl bg-background"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Image */}
+          <div className="relative aspect-square w-full">
+            <Image
+              src={currentDrink.photoUrl || "/placeholder.svg"}
+              alt={`${currentDrink.drinkType} drink`}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+
+            {/* Drink type badge */}
+            <span className="absolute top-3 right-3 inline-flex rounded-full border bg-background/90 px-3 py-1 text-xs font-medium">
+              {currentDrink.drinkType}
+            </span>
+          </div>
+
+          {/* Dots indicator */}
+          {group.drinks.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {group.drinks.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setCurrentIndex(index)
+                  }}
+                  className={cn(
+                    "h-2 w-2 rounded-full transition-all",
+                    index === currentIndex
+                      ? "bg-white w-4"
+                      : "bg-white/50 hover:bg-white/70"
+                  )}
+                  aria-label={`Go to drink ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Bottom section with actions and caption */}
+          <div className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {profile.avatarUrl ? (
+                  <div className="relative h-8 w-8 overflow-hidden rounded-full">
+                    <Image
+                      src={profile.avatarUrl || "/placeholder.svg"}
+                      alt="Profile"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                    style={{ backgroundColor: profile.avatarColor }}
+                  >
+                    {profile.username[0]?.toUpperCase() ?? "Y"}
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium">{profile.username}</p>
+                  <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(currentDrink)
+                  }}
+                  className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                  style={{ width: "30px", height: "30px" }}
+                  aria-label="Edit post"
+                  title="Edit"
+                >
+                  <FilePenLine className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(currentDrink)
+                  }}
+                  className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+                  style={{ width: "30px", height: "30px" }}
+                  aria-label="Delete post"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex items-center gap-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleCheers(currentDrink)
+                  }}
+                  disabled={cheersBusy[currentDrink.id]}
+                  className={cn(
+                    "relative inline-flex items-center justify-center p-1",
+                    "transition-all duration-200",
+                    currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
+                    cheersBusy[currentDrink.id] ? "opacity-70" : "",
+                    cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+                  )}
+                  aria-pressed={currentDrink.cheeredByMe}
+                  aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+                  title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+                >
+                  <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
+
+                  {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+                    </span>
+                  )}
+                </button>
+
+                {currentDrink.cheersCount > 0 && (
+                  <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{currentDrink.cheersCount}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-1 pl-1">
+              {currentDrink.caption ? (
+                <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
+              ) : (
+                <p className="text-sm leading-relaxed opacity-50">No caption</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -487,7 +761,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
 
-  const [granularity, setGranularity] = React.useState<Granularity>("Drink")
+  const [granularity, setGranularity] = React.useState<Granularity>("Day")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
   const [isEditingProfile, setIsEditingProfile] = React.useState(false)
@@ -520,6 +794,8 @@ export default function ProfilePage() {
   const [delConfirm, setDelConfirm] = React.useState("")
   const [delBusy, setDelBusy] = React.useState(false)
   const [delError, setDelError] = React.useState<string | null>(null)
+
+  const [carouselGroup, setCarouselGroup] = React.useState<GroupedDrinks | null>(null)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -883,6 +1159,20 @@ export default function ProfilePage() {
       setProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
       setEditedProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
 
+      // Update carousel group if open
+      if (carouselGroup) {
+        const updatedDrinks = carouselGroup.drinks.filter((d) => d.id !== activePost.id)
+        if (updatedDrinks.length === 0) {
+          setCarouselGroup(null)
+        } else {
+          setCarouselGroup({
+            ...carouselGroup,
+            drinks: updatedDrinks,
+            count: updatedDrinks.length,
+          })
+        }
+      }
+
       setDeletePostOpen(false)
       setActivePost(null)
     } catch (e: any) {
@@ -902,7 +1192,12 @@ export default function ProfilePage() {
       groups[label].push(log)
     }
 
-    return Object.entries(groups).map(([label, drinks]) => ({ label, drinks, count: drinks.length }))
+    return Object.entries(groups).map(([label, drinks]) => ({
+      label,
+      // Reverse to show oldest first (chronological order within the group)
+      drinks: [...drinks].reverse(),
+      count: drinks.length,
+    }))
   }
 
   const groupedDrinks = getGroupedDrinks()
@@ -1205,7 +1500,7 @@ export default function ProfilePage() {
 
                     {showSortMenu && (
                       <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
-                        {(["Drink", "Day", "Month", "Year"] as Granularity[]).map((option) => (
+                        {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
                           <button
                             key={option}
                             type="button"
@@ -1244,7 +1539,12 @@ export default function ProfilePage() {
                         />
                       ))
                     : groupedDrinks.map((group, index) => (
-                        <GroupedDrinkCard key={`${group.label}-${index}`} group={group} />
+                        <GroupedDrinkCard 
+                          key={`${group.label}-${index}`} 
+                          group={group}
+                          profile={current}
+                          onClick={() => setCarouselGroup(group)}
+                        />
                       ))}
                 </div>
               )}
@@ -1252,6 +1552,20 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Drink Carousel Modal */}
+      {carouselGroup && (
+        <DrinkCarouselModal
+          group={carouselGroup}
+          profile={current}
+          onClose={() => setCarouselGroup(null)}
+          onEdit={openEditPost}
+          onDelete={openDeletePost}
+          onToggleCheers={toggleCheers}
+          cheersBusy={cheersBusy}
+          cheersAnimating={cheersAnimating}
+        />
+      )}
 
       {/* Change Password popup */}
       {passwordOpen ? (
