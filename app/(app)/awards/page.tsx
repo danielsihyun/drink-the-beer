@@ -121,7 +121,7 @@ function AchievementCard({
         !unlocked && "opacity-50"
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <div
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full",
