@@ -373,112 +373,17 @@ function DrinkLogCard({
   )
 }
 
-function GroupedDrinkCard({ group, profile, onClick }: { group: GroupedDrinks; profile: UiProfile; onClick: () => void }) {
-  const maxStack = Math.min(group.drinks.length, 3)
-  const displayDrinks = group.drinks.slice(0, maxStack)
-
-  // Rotation and offset for each card in the stack (bottom to top)
-  const stackStyles = [
-    { rotate: -4, translateX: -6, translateY: 4 },   // Bottom card
-    { rotate: 3, translateX: 4, translateY: -2 },    // Middle card
-    { rotate: 0, translateX: 0, translateY: 0 },     // Top card (front)
-  ]
-
-  return (
-    <article 
-      className="rounded-2xl border bg-background/50 p-3 cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.99]"
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        {profile.avatarUrl ? (
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: profile.avatarColor }}
-          >
-            {profile.username[0]?.toUpperCase() ?? "Y"}
-          </div>
-        )}
-
-        <div className="flex-1 pl-[2px]">
-          <p className="text-sm font-medium">{profile.username}</p>
-          <p className="text-xs opacity-60">{group.label}</p>
-        </div>
-
-        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
-          {group.count} {group.count === 1 ? "drink" : "drinks"}
-        </span>
-      </div>
-
-      <div className="relative mt-3 overflow-hidden rounded-xl border">
-        <div className="relative aspect-square w-full">
-          {/* Render cards from bottom to top */}
-          {displayDrinks.map((drink, index) => {
-            const style = stackStyles[3 - displayDrinks.length + index] || stackStyles[0]
-            
-            return (
-              <div
-                key={drink.id}
-                className="absolute inset-0 overflow-hidden"
-                style={{
-                  transform: `rotate(${style.rotate}deg) translateX(${style.translateX}px) translateY(${style.translateY}px) scale(1.05)`,
-                  zIndex: index,
-                }}
-              >
-                <Image
-                  src={drink.photoUrl || "/placeholder.svg"}
-                  alt={`${drink.drinkType} drink`}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-            )
-          })}
-
-          {group.count > maxStack && (
-            <div 
-              className="absolute bottom-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-white text-sm font-bold shadow-lg"
-            >
-              +{group.count - maxStack}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {Array.from(new Set(group.drinks.map((d) => d.drinkType))).map((type) => (
-          <span key={type} className="inline-flex rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
-            {type}
-          </span>
-        ))}
-      </div>
-    </article>
-  )
-}
-
-function DrinkCarouselModal({
-  group,
+function GroupedDrinkCard({ 
+  group, 
   profile,
-  onClose,
   onEdit,
   onDelete,
   onToggleCheers,
   cheersBusy,
   cheersAnimating,
-}: {
+}: { 
   group: GroupedDrinks
   profile: UiProfile
-  onClose: () => void
   onEdit: (log: DrinkLog) => void
   onDelete: (log: DrinkLog) => void
   onToggleCheers: (log: DrinkLog) => void
@@ -486,7 +391,6 @@ function DrinkCarouselModal({
   cheersAnimating: Record<string, boolean>
 }) {
   const [currentIndex, setCurrentIndex] = React.useState(0)
-  const containerRef = React.useRef<HTMLDivElement>(null)
   const [touchStart, setTouchStart] = React.useState<number | null>(null)
   const [touchEnd, setTouchEnd] = React.useState<number | null>(null)
 
@@ -520,199 +424,144 @@ function DrinkCarouselModal({
     if (isRightSwipe) goToPrev()
   }
 
-  // Keyboard navigation
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") goToPrev()
-      if (e.key === "ArrowRight") goToNext()
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
-
   if (!currentDrink) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="relative w-full max-w-lg mx-4">
-        {/* Close button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute -top-12 right-0 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        {/* Header with date */}
-        <div className="mb-3 text-center">
-          <h3 className="text-lg font-semibold text-white">{group.label}</h3>
-          <p className="text-sm text-white/60">
-            {currentIndex + 1} of {group.drinks.length}
-          </p>
-        </div>
-
-        {/* Carousel container */}
-        <div
-          ref={containerRef}
-          className="relative overflow-hidden rounded-2xl bg-background"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          {/* Image */}
-          <div className="relative aspect-square w-full">
+    <article className="rounded-2xl border bg-background/50 p-3">
+      <div className="flex items-center gap-2">
+        {profile.avatarUrl ? (
+          <div className="relative h-10 w-10 overflow-hidden rounded-full">
             <Image
-              src={currentDrink.photoUrl || "/placeholder.svg"}
-              alt={`${currentDrink.drinkType} drink`}
+              src={profile.avatarUrl || "/placeholder.svg"}
+              alt="Profile"
               fill
               className="object-cover"
               unoptimized
             />
-
-            {/* Drink type badge */}
-            <span className="absolute top-3 right-3 inline-flex rounded-full border bg-background/90 px-3 py-1 text-xs font-medium">
-              {currentDrink.drinkType}
-            </span>
-
-            {/* Dots indicator */}
-            {group.drinks.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {group.drinks.map((_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setCurrentIndex(index)
-                    }}
-                    className={cn(
-                      "h-2 w-2 rounded-full transition-all",
-                      index === currentIndex
-                        ? "bg-white w-4"
-                        : "bg-white/50 hover:bg-white/70"
-                    )}
-                    aria-label={`Go to drink ${index + 1}`}
-                  />
-                ))}
-              </div>
-            )}
           </div>
+        ) : (
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+            style={{ backgroundColor: profile.avatarColor }}
+          >
+            {profile.username[0]?.toUpperCase() ?? "Y"}
+          </div>
+        )}
 
-          {/* Bottom section with actions and caption */}
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {profile.avatarUrl ? (
-                  <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                    <Image
-                      src={profile.avatarUrl || "/placeholder.svg"}
-                      alt="Profile"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{ backgroundColor: profile.avatarColor }}
-                  >
-                    {profile.username[0]?.toUpperCase() ?? "Y"}
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium">{profile.username}</p>
-                  <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
-                </div>
-              </div>
+        <div className="flex-1 pl-[2px]">
+          <p className="text-sm font-medium">{profile.username}</p>
+          <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
+        </div>
 
-              <div className="flex items-center gap-1">
+        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+          {currentDrink.drinkType}
+        </span>
+      </div>
+
+      <div 
+        className="mt-3 overflow-hidden rounded-xl border"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="relative aspect-square w-full">
+          <Image
+            src={currentDrink.photoUrl || "/placeholder.svg"}
+            alt={`${currentDrink.drinkType} drink`}
+            fill
+            className="object-cover"
+            unoptimized
+          />
+
+          {/* Dots indicator */}
+          {group.drinks.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {group.drinks.map((_, index) => (
                 <button
+                  key={index}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onEdit(currentDrink)
+                    setCurrentIndex(index)
                   }}
-                  className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                  style={{ width: "30px", height: "30px" }}
-                  aria-label="Edit post"
-                  title="Edit"
-                >
-                  <FilePenLine className="h-4 w-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(currentDrink)
-                  }}
-                  className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                  style={{ width: "30px", height: "30px" }}
-                  aria-label="Delete post"
-                  title="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between">
-              <div className="flex items-center gap-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggleCheers(currentDrink)
-                  }}
-                  disabled={cheersBusy[currentDrink.id]}
                   className={cn(
-                    "relative inline-flex items-center justify-center p-1",
-                    "transition-all duration-200",
-                    currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
-                    cheersBusy[currentDrink.id] ? "opacity-70" : "",
-                    cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+                    "h-2 w-2 rounded-full transition-all",
+                    index === currentIndex
+                      ? "bg-white w-4"
+                      : "bg-white/50 hover:bg-white/70"
                   )}
-                  aria-pressed={currentDrink.cheeredByMe}
-                  aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-                  title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-                >
-                  <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
-
-                  {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
-                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-                    </span>
-                  )}
-                </button>
-
-                {currentDrink.cheersCount > 0 && (
-                  <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{currentDrink.cheersCount}</span>
-                )}
-              </div>
+                  aria-label={`Go to drink ${index + 1}`}
+                />
+              ))}
             </div>
-
-            <div className="mt-1 pl-1">
-              {currentDrink.caption ? (
-                <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
-              ) : (
-                <p className="text-sm leading-relaxed opacity-50">No caption</p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
-    </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-0">
+          <button
+            type="button"
+            onClick={() => onToggleCheers(currentDrink)}
+            disabled={cheersBusy[currentDrink.id]}
+            className={cn(
+              "relative inline-flex items-center justify-center p-1",
+              "transition-all duration-200",
+              currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
+              cheersBusy[currentDrink.id] ? "opacity-70" : "",
+              cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
+            )}
+            aria-pressed={currentDrink.cheeredByMe}
+            aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+            title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
+          >
+            <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
+
+            {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
+              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
+              </span>
+            )}
+          </button>
+
+          {currentDrink.cheersCount > 0 && (
+            <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{currentDrink.cheersCount}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onEdit(currentDrink)}
+            className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+            style={{ width: "30px", height: "30px" }}
+            aria-label="Edit post"
+            title="Edit"
+          >
+            <FilePenLine className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(currentDrink)}
+            className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
+            style={{ width: "30px", height: "30px" }}
+            aria-label="Delete post"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="-mt-1.5 mb-1 pl-2">
+        {currentDrink.caption ? (
+          <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
+        ) : (
+          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        )}
+      </div>
+    </article>
   )
 }
 
@@ -798,8 +647,6 @@ export default function ProfilePage() {
   const [delConfirm, setDelConfirm] = React.useState("")
   const [delBusy, setDelBusy] = React.useState(false)
   const [delError, setDelError] = React.useState<string | null>(null)
-
-  const [carouselGroup, setCarouselGroup] = React.useState<GroupedDrinks | null>(null)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -1162,20 +1009,6 @@ export default function ProfilePage() {
       setLogs((prev) => prev.filter((l) => l.id !== activePost.id))
       setProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
       setEditedProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
-
-      // Update carousel group if open
-      if (carouselGroup) {
-        const updatedDrinks = carouselGroup.drinks.filter((d) => d.id !== activePost.id)
-        if (updatedDrinks.length === 0) {
-          setCarouselGroup(null)
-        } else {
-          setCarouselGroup({
-            ...carouselGroup,
-            drinks: updatedDrinks,
-            count: updatedDrinks.length,
-          })
-        }
-      }
 
       setDeletePostOpen(false)
       setActivePost(null)
@@ -1547,7 +1380,11 @@ export default function ProfilePage() {
                           key={`${group.label}-${index}`} 
                           group={group}
                           profile={current}
-                          onClick={() => setCarouselGroup(group)}
+                          onEdit={openEditPost}
+                          onDelete={openDeletePost}
+                          onToggleCheers={toggleCheers}
+                          cheersBusy={cheersBusy}
+                          cheersAnimating={cheersAnimating}
                         />
                       ))}
                 </div>
@@ -1556,20 +1393,6 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
-
-      {/* Drink Carousel Modal */}
-      {carouselGroup && (
-        <DrinkCarouselModal
-          group={carouselGroup}
-          profile={current}
-          onClose={() => setCarouselGroup(null)}
-          onEdit={openEditPost}
-          onDelete={openDeletePost}
-          onToggleCheers={toggleCheers}
-          cheersBusy={cheersBusy}
-          cheersAnimating={cheersAnimating}
-        />
-      )}
 
       {/* Change Password popup */}
       {passwordOpen ? (
