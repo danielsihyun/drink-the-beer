@@ -812,6 +812,20 @@ export default function ProfilePage() {
 
   const [granularity, setGranularity] = React.useState<Granularity>("Day")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
+  const sortMenuRef = React.useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false)
+      }
+    }
+    if (showSortMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showSortMenu])
 
   const [isEditingProfile, setIsEditingProfile] = React.useState(false)
   const [editedProfile, setEditedProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
@@ -1522,7 +1536,7 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-bold">My Timeline</h3>
 
                 {!isEditingProfile && (
-                  <div className="relative">
+                  <div className="relative" ref={sortMenuRef}>
                     <button
                       type="button"
                       onClick={() => setShowSortMenu(!showSortMenu)}

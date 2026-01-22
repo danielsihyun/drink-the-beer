@@ -102,48 +102,66 @@ function formatAxisDate(dateStr: string): string {
 }
 
 function TimeRangeSelector({
-  value,
-  onChange,
-}: {
-  value: TimeRange
-  onChange: (value: TimeRange) => void
-}) {
-  const [showMenu, setShowMenu] = React.useState(false)
-
-  return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setShowMenu(!showMenu)}
-        className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-      >
-        <Calendar className="h-4 w-4" />
-        {getTimeRangeLabel(value)}
-      </button>
-
-      {showMenu ? (
-        <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
-          {timeRangeOptions.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => {
-                onChange(opt.key)
-                setShowMenu(false)
-              }}
-              className={cn(
-                "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
-                value === opt.key ? "font-semibold" : ""
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
+    value,
+    onChange,
+  }: {
+    value: TimeRange
+    onChange: (value: TimeRange) => void
+  }) {
+    const [showMenu, setShowMenu] = React.useState(false)
+    const menuRef = React.useRef<HTMLDivElement>(null)
+  
+    React.useEffect(() => {
+      function handleClickOutside(event: MouseEvent) {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setShowMenu(false)
+        }
+      }
+  
+      if (showMenu) {
+        document.addEventListener("mousedown", handleClickOutside)
+      }
+  
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside)
+      }
+    }, [showMenu])
+  
+    return (
+      <div ref={menuRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowMenu(!showMenu)}
+          className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+        >
+          <Calendar className="h-4 w-4" />
+          {getTimeRangeLabel(value)}
+        </button>
+  
+        {showMenu ? (
+          <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
+            {timeRangeOptions.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => {
+                  onChange(opt.key)
+                  setShowMenu(false)
+                }}
+                className={cn(
+                  "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
+                  value === opt.key ? "font-semibold" : ""
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+  
 
 function ResponsiveTitle({ text }: { text: string }) {
   const containerRef = React.useRef<HTMLDivElement>(null)

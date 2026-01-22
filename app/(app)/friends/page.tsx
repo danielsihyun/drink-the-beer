@@ -127,6 +127,9 @@ export default function FriendsPage() {
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
+  // ✅ click-outside-to-close for sort menu
+  const sortMenuRef = React.useRef<HTMLDivElement>(null)
+
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const toastTimerRef = React.useRef<number | null>(null)
 
@@ -247,6 +250,23 @@ export default function FriendsPage() {
       return changed ? next : prev
     })
   }, [friends])
+
+  // ✅ click anywhere outside to close sort menu
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false)
+      }
+    }
+
+    if (showSortMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showSortMenu])
 
   // ✅ Realtime subscription for friendships changes
   React.useEffect(() => {
@@ -509,7 +529,7 @@ export default function FriendsPage() {
       <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
-  
+
           <div className="relative">
             <button
               type="button"
@@ -520,7 +540,7 @@ export default function FriendsPage() {
             </button>
           </div>
         </div>
-  
+
         <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
           <Search className="h-4 w-4 opacity-60" />
           <input
@@ -529,14 +549,14 @@ export default function FriendsPage() {
             disabled
           />
         </div>
-  
+
         <div className="mt-6 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
           <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
             <div className="h-3 w-32 rounded bg-foreground/10" />
           </div>
         </div>
-  
+
         <div className="mt-6 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
           {[1, 2, 3].map((i) => (
@@ -563,7 +583,7 @@ export default function FriendsPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
 
-          <div className="relative">
+          <div ref={sortMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setShowSortMenu(!showSortMenu)}
