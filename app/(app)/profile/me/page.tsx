@@ -61,6 +61,14 @@ interface DrinkLog {
   cheeredByMe: boolean
 }
 
+interface CheersUser {
+  id: string
+  username: string
+  displayName: string
+  avatarUrl: string | null
+  avatarColor: string
+}
+
 interface GroupedDrinks {
   label: string
   drinks: DrinkLog[]
@@ -76,6 +84,169 @@ const DEFAULT_PROFILE: UiProfile = {
   avatarColor: "#4ECDC4",
   avatarUrl: null,
   avatarPath: null,
+}
+
+function CheersListModal({
+  drinkLogId,
+  cheersCount,
+  onClose,
+}: {
+  drinkLogId: string
+  cheersCount: number
+  onClose: () => void
+}) {
+  const supabase = createClient()
+  const [loading, setLoading] = React.useState(true)
+  const [users, setUsers] = React.useState<CheersUser[]>([])
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    async function fetchCheers() {
+      setLoading(true)
+      setError(null)
+      
+      try {
+        // Fetch cheers
+        const { data: cheersData, error: cheersErr } = await supabase
+          .from("drink_cheers")
+          .select("user_id, created_at")
+          .eq("drink_log_id", drinkLogId)
+          .order("created_at", { ascending: false })
+
+        if (cheersErr) throw cheersErr
+
+        if (!cheersData || cheersData.length === 0) {
+          setUsers([])
+          setLoading(false)
+          return
+        }
+
+        // Get unique user IDs
+        const userIds = [...new Set(cheersData.map((c) => c.user_id))]
+
+        // Fetch profiles for those users
+        const { data: profilesData, error: profilesErr } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_path")
+          .in("id", userIds)
+
+        if (profilesErr) throw profilesErr
+
+        // Create a map of profiles by ID
+        const profilesMap = new Map(
+          (profilesData ?? []).map((p: any) => [p.id, p])
+        )
+
+        // Get signed URLs for avatars and build user list
+        const cheersUsers: CheersUser[] = await Promise.all(
+          cheersData.map(async (cheer: any) => {
+            const profile = profilesMap.get(cheer.user_id)
+            let avatarUrl: string | null = null
+            
+            if (profile?.avatar_path) {
+              const { data: signedData } = await supabase.storage
+                .from("profile-photos")
+                .createSignedUrl(profile.avatar_path, 60 * 60)
+              avatarUrl = signedData?.signedUrl ?? null
+            }
+            
+            return {
+              id: profile?.id ?? cheer.user_id,
+              username: profile?.username ?? "Unknown",
+              displayName: profile?.display_name ?? profile?.username ?? "Unknown",
+              avatarUrl,
+              avatarColor: "#4ECDC4",
+            }
+          })
+        )
+
+        setUsers(cheersUsers)
+      } catch (e: any) {
+        setError(e?.message ?? "Failed to load cheers")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCheers()
+  }, [drinkLogId, supabase])
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="text-base font-semibold">
+            Cheers {cheersCount > 0 && `(${cheersCount})`}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin opacity-50" />
+            </div>
+          ) : error ? (
+            <div className="px-4 py-6 text-center text-sm text-red-400">
+              {error}
+            </div>
+          ) : users.length === 0 ? (
+            <div className="px-4 py-6 text-center text-sm opacity-60">
+              No cheers yet
+            </div>
+          ) : (
+            <div className="divide-y">
+              {users.map((user) => (
+                <Link
+                  key={user.id}
+                  href={`/profile/${user.username}`}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/5"
+                  onClick={onClose}
+                >
+                  {user.avatarUrl ? (
+                    <div className="relative h-10 w-10 overflow-hidden rounded-full">
+                      <Image
+                        src={user.avatarUrl}
+                        alt={user.username}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: user.avatarColor }}
+                    >
+                      {user.username[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{user.displayName}</p>
+                    <p className="text-xs opacity-60 truncate">@{user.username}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function formatCardTimestamp(iso: string) {
@@ -251,6 +422,7 @@ function DrinkLogCard({
   onEdit,
   onDelete,
   onToggleCheers,
+  onShowCheersList,
   cheersBusy,
   cheersAnimating,
 }: {
@@ -259,6 +431,7 @@ function DrinkLogCard({
   onEdit: (log: DrinkLog) => void
   onDelete: (log: DrinkLog) => void
   onToggleCheers: (log: DrinkLog) => void
+  onShowCheersList: (log: DrinkLog) => void
   cheersBusy: boolean
   cheersAnimating: boolean
 }) {
@@ -333,7 +506,13 @@ function DrinkLogCard({
           </button>
 
           {log.cheersCount > 0 && (
-            <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{log.cheersCount}</span>
+            <button
+              type="button"
+              onClick={() => onShowCheersList(log)}
+              className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
+            >
+              {log.cheersCount}
+            </button>
           )}
         </div>
 
@@ -379,6 +558,7 @@ function GroupedDrinkCard({
   onEdit,
   onDelete,
   onToggleCheers,
+  onShowCheersList,
   cheersBusy,
   cheersAnimating,
 }: { 
@@ -387,6 +567,7 @@ function GroupedDrinkCard({
   onEdit: (log: DrinkLog) => void
   onDelete: (log: DrinkLog) => void
   onToggleCheers: (log: DrinkLog) => void
+  onShowCheersList: (log: DrinkLog) => void
   cheersBusy: Record<string, boolean>
   cheersAnimating: Record<string, boolean>
 }) {
@@ -534,7 +715,13 @@ function GroupedDrinkCard({
           </button>
 
           {currentDrink.cheersCount > 0 && (
-            <span className="text-base font-semibold text-foreground/70 translate-y-0.25">{currentDrink.cheersCount}</span>
+            <button
+              type="button"
+              onClick={() => onShowCheersList(currentDrink)}
+              className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
+            >
+              {currentDrink.cheersCount}
+            </button>
           )}
         </div>
 
@@ -643,6 +830,7 @@ export default function ProfilePage() {
 
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
+  const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
 
   const [passwordOpen, setPasswordOpen] = React.useState(false)
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false)
@@ -1380,6 +1568,7 @@ export default function ProfilePage() {
                           onEdit={openEditPost}
                           onDelete={openDeletePost}
                           onToggleCheers={toggleCheers}
+                          onShowCheersList={(log) => setCheersListPost(log)}
                           cheersBusy={!!cheersBusy[log.id]}
                           cheersAnimating={!!cheersAnimating[log.id]}
                         />
@@ -1392,6 +1581,7 @@ export default function ProfilePage() {
                           onEdit={openEditPost}
                           onDelete={openDeletePost}
                           onToggleCheers={toggleCheers}
+                          onShowCheersList={(log) => setCheersListPost(log)}
                           cheersBusy={cheersBusy}
                           cheersAnimating={cheersAnimating}
                         />
@@ -1402,6 +1592,15 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Cheers List Modal */}
+      {cheersListPost && (
+        <CheersListModal
+          drinkLogId={cheersListPost.id}
+          cheersCount={cheersListPost.cheersCount}
+          onClose={() => setCheersListPost(null)}
+        />
+      )}
 
       {/* Change Password popup */}
       {passwordOpen ? (
