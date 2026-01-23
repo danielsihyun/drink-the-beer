@@ -86,7 +86,7 @@ export default function DrinkMap({
       center={[center.lat, center.lng]}
       zoom={13}
       style={{ height: "calc(100vh - 200px)", width: "100%", minHeight: "400px" }}
-      scrollWheelZoom={true}
+      scrollWheelZoom={false}
     >
       {/* CartoDB Positron tiles */}
       <TileLayer
