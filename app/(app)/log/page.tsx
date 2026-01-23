@@ -81,11 +81,37 @@ export default function LogDrinkPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
   const [cropping, setCropping] = React.useState(false)
 
+  // Geolocation state - captured silently in background
+  const [location, setLocation] = React.useState<{ latitude: number; longitude: number } | null>(null)
+
   // crop area should max out the square
   const cropWrapRef = React.useRef<HTMLDivElement | null>(null)
   const [cropSize, setCropSize] = React.useState<{ width: number; height: number } | null>(null)
 
   const canPost = Boolean(file && drinkType && !submitting)
+
+  // Silently request geolocation when page loads
+  React.useEffect(() => {
+    if (!navigator.geolocation) return
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        })
+      },
+      () => {
+        // Silently fail - location is optional
+        setLocation(null)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000, // Cache for 1 minute
+      }
+    )
+  }, [])
 
   React.useEffect(() => {
     if (!file) return
@@ -172,12 +198,28 @@ export default function LogDrinkPage() {
       if (uploadErr) throw uploadErr
 
       const nextCaption = caption.trim()
-      const { error: insErr } = await supabase.from("drink_logs").insert({
+      
+      // Include location if available
+      const insertData: {
+        user_id: string
+        photo_path: string
+        drink_type: DrinkType
+        caption: string | null
+        latitude?: number
+        longitude?: number
+      } = {
         user_id: user.id,
         photo_path: photoPath,
         drink_type: drinkType,
         caption: nextCaption.length ? nextCaption : null,
-      })
+      }
+
+      if (location) {
+        insertData.latitude = location.latitude
+        insertData.longitude = location.longitude
+      }
+
+      const { error: insErr } = await supabase.from("drink_logs").insert(insertData)
       if (insErr) throw insErr
 
       await checkAchievements()
