@@ -183,7 +183,8 @@ function CheersListModal({
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto">
+        {/* Scrollable list - shows ~5 users, rest are scrollable */}
+        <div className="max-h-[280px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin opacity-50" />
