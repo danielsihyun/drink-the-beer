@@ -8,7 +8,19 @@ import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
 
 // Dynamically import the map components to avoid SSR issues with Leaflet
-const DrinkMap = dynamic(() => import("@/components/drink-map"), {
+type MapCenter = { lat: number; lng: number }
+
+type DrinkMapProps = {
+  locations: DrinkLocation[]
+  center: MapCenter
+}
+
+type FriendsMapProps = {
+  locations: FriendDrinkLocation[]
+  center: MapCenter
+}
+
+const DrinkMap = dynamic<DrinkMapProps>(() => import("@/components/drink-map"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[calc(100vh-280px)] items-center justify-center rounded-2xl border bg-background/50">
@@ -17,7 +29,7 @@ const DrinkMap = dynamic(() => import("@/components/drink-map"), {
   ),
 })
 
-const FriendsMap = dynamic(() => import("@/components/friends-map"), {
+const FriendsMap = dynamic<FriendsMapProps>(() => import("@/components/friends-map"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[calc(100vh-280px)] items-center justify-center rounded-2xl border bg-background/50">
@@ -61,15 +73,15 @@ export default function MapPage() {
   const [tab, setTab] = React.useState<Tab>("my-drinks")
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  
+
   // My drinks state
   const [myLocations, setMyLocations] = React.useState<DrinkLocation[]>([])
-  
+
   // Friends state
   const [friendsLoading, setFriendsLoading] = React.useState(false)
   const [friendsLocations, setFriendsLocations] = React.useState<FriendDrinkLocation[]>([])
   const [friendsLoaded, setFriendsLoaded] = React.useState(false)
-  
+
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
 
@@ -200,9 +212,7 @@ export default function MapPage() {
         if (profilesErr) throw profilesErr
 
         // Create profile map
-        const profileMap = new Map(
-          (profiles ?? []).map((p: any) => [p.id, p])
-        )
+        const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
 
         // Get signed URLs for avatars
         const avatarUrls = new Map<string, string | null>()
@@ -262,7 +272,7 @@ export default function MapPage() {
   }, [tab, friendsLoaded, userId, supabase])
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "my-drinks", label: "My Drinks", icon: <Wine className="h-4 w-4" /> },
+    { key: "my-drinks", label: "Drinks", icon: <Wine className="h-4 w-4" /> },
     { key: "friends", label: "Friends", icon: <Users className="h-4 w-4" /> },
     { key: "happy-hour", label: "Deals", icon: <Clock className="h-4 w-4" /> },
   ]
