@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getCachedSignedUrl, getBatchSignedUrls } from "@/lib/signed-url-cache"
 
 export async function GET(req: Request) {
   try {
@@ -76,48 +77,47 @@ export async function GET(req: Request) {
       (profs ?? []).map((p: { id: string; username: string; avatar_path: string | null }) => [p.id, p])
     )
 
-    // ✅ Create signed URLs for photos + avatars using service role
-    const avatarUrlByPath = new Map<string, string | null>()
+    // ✅ OPTIMIZED: Batch fetch all signed URLs in parallel
 
-    const items = await Promise.all(
-      rows.map(async (row) => {
-        const prof = profileById.get(row.user_id)
-        const username = prof?.username ?? "user"
-        const avatarPath = prof?.avatar_path ?? null
+    // Collect all unique paths
+    const photoPaths = rows.map((r) => r.photo_path)
+    const avatarPaths = [...new Set((profs ?? []).map((p: any) => p.avatar_path).filter(Boolean))]
 
-        const { data: photoData } = await supabaseAdmin.storage
-          .from("drink-photos")
-          .createSignedUrl(row.photo_path, 60 * 60)
+    // Fetch both batches in parallel
+    const [photoUrls, avatarUrls] = await Promise.all([
+      getBatchSignedUrls(supabaseAdmin, "drink-photos", photoPaths, 60 * 60),
+      getBatchSignedUrls(supabaseAdmin, "profile-photos", avatarPaths, 60 * 60),
+    ])
 
-        const photoUrl = photoData?.signedUrl ?? null
+    // Create lookup maps
+    const photoUrlMap = new Map<string, string | null>()
+    for (let i = 0; i < photoPaths.length; i++) {
+      photoUrlMap.set(photoPaths[i], photoUrls[i])
+    }
 
-        let avatarUrl: string | null = null
-        if (avatarPath) {
-          if (avatarUrlByPath.has(avatarPath)) {
-            avatarUrl = avatarUrlByPath.get(avatarPath) ?? null
-          } else {
-            const { data: avData } = await supabaseAdmin.storage
-              .from("profile-photos")
-              .createSignedUrl(avatarPath, 60 * 60)
+    const avatarUrlMap = new Map<string, string | null>()
+    for (let i = 0; i < avatarPaths.length; i++) {
+      avatarUrlMap.set(avatarPaths[i], avatarUrls[i])
+    }
 
-            avatarUrl = avData?.signedUrl ?? null
-            avatarUrlByPath.set(avatarPath, avatarUrl)
-          }
-        }
+    // ✅ Build response items (no more awaits needed!)
+    const items = rows.map((row) => {
+      const prof = profileById.get(row.user_id)
+      const username = prof?.username ?? "user"
+      const avatarPath = prof?.avatar_path ?? null
 
-        return {
-          id: row.id,
-          user_id: row.user_id,
-          photo_path: row.photo_path,
-          drink_type: row.drink_type,
-          caption: row.caption,
-          created_at: row.created_at,
-          username,
-          avatarUrl,
-          photoUrl,
-        }
-      })
-    )
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        photo_path: row.photo_path,
+        drink_type: row.drink_type,
+        caption: row.caption,
+        created_at: row.created_at,
+        username,
+        avatarUrl: avatarPath ? avatarUrlMap.get(avatarPath) ?? null : null,
+        photoUrl: photoUrlMap.get(row.photo_path) ?? null,
+      }
+    })
 
     return NextResponse.json({ items }, { status: 200 })
   } catch (e: any) {

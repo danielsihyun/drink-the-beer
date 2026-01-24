@@ -86,6 +86,7 @@ export default function MapPage() {
   const [userId, setUserId] = React.useState<string | null>(null)
 
   // Load my drinks
+  // Load my drinks
   React.useEffect(() => {
     async function load() {
       try {
@@ -111,27 +112,23 @@ export default function MapPage() {
 
         if (logsErr) throw logsErr
 
-        // Get signed URLs for photos
-        const locationsWithPhotos: DrinkLocation[] = await Promise.all(
-          (logs ?? []).map(async (log: any) => {
-            let photoUrl: string | null = null
-            if (log.photo_path) {
-              const { data: signedData } = await supabase.storage
-                .from("drink-photos")
-                .createSignedUrl(log.photo_path, 60 * 60)
-              photoUrl = signedData?.signedUrl ?? null
-            }
-
-            return {
-              id: log.id,
-              latitude: log.latitude,
-              longitude: log.longitude,
-              drinkType: log.drink_type,
-              createdAt: log.created_at,
-              photoUrl,
-            }
-          })
+        // ✅ OPTIMIZED: Batch fetch all photo URLs in parallel
+        const photoUrls = await Promise.all(
+          (logs ?? []).map((log: any) =>
+            log.photo_path
+              ? supabase.storage.from("drink-photos").createSignedUrl(log.photo_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
         )
+
+        const locationsWithPhotos: DrinkLocation[] = (logs ?? []).map((log: any, i: number) => ({
+          id: log.id,
+          latitude: log.latitude,
+          longitude: log.longitude,
+          drinkType: log.drink_type,
+          createdAt: log.created_at,
+          photoUrl: photoUrls[i],
+        }))
 
         setMyLocations(locationsWithPhotos)
 
@@ -165,6 +162,7 @@ export default function MapPage() {
     load()
   }, [supabase, router])
 
+  // Load friends drinks when tab switches to friends
   // Load friends drinks when tab switches to friends
   React.useEffect(() => {
     if (tab !== "friends" || friendsLoaded || !userId) return
@@ -203,7 +201,7 @@ export default function MapPage() {
 
         if (logsErr) throw logsErr
 
-        // Fetch friend profiles with stats (profile_public_stats has everything we need)
+        // Fetch friend profiles with stats
         const { data: profiles, error: profilesErr } = await supabase
           .from("profile_public_stats")
           .select("id, username, display_name, avatar_path, drink_count, friend_count")
@@ -214,50 +212,49 @@ export default function MapPage() {
         // Create profile map
         const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
 
-        // Get signed URLs for avatars
-        const avatarUrls = new Map<string, string | null>()
-        for (const profile of profiles ?? []) {
-          if (profile.avatar_path) {
-            const { data: signedData } = await supabase.storage
-              .from("profile-photos")
-              .createSignedUrl(profile.avatar_path, 60 * 60)
-            avatarUrls.set(profile.id, signedData?.signedUrl ?? null)
-          } else {
-            avatarUrls.set(profile.id, null)
-          }
-        }
-
-        // Build friend locations with user info
-        const friendLocations: FriendDrinkLocation[] = await Promise.all(
-          (logs ?? []).map(async (log: any) => {
-            let photoUrl: string | null = null
-            if (log.photo_path) {
-              const { data: signedData } = await supabase.storage
-                .from("drink-photos")
-                .createSignedUrl(log.photo_path, 60 * 60)
-              photoUrl = signedData?.signedUrl ?? null
-            }
-
-            const profile = profileMap.get(log.user_id)
-
-            return {
-              id: log.id,
-              latitude: log.latitude,
-              longitude: log.longitude,
-              drinkType: log.drink_type,
-              createdAt: log.created_at,
-              photoUrl,
-              user: {
-                id: log.user_id,
-                username: profile?.username ?? "Unknown",
-                displayName: profile?.display_name ?? profile?.username ?? "Unknown",
-                avatarUrl: avatarUrls.get(log.user_id) ?? null,
-                drinkCount: profile?.drink_count ?? 0,
-                friendCount: profile?.friend_count ?? 0,
-              },
-            }
-          })
+        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
+        const avatarUrls = await Promise.all(
+          (profiles ?? []).map((profile: any) =>
+            profile.avatar_path
+              ? supabase.storage.from("profile-photos").createSignedUrl(profile.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
         )
+
+        // Create avatar URL map
+        const avatarUrlMap = new Map(
+          (profiles ?? []).map((profile: any, i: number) => [profile.id, avatarUrls[i]])
+        )
+
+        // ✅ OPTIMIZED: Batch fetch all photo URLs in parallel
+        const photoUrls = await Promise.all(
+          (logs ?? []).map((log: any) =>
+            log.photo_path
+              ? supabase.storage.from("drink-photos").createSignedUrl(log.photo_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
+        )
+
+        // Build friend locations with user info (no more awaits needed)
+        const friendLocations: FriendDrinkLocation[] = (logs ?? []).map((log: any, i: number) => {
+          const profile = profileMap.get(log.user_id)
+          return {
+            id: log.id,
+            latitude: log.latitude,
+            longitude: log.longitude,
+            drinkType: log.drink_type,
+            createdAt: log.created_at,
+            photoUrl: photoUrls[i],
+            user: {
+              id: log.user_id,
+              username: profile?.username ?? "Unknown",
+              displayName: profile?.display_name ?? profile?.username ?? "Unknown",
+              avatarUrl: avatarUrlMap.get(log.user_id) ?? null,
+              drinkCount: profile?.drink_count ?? 0,
+              friendCount: profile?.friend_count ?? 0,
+            },
+          }
+        })
 
         setFriendsLocations(friendLocations)
         setFriendsLoaded(true)

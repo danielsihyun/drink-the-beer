@@ -136,13 +136,6 @@ export default function FriendsPage() {
 
   const [outgoingPendingIds, setOutgoingPendingIds] = React.useState<Record<string, true>>({})
 
-  async function getSignedUrlOrNull(bucket: string, path: string | null, expiresInSeconds = 60 * 60) {
-    if (!path) return null
-    const { data, error: e } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
-    if (e) return null
-    return data?.signedUrl ?? null
-  }
-
   const loadFriends = React.useCallback(async () => {
     setError(null)
     setLoading(true)
@@ -191,20 +184,26 @@ export default function FriendsPage() {
 
         if (pErr) throw pErr
 
-        const mappedFriends: UiPerson[] = await Promise.all(
-          (profiles ?? []).map(async (r: any) => {
-            const avatarUrl = await getSignedUrlOrNull("profile-photos", r.avatar_path)
-            return {
-              id: r.id,
-              username: r.username,
-              displayName: r.display_name,
-              avatarUrl,
-              friendCount: r.friend_count ?? 0,
-              drinkCount: r.drink_count ?? 0,
-              friendshipCreatedAt: friendshipMap.get(r.id),
-            }
-          })
+        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
+        const avatarPaths = (profiles ?? []).map((p: any) => p.avatar_path)
+        const avatarUrls = await Promise.all(
+          avatarPaths.map((path: string | null) =>
+            path
+              ? supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
         )
+
+        const mappedFriends: UiPerson[] = (profiles ?? []).map((r: any, i: number) => ({
+          id: r.id,
+          username: r.username,
+          displayName: r.display_name,
+          avatarUrl: avatarUrls[i],
+          friendCount: r.friend_count ?? 0,
+          drinkCount: r.drink_count ?? 0,
+          friendshipCreatedAt: friendshipMap.get(r.id),
+        }))
+
         setFriends(mappedFriends)
       }
 
@@ -222,21 +221,26 @@ export default function FriendsPage() {
       if (!pendingRes.ok) throw new Error(pendingJson?.error ?? "Could not load pending requests.")
 
       const pendingRows = (pendingJson?.items ?? []) as PendingIncomingRow[]
-      const mappedPending: UiPending[] = await Promise.all(
-        pendingRows.map(async (p) => {
-          const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
-          return {
-            friendshipId: p.friendshipId,
-            requesterId: p.requesterId,
-            createdAt: p.createdAt,
-            username: p.username,
-            displayName: p.display_name,
-            avatarUrl,
-            friendCount: p.friend_count ?? 0,
-            drinkCount: p.drink_count ?? 0,
-          }
-        })
+      
+      // ✅ OPTIMIZED: Batch fetch pending avatar URLs in parallel
+      const pendingAvatarUrls = await Promise.all(
+        pendingRows.map((p) =>
+          p.avatar_path
+            ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+            : Promise.resolve(null)
+        )
       )
+
+      const mappedPending: UiPending[] = pendingRows.map((p, i) => ({
+        friendshipId: p.friendshipId,
+        requesterId: p.requesterId,
+        createdAt: p.createdAt,
+        username: p.username,
+        displayName: p.display_name,
+        avatarUrl: pendingAvatarUrls[i],
+        friendCount: p.friend_count ?? 0,
+        drinkCount: p.drink_count ?? 0,
+      }))
 
       setPending(mappedPending)
     } catch (e: any) {
@@ -381,20 +385,24 @@ export default function FriendsPage() {
 
         const filtered = base.filter((p) => p.id !== meId && !friendIdSet.has(p.id))
 
-        const mapped: UiPerson[] = await Promise.all(
-          filtered.map(async (p) => {
-            const avatarUrl = await getSignedUrlOrNull("profile-photos", p.avatar_path)
-            return {
-              id: p.id,
-              username: p.username,
-              displayName: p.display_name,
-              avatarUrl,
-              friendCount: p.friend_count ?? 0,
-              drinkCount: p.drink_count ?? 0,
-              outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
-            }
-          })
+        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
+        const avatarUrls = await Promise.all(
+          filtered.map((p) =>
+            p.avatar_path
+              ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
         )
+
+        const mapped: UiPerson[] = filtered.map((p, i) => ({
+          id: p.id,
+          username: p.username,
+          displayName: p.display_name,
+          avatarUrl: avatarUrls[i],
+          friendCount: p.friend_count ?? 0,
+          drinkCount: p.drink_count ?? 0,
+          outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
+        }))
 
         setSearchResults(mapped)
       } catch (e: any) {

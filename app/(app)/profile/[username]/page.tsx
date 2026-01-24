@@ -125,28 +125,31 @@ function CheersListModal({
           (profilesData ?? []).map((p: any) => [p.id, p])
         )
 
-        // Get signed URLs for avatars and build user list
-        const cheersUsers: CheersUser[] = await Promise.all(
-          cheersData.map(async (cheer: any) => {
-            const profile = profilesMap.get(cheer.user_id)
-            let avatarUrl: string | null = null
-            
-            if (profile?.avatar_path) {
-              const { data: signedData } = await supabase.storage
-                .from("profile-photos")
-                .createSignedUrl(profile.avatar_path, 60 * 60)
-              avatarUrl = signedData?.signedUrl ?? null
-            }
-            
-            return {
-              id: profile?.id ?? cheer.user_id,
-              username: profile?.username ?? "Unknown",
-              displayName: profile?.display_name ?? profile?.username ?? "Unknown",
-              avatarUrl,
-              avatarColor: "#4ECDC4",
-            }
-          })
+        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
+        const avatarPaths = cheersData.map((cheer: any) => {
+          const profile = profilesMap.get(cheer.user_id)
+          return profile?.avatar_path ?? null
+        })
+
+        const avatarUrls = await Promise.all(
+          avatarPaths.map((path: string | null) =>
+            path
+              ? supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
         )
+
+        // Build user list (no more awaits needed)
+        const cheersUsers: CheersUser[] = cheersData.map((cheer: any, i: number) => {
+          const profile = profilesMap.get(cheer.user_id)
+          return {
+            id: profile?.id ?? cheer.user_id,
+            username: profile?.username ?? "Unknown",
+            displayName: profile?.display_name ?? profile?.username ?? "Unknown",
+            avatarUrl: avatarUrls[i],
+            avatarColor: "#4ECDC4",
+          }
+        })
 
         setUsers(cheersUsers)
       } catch (e: any) {
@@ -886,23 +889,26 @@ export default function UserProfilePage() {
         if (logsErr) throw logsErr
 
         const base = (rows ?? []) as DrinkLogRow[]
-        const mapped: DrinkLog[] = await Promise.all(
-          base.map(async (r) => {
-            const { data } = await supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60)
-            return {
-              id: r.id,
-              userId: r.user_id,
-              photoPath: r.photo_path,
-              createdAt: r.created_at,
-              timestampLabel: formatCardTimestamp(r.created_at),
-              photoUrl: data?.signedUrl ?? "",
-              drinkType: r.drink_type,
-              caption: r.caption ?? undefined,
-              cheersCount: 0,
-              cheeredByMe: false,
-            }
-          })
+
+        // ✅ OPTIMIZED: Batch fetch all photo URLs in parallel
+        const photoUrls = await Promise.all(
+          base.map((r) =>
+            supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60).then(res => res.data?.signedUrl ?? "")
+          )
         )
+
+        const mapped: DrinkLog[] = base.map((r, i) => ({
+          id: r.id,
+          userId: r.user_id,
+          photoPath: r.photo_path,
+          createdAt: r.created_at,
+          timestampLabel: formatCardTimestamp(r.created_at),
+          photoUrl: photoUrls[i],
+          drinkType: r.drink_type,
+          caption: r.caption ?? undefined,
+          cheersCount: 0,
+          cheeredByMe: false,
+        }))
 
         setLogs(mapped)
 
