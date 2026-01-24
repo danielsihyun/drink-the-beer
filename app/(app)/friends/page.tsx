@@ -9,17 +9,6 @@ import { createClient } from "@/lib/supabase/client"
 
 type FriendSort = "name_asc" | "name_desc" | "since_new" | "since_old"
 
-type FriendRow = {
-  user_id: string
-  friend_id: string
-  friendship_created_at: string
-  username: string
-  display_name: string
-  avatar_path: string | null
-  friend_count: number
-  drink_count: number
-}
-
 type SearchProfileRow = {
   id: string
   username: string
@@ -169,30 +158,55 @@ export default function FriendsPage() {
 
       setMeId(user.id)
 
-      const { data: rows, error: fErr } = await supabase
-        .from("friends_with_stats")
-        .select("user_id,friend_id,friendship_created_at,username,display_name,avatar_path,friend_count,drink_count")
-        .eq("user_id", user.id)
+      // Get accepted friendships
+      const { data: friendships, error: fErr } = await supabase
+        .from("friendships")
+        .select("id, requester_id, addressee_id, created_at")
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq("status", "accepted")
         .limit(500)
 
       if (fErr) throw fErr
 
-      const base = (rows ?? []) as FriendRow[]
-      const mappedFriends: UiPerson[] = await Promise.all(
-        base.map(async (r) => {
-          const avatarUrl = await getSignedUrlOrNull("profile-photos", r.avatar_path)
-          return {
-            id: r.friend_id,
-            username: r.username,
-            displayName: r.display_name,
-            avatarUrl,
-            friendCount: r.friend_count ?? 0,
-            drinkCount: r.drink_count ?? 0,
-            friendshipCreatedAt: r.friendship_created_at,
-          }
+      // Extract friend IDs and map to friendship created_at
+      const friendIds = (friendships ?? []).map((f: any) =>
+        f.requester_id === user.id ? f.addressee_id : f.requester_id
+      )
+
+      const friendshipMap = new Map(
+        (friendships ?? []).map((f: any) => {
+          const friendId = f.requester_id === user.id ? f.addressee_id : f.requester_id
+          return [friendId, f.created_at]
         })
       )
-      setFriends(mappedFriends)
+
+      if (friendIds.length === 0) {
+        setFriends([])
+      } else {
+        // Get friend profiles with stats
+        const { data: profiles, error: pErr } = await supabase
+          .from("profile_public_stats")
+          .select("id, username, display_name, avatar_path, friend_count, drink_count")
+          .in("id", friendIds)
+
+        if (pErr) throw pErr
+
+        const mappedFriends: UiPerson[] = await Promise.all(
+          (profiles ?? []).map(async (r: any) => {
+            const avatarUrl = await getSignedUrlOrNull("profile-photos", r.avatar_path)
+            return {
+              id: r.id,
+              username: r.username,
+              displayName: r.display_name,
+              avatarUrl,
+              friendCount: r.friend_count ?? 0,
+              drinkCount: r.drink_count ?? 0,
+              friendshipCreatedAt: friendshipMap.get(r.id),
+            }
+          })
+        )
+        setFriends(mappedFriends)
+      }
 
       const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
       if (sessErr) throw sessErr

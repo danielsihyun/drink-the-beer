@@ -26,14 +26,17 @@ export async function GET(req: Request) {
 
     // ✅ Get accepted friend IDs
     const { data: fr, error: frErr } = await supabaseAdmin
-      .from("friends_with_stats")
-      .select("friend_id")
-      .eq("user_id", user.id)
+      .from("friendships")
+      .select("requester_id, addressee_id")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .eq("status", "accepted")
       .limit(500)
 
     if (frErr) throw frErr
 
-    const friendIds = (fr ?? []).map((r: { friend_id: string }) => r.friend_id)
+    const friendIds = (fr ?? []).map((r: { requester_id: string; addressee_id: string }) =>
+      r.requester_id === user.id ? r.addressee_id : r.requester_id
+    )
     const feedUserIds = Array.from(new Set([user.id, ...friendIds]))
 
     // ✅ Get logs for me + friends

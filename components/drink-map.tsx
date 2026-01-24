@@ -36,13 +36,13 @@ function FitBounds({ locations }: { locations: DrinkLocation[] }) {
 // Get color based on drink type
 function getDrinkColor(drinkType: string): string {
   const colors: Record<string, string> = {
-    Beer: "#F59E0B", // Amber
-    Seltzer: "#06B6D4", // Cyan
-    Wine: "#DC2626", // Red
-    Cocktail: "#8B5CF6", // Purple
-    Shot: "#10B981", // Emerald
-    Spirit: "#F97316", // Orange
-    Other: "#6B7280", // Gray
+    Beer: "#F59E0B",      // Amber
+    Seltzer: "#06B6D4",   // Cyan
+    Wine: "#DC2626",      // Red
+    Cocktail: "#8B5CF6",  // Purple
+    Shot: "#10B981",      // Emerald
+    Spirit: "#F97316",    // Orange
+    Other: "#6B7280",     // Gray
   }
   return colors[drinkType] || colors.Other
 }
@@ -85,15 +85,13 @@ export default function DrinkMap({
     <MapContainer
       center={[center.lat, center.lng]}
       zoom={13}
-      style={{ height: "calc(100vh - 200px)", width: "100%", minHeight: "400px" }}
-      scrollWheelZoom={false}
+      style={{ height: "calc(100vh - 280px)", width: "100%", minHeight: "400px" }}
+      scrollWheelZoom={true}
+      zoomControl={false}
     >
-      {/* CartoDB Positron tiles */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        subdomains={["a", "b", "c", "d"]}
-        maxZoom={20}
       />
 
       <FitBounds locations={locations} />
