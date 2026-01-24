@@ -920,7 +920,7 @@ export default function ProfilePage() {
       setUserId(user.id)
 
       const { data: prof, error: profErr } = await supabase
-        .from("profile_public_stats")
+        .from("profiles")
         .select("id,username,display_name,avatar_path,friend_count,drink_count")
         .eq("id", user.id)
         .single()

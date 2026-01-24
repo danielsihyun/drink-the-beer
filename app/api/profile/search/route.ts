@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     // 1) Search profiles (your existing view/table)
     const { data: profiles, error: profErr } = await supabaseAdmin
-      .from("profile_public_stats")
+      .from("profiles")
       .select("id,username,display_name,avatar_path,friend_count,drink_count")
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
       .limit(25)

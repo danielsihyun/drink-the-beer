@@ -807,7 +807,7 @@ export default function UserProfilePage() {
       setViewerId(currentUserId)
 
       const { data: prof, error: profErr } = await supabase
-        .from("profile_public_stats")
+        .from("profiles")
         .select("id,username,display_name,avatar_path,friend_count,drink_count")
         .eq("username", username)
         .single()
