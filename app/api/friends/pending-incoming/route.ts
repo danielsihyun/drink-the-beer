@@ -39,7 +39,7 @@ export async function GET(req: Request) {
 
     // Pull public profile stats for requesters
     const { data: profiles, error: pErr } = await admin
-      .from("profiles")
+      .from("profile_public_stats")
       .select("id,username,display_name,avatar_path,friend_count,drink_count")
       .in("id", requesterIds)
 

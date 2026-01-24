@@ -203,7 +203,7 @@ export default function MapPage() {
 
         // Fetch friend profiles with stats
         const { data: profiles, error: profilesErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, username, display_name, avatar_path, drink_count, friend_count")
           .in("id", friendIds)
 

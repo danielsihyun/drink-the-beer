@@ -178,7 +178,7 @@ export default function FriendsPage() {
       } else {
         // Get friend profiles with stats
         const { data: profiles, error: pErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, username, display_name, avatar_path, friend_count, drink_count")
           .in("id", friendIds)
 
