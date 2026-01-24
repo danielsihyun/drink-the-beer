@@ -145,7 +145,7 @@ export default function FriendsPage() {
       if (userErr) throw userErr
       const user = userRes.user
       if (!user) {
-        router.replace("/login?redirectTo=%2Ffriends")
+        router.replace("/login?redirectTo=%2Ffeed")
         return
       }
 
