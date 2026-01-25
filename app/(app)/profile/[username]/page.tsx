@@ -114,7 +114,7 @@ function CheersListModal({
 
         // Fetch profiles for those users
         const { data: profilesData, error: profilesErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
           .in("id", userIds)
 
@@ -854,7 +854,7 @@ export default function UserProfilePage() {
       setFriendshipStatus(status)
 
       const { data: meta, error: metaErr } = await supabase
-        .from("profiles")
+        .from("profile_public_stats")
         .select("created_at")
         .eq("id", p.id)
         .single()

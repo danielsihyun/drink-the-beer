@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     const userIdsInFeed = Array.from(new Set(rows.map((r) => r.user_id)))
 
     const { data: profs, error: profErr } = await supabaseAdmin
-      .from("profiles")
+      .from("profile_public_stats")
       .select("id,username,avatar_path")
       .in("id", userIdsInFeed)
 

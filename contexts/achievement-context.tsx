@@ -121,7 +121,7 @@ async function fetchUserStats(supabase: ReturnType<typeof createClient>, userId:
 
   // Fetch user created_at for account age
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profile_public_stats")
     .select("created_at")
     .eq("id", userId)
     .single()

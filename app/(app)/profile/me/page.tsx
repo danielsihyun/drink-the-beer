@@ -126,7 +126,7 @@ function CheersListModal({
 
         // Fetch profiles for those users
         const { data: profilesData, error: profilesErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
           .in("id", userIds)
 
@@ -928,7 +928,7 @@ export default function ProfilePage() {
 
       const p = prof as ProfileRow
 
-      const { data: meta, error: metaErr } = await supabase.from("profiles").select("created_at").eq("id", user.id).single()
+      const { data: meta, error: metaErr } = await supabase.from("profile_public_stats").select("created_at").eq("id", user.id).single()
       if (metaErr) throw metaErr
 
       const m = meta as ProfileMetaRow

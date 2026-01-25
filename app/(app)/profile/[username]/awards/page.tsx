@@ -336,7 +336,7 @@ export default function FriendAwardsPage() {
 
         // Get the profile user's ID from username
         const { data: profileData, error: profileErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, display_name")
           .eq("username", username)
           .single()

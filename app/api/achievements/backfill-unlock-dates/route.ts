@@ -308,7 +308,7 @@ export async function POST() {
 
       // Fetch user's profile for account age
       const { data: profile } = await admin
-        .from("profiles")
+        .from("profile_public_stats")
         .select("created_at")
         .eq("id", userId)
         .single()

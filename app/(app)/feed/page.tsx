@@ -183,7 +183,7 @@ function CheersListModal({
 
         // Fetch profiles for those users
         const { data: profilesData, error: profilesErr } = await supabase
-          .from("profiles")
+          .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
           .in("id", userIds)
 
