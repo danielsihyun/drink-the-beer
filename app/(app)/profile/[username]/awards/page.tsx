@@ -4,7 +4,13 @@ import * as React from "react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter } from "lucide-react"
+import { 
+  ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, 
+  Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter,
+  Coffee, Leaf, Ghost, Gift, Cake, PartyPopper, Repeat, CalendarCheck,
+  CheckCircle, RefreshCw, Beer, Wine, GlassWater, Timer, TrendingUp,
+  RotateCw, Rocket
+} from "lucide-react"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
 
@@ -94,6 +100,26 @@ function getIconComponent(iconName: string, className?: string) {
     share: <Share className={className} />,
     "thumbs-up": <ThumbsUp className={className} />,
     sparkles: <Sparkles className={className} />,
+    coffee: <Coffee className={className} />,
+    clover: <Leaf className={className} />,
+    marijuana: <Leaf className={className} />,
+    ghost: <Ghost className={className} />,
+    turkey: <Award className={className} />,
+    gift: <Gift className={className} />,
+    cake: <Cake className={className} />,
+    party: <PartyPopper className={className} />,
+    repeat: <Repeat className={className} />,
+    "calendar-check": <CalendarCheck className={className} />,
+    "check-circle": <CheckCircle className={className} />,
+    refresh: <RefreshCw className={className} />,
+    beer: <Beer className={className} />,
+    glass: <GlassWater className={className} />,
+    wine: <Wine className={className} />,
+    martini: <Wine className={className} />,
+    timer: <Timer className={className} />,
+    "trending-up": <TrendingUp className={className} />,
+    "rotate-cw": <RotateCw className={className} />,
+    rocket: <Rocket className={className} />,
   }
   return icons[iconName] || <Trophy className={className} />
 }
@@ -112,7 +138,6 @@ function ResponsiveTitle({ text }: { text: string }) {
       const containerWidth = container.clientWidth
       if (containerWidth === 0) return
 
-      // Create a temporary span to measure text width at base size
       const measureSpan = document.createElement('span')
       measureSpan.style.cssText = `
         position: absolute;
@@ -324,7 +349,6 @@ export default function FriendAwardsPage() {
       setLoading(true)
 
       try {
-        // Check if viewer is logged in
         const { data: userRes, error: userErr } = await supabase.auth.getUser()
         if (userErr) throw userErr
         if (!userRes.user) {
@@ -334,7 +358,6 @@ export default function FriendAwardsPage() {
 
         const viewerId = userRes.user.id
 
-        // Get the profile user's ID from username
         const { data: profileData, error: profileErr } = await supabase
           .from("profile_public_stats")
           .select("id, display_name")
@@ -352,13 +375,11 @@ export default function FriendAwardsPage() {
 
         const profileUserId = profileData.id
 
-        // If viewing own profile, redirect to /awards
         if (profileUserId === viewerId) {
           router.replace("/awards")
           return
         }
 
-        // Check friendship status
         const { data: friendshipData, error: friendshipErr } = await supabase
           .from("friendships")
           .select("status")
@@ -376,7 +397,6 @@ export default function FriendAwardsPage() {
           return
         }
 
-        // Fetch all achievements
         const { data: achievementsData, error: achievementsErr } = await supabase
           .from("achievements")
           .select("*")
@@ -385,7 +405,6 @@ export default function FriendAwardsPage() {
 
         if (achievementsErr) throw achievementsErr
 
-        // Fetch user's unlocked achievements
         const { data: userAchievementsData, error: userAchievementsErr } = await supabase
           .from("user_achievements")
           .select("achievement_id, unlocked_at")
@@ -405,7 +424,6 @@ export default function FriendAwardsPage() {
     load()
   }, [router, supabase, username])
 
-  // Close filter menu when clicking outside
   React.useEffect(() => {
     if (!showFilterMenu) return
     const handleClickOutside = (e: MouseEvent) => {
@@ -445,7 +463,6 @@ export default function FriendAwardsPage() {
     return groups
   }, [filteredAchievements])
 
-  // Stats
   const stats = React.useMemo(() => {
     const unlocked = userAchievements.length
     const total = achievements.length
@@ -520,7 +537,6 @@ export default function FriendAwardsPage() {
         <div className="space-y-6">
           <StatsHeader {...stats} />
 
-          {/* Achievements Grid */}
           {Object.entries(groupedAchievements).map(([category, categoryAchievements]) => (
             <div key={category}>
               <h3 className="text-lg font-semibold mb-3">{CATEGORY_LABELS[category] || category}</h3>

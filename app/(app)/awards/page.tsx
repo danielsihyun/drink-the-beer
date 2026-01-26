@@ -4,7 +4,13 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter } from "lucide-react"
+import { 
+  ArrowLeft, Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, 
+  Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter,
+  Coffee, Leaf, Ghost, Gift, Cake, PartyPopper, Repeat, CalendarCheck,
+  CheckCircle, RefreshCw, Beer, Wine, GlassWater, Timer, TrendingUp,
+  RotateCw, Rocket
+} from "lucide-react"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
 
@@ -94,6 +100,26 @@ function getIconComponent(iconName: string, className?: string) {
     share: <Share className={className} />,
     "thumbs-up": <ThumbsUp className={className} />,
     sparkles: <Sparkles className={className} />,
+    coffee: <Coffee className={className} />,
+    clover: <Leaf className={className} />,
+    marijuana: <Leaf className={className} />,
+    ghost: <Ghost className={className} />,
+    turkey: <Award className={className} />,
+    gift: <Gift className={className} />,
+    cake: <Cake className={className} />,
+    party: <PartyPopper className={className} />,
+    repeat: <Repeat className={className} />,
+    "calendar-check": <CalendarCheck className={className} />,
+    "check-circle": <CheckCircle className={className} />,
+    refresh: <RefreshCw className={className} />,
+    beer: <Beer className={className} />,
+    glass: <GlassWater className={className} />,
+    wine: <Wine className={className} />,
+    martini: <Wine className={className} />,
+    timer: <Timer className={className} />,
+    "trending-up": <TrendingUp className={className} />,
+    "rotate-cw": <RotateCw className={className} />,
+    rocket: <Rocket className={className} />,
   }
   return icons[iconName] || <Trophy className={className} />
 }
@@ -121,7 +147,7 @@ function AchievementCard({
         !unlocked && "opacity-50"
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className={cn("flex gap-3", unlocked ? "items-center" : "items-start")}>
         <div
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full",
@@ -270,7 +296,8 @@ export default function AwardsPage() {
           return
         }
 
-        // Fetch all achievements
+        const userId = userRes.user.id
+
         const { data: achievementsData, error: achievementsErr } = await supabase
           .from("achievements")
           .select("*")
@@ -279,11 +306,10 @@ export default function AwardsPage() {
 
         if (achievementsErr) throw achievementsErr
 
-        // Fetch user's unlocked achievements
         const { data: userAchievementsData, error: userAchievementsErr } = await supabase
           .from("user_achievements")
           .select("achievement_id, unlocked_at")
-          .eq("user_id", userRes.user.id)
+          .eq("user_id", userId)
 
         if (userAchievementsErr) throw userAchievementsErr
 
@@ -299,7 +325,6 @@ export default function AwardsPage() {
     load()
   }, [router, supabase])
 
-  // Close filter menu when clicking outside
   React.useEffect(() => {
     if (!showFilterMenu) return
     const handleClickOutside = (e: MouseEvent) => {
@@ -333,14 +358,12 @@ export default function AwardsPage() {
       }
       groups[achievement.category].push(achievement)
     }
-    // Sort each category's achievements by difficulty: bronze → silver → gold → diamond
     for (const category in groups) {
       groups[category].sort((a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty])
     }
     return groups
   }, [filteredAchievements])
 
-  // Stats
   const stats = React.useMemo(() => {
     const unlocked = userAchievements.length
     const total = achievements.length
@@ -358,15 +381,15 @@ export default function AwardsPage() {
     <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center justify-center rounded-full border p-2"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="text-2xl font-bold">Awards</h2>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center rounded-full border p-2"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-2xl font-bold">Awards</h2>
         </div>
 
         <div className="relative" data-filter-menu>
@@ -413,7 +436,6 @@ export default function AwardsPage() {
         <div className="space-y-6">
           <StatsHeader {...stats} />
 
-          {/* Achievements Grid */}
           {Object.entries(groupedAchievements).map(([category, categoryAchievements]) => (
             <div key={category}>
               <h3 className="text-lg font-semibold mb-3">{CATEGORY_LABELS[category] || category}</h3>

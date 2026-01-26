@@ -8,12 +8,28 @@ import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2,
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { ProfileShowcase, MedalPickerModal } from "@/components/showcase-medals"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
-
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
+type Difficulty = "bronze" | "silver" | "gold" | "diamond"
 
+type Achievement = {
+  id: string
+  category: string
+  name: string
+  description: string
+  requirement_type: string
+  requirement_value: string
+  difficulty: Difficulty
+  icon: string
+}
+
+type UserAchievement = {
+  achievement_id: string
+  unlocked_at: string
+}
 type DrinkLogRow = {
   id: string
   user_id: string
@@ -30,6 +46,7 @@ type ProfileRow = {
   avatar_path: string | null
   friend_count: number | null
   drink_count: number | null
+  showcase_achievements: string[] | null
 }
 
 type ProfileMetaRow = {
@@ -45,6 +62,7 @@ type UiProfile = {
   avatarColor: string
   avatarUrl: string | null
   avatarPath: string | null
+  showcaseAchievements: string[]
 }
 
 interface DrinkLog {
@@ -84,6 +102,7 @@ const DEFAULT_PROFILE: UiProfile = {
   avatarColor: "#4ECDC4",
   avatarUrl: null,
   avatarPath: null,
+  showcaseAchievements: [],
 }
 
 function CheersListModal({
@@ -131,6 +150,8 @@ function CheersListModal({
           .in("id", userIds)
 
         if (profilesErr) throw profilesErr
+
+        
 
         // Create a map of profiles by ID
         const profilesMap = new Map(
@@ -818,6 +839,10 @@ export default function ProfilePage() {
   const [showSortMenu, setShowSortMenu] = React.useState(false)
   const sortMenuRef = React.useRef<HTMLDivElement>(null)
 
+  const [achievements, setAchievements] = React.useState<Achievement[]>([])
+  const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
+  const [showMedalPicker, setShowMedalPicker] = React.useState(false)
+
   // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -921,7 +946,7 @@ export default function ProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profile_public_stats")
-        .select("id,username,display_name,avatar_path,friend_count,drink_count")
+        .select("id,username,display_name,avatar_path,friend_count,drink_count,showcase_achievements")
         .eq("id", user.id)
         .single()
       if (profErr) throw profErr
@@ -974,6 +999,20 @@ export default function ProfilePage() {
       const ids = mapped.map((m) => m.id)
       await loadCheersState(ids, user.id)
 
+      // Fetch all achievements
+      const { data: achievementsData } = await supabase
+        .from("achievements")
+        .select("*")
+
+      // Fetch user's unlocked achievements
+      const { data: userAchievementsData } = await supabase
+        .from("user_achievements")
+        .select("achievement_id, unlocked_at")
+        .eq("user_id", user.id)
+
+      setAchievements((achievementsData ?? []) as Achievement[])
+      setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
+
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
         username: p.username,
@@ -983,6 +1022,7 @@ export default function ProfilePage() {
         drinkCount: p.drink_count ?? 0,
         avatarUrl: avatarSignedUrl,
         avatarPath: p.avatar_path ?? null,
+        showcaseAchievements: p.showcase_achievements ?? [],
       }
 
       setProfile(ui)
@@ -1145,6 +1185,24 @@ export default function ProfilePage() {
       setError(e?.message ?? "Could not save profile.")
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  async function saveShowcaseAchievements(ids: string[]) {
+    if (!userId) return
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ showcase_achievements: ids })
+        .eq("id", userId)
+
+      if (error) throw error
+
+      setProfile((p) => ({ ...p, showcaseAchievements: ids }))
+      setEditedProfile((p) => ({ ...p, showcaseAchievements: ids }))
+    } catch (e: any) {
+      setError(e?.message ?? "Could not save showcase")
     }
   }
 
@@ -1375,6 +1433,19 @@ export default function ProfilePage() {
           <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {/* PROFILE CARD */}
             <div className="relative rounded-2xl border bg-background/50 p-3">
+              {/* Showcase Medals - top right corner */}
+              {(current.showcaseAchievements.length > 0 || isEditingProfile) && (
+                <div className="absolute top-3 right-3">
+                  <ProfileShowcase
+                    showcaseIds={current.showcaseAchievements}
+                    achievements={achievements}
+                    isEditing={isEditingProfile}
+                    onOpenPicker={() => setShowMedalPicker(true)}
+                    layout="horizontal"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {current.avatarUrl ? (
@@ -1419,7 +1490,7 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-w-[140px]">
                       <input
                         type="text"
                         value={editedProfile.displayName}
@@ -1449,16 +1520,14 @@ export default function ProfilePage() {
 
                   <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
-                  <div className="mt-1 flex items-center justify-between pr-20 text-sm">
-                    <div className="flex gap-4">
-                      <div>
-                        <span className="font-bold">{profile.friendCount}</span>{" "}
-                        <span className="opacity-60">Friends</span>
-                      </div>
-                      <div>
-                        <span className="font-bold">{profile.drinkCount}</span>{" "}
-                        <span className="opacity-60">Drinks</span>
-                      </div>
+                  <div className="mt-1 flex gap-4 text-sm">
+                    <div>
+                      <span className="font-bold">{profile.friendCount}</span>{" "}
+                      <span className="opacity-60">Friends</span>
+                    </div>
+                    <div>
+                      <span className="font-bold">{profile.drinkCount}</span>{" "}
+                      <span className="opacity-60">Drinks</span>
                     </div>
                   </div>
                 </div>
@@ -1936,6 +2005,17 @@ export default function ProfilePage() {
           </div>
         </OverlayPage>
       ) : null}
+
+      {/* Medal Picker Modal */}
+      {showMedalPicker && (
+        <MedalPickerModal
+          currentShowcase={editedProfile.showcaseAchievements}
+          allAchievements={achievements}
+          unlockedIds={new Set(userAchievements.map((ua) => ua.achievement_id))}
+          onSave={saveShowcaseAchievements}
+          onClose={() => setShowMedalPicker(false)}
+        />
+      )}
     </>
   )
 }

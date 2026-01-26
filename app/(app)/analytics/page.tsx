@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
+import { ActivityGrid } from "@/components/activity-grid"
 import {
   AreaChart,
   Area,
@@ -644,6 +645,7 @@ export default function AnalyticsPage() {
         <KpiCards data={kpiData} />
         <DrinkChart data={filteredData} timeRange={timeRange} />
         <DrinkBreakdown data={breakdownData} />
+        {/*<ActivityGrid data={filteredData} timeRange={timeRange} />*/}
       </div>
     </div>
   )

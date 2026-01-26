@@ -7,9 +7,22 @@ import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2, Trophy, BarChar
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { ProfileShowcase } from "@/components/showcase-medals"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
+type Difficulty = "bronze" | "silver" | "gold" | "diamond"
+
+type Achievement = {
+  id: string
+  category: string
+  name: string
+  description: string
+  requirement_type: string
+  requirement_value: string
+  difficulty: Difficulty
+  icon: string
+}
 
 type DrinkLogRow = {
   id: string
@@ -27,6 +40,7 @@ type ProfileRow = {
   avatar_path: string | null
   friend_count: number | null
   drink_count: number | null
+  showcase_achievements: string[] | null
 }
 
 type ProfileMetaRow = {
@@ -42,6 +56,7 @@ type UiProfile = {
   drinkCount: number
   avatarColor: string
   avatarUrl: string | null
+  showcaseAchievements: string[]
 }
 
 type FriendshipStatus = "none" | "friends" | "pending_outgoing" | "pending_incoming"
@@ -739,6 +754,8 @@ export default function UserProfilePage() {
   const [showSortMenu, setShowSortMenu] = React.useState(false)
   const sortMenuRef = React.useRef<HTMLDivElement>(null)
 
+  const [achievements, setAchievements] = React.useState<Achievement[]>([])
+
   // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -808,7 +825,7 @@ export default function UserProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profile_public_stats")
-        .select("id,username,display_name,avatar_path,friend_count,drink_count")
+        .select("id,username,display_name,avatar_path,friend_count,drink_count,showcase_achievements")
         .eq("username", username)
         .single()
 
@@ -867,6 +884,12 @@ export default function UserProfilePage() {
         avatarSignedUrl = data?.signedUrl ?? null
       }
 
+      // Fetch all achievements for displaying showcase medals
+      const { data: achievementsData } = await supabase
+        .from("achievements")
+        .select("*")
+      setAchievements((achievementsData ?? []) as Achievement[])
+
       const ui: UiProfile = {
         id: p.id,
         username: p.username,
@@ -876,6 +899,7 @@ export default function UserProfilePage() {
         drinkCount: p.drink_count ?? 0,
         avatarColor: "#4ECDC4",
         avatarUrl: avatarSignedUrl,
+        showcaseAchievements: p.showcase_achievements ?? [],
       }
       setProfile(ui)
 
@@ -1173,6 +1197,19 @@ export default function UserProfilePage() {
       ) : profile ? (
         <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
           <div className="relative rounded-2xl border bg-background/50 p-3">
+            {/* Showcase Medals - top right corner */}
+            {profile.showcaseAchievements.length > 0 && (
+              <div className="absolute top-3 right-3">
+                <ProfileShowcase
+                  showcaseIds={profile.showcaseAchievements}
+                  achievements={achievements}
+                  isEditing={false}
+                  onOpenPicker={() => {}}
+                  layout="horizontal"
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
                 <div className="relative h-20 w-20 overflow-hidden rounded-full">
@@ -1192,16 +1229,14 @@ export default function UserProfilePage() {
                 <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
                 <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
-                <div className="mt-1 flex items-center justify-between pr-20 text-sm">
-                  <div className="flex gap-4">
-                    <div>
-                      <span className="font-bold">{profile.friendCount}</span>{" "}
-                      <span className="opacity-60">Friends</span>
-                    </div>
-                    <div>
-                      <span className="font-bold">{profile.drinkCount}</span>{" "}
-                      <span className="opacity-60">Drinks</span>
-                    </div>
+                <div className="mt-1 flex gap-4 text-sm">
+                  <div>
+                    <span className="font-bold">{profile.friendCount}</span>{" "}
+                    <span className="opacity-60">Friends</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">{profile.drinkCount}</span>{" "}
+                    <span className="opacity-60">Drinks</span>
                   </div>
                 </div>
               </div>

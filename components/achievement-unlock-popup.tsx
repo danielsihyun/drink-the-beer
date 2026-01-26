@@ -3,7 +3,13 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, X } from "lucide-react"
+import { 
+  Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, 
+  Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, X,
+  Coffee, Leaf, Ghost, Gift, Cake, PartyPopper, Repeat, CalendarCheck,
+  CheckCircle, RefreshCw, Beer, Wine, GlassWater, Timer, TrendingUp,
+  RotateCw, Rocket
+} from "lucide-react"
 import { useAchievements } from "@/contexts/achievement-context"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
@@ -58,6 +64,26 @@ function getIconComponent(iconName: string, className?: string) {
     share: <Share className={className} />,
     "thumbs-up": <ThumbsUp className={className} />,
     sparkles: <Sparkles className={className} />,
+    coffee: <Coffee className={className} />,
+    clover: <Leaf className={className} />,
+    marijuana: <Leaf className={className} />,
+    ghost: <Ghost className={className} />,
+    turkey: <Award className={className} />,
+    gift: <Gift className={className} />,
+    cake: <Cake className={className} />,
+    party: <PartyPopper className={className} />,
+    repeat: <Repeat className={className} />,
+    "calendar-check": <CalendarCheck className={className} />,
+    "check-circle": <CheckCircle className={className} />,
+    refresh: <RefreshCw className={className} />,
+    beer: <Beer className={className} />,
+    glass: <GlassWater className={className} />,
+    wine: <Wine className={className} />,
+    martini: <Wine className={className} />,
+    timer: <Timer className={className} />,
+    "trending-up": <TrendingUp className={className} />,
+    "rotate-cw": <RotateCw className={className} />,
+    rocket: <Rocket className={className} />,
   }
   return icons[iconName] || <Trophy className={className} />
 }
@@ -72,7 +98,6 @@ export function AchievementUnlockPopup() {
 
   React.useEffect(() => {
     if (currentUnlock && !isVisible) {
-      // Small delay before showing
       const showTimer = setTimeout(() => {
         setIsVisible(true)
       }, 300)
@@ -82,7 +107,6 @@ export function AchievementUnlockPopup() {
 
   React.useEffect(() => {
     if (isVisible && currentUnlock) {
-      // Auto-dismiss after 5 seconds
       const dismissTimer = setTimeout(() => {
         handleDismiss()
       }, 5000)
@@ -110,7 +134,6 @@ export function AchievementUnlockPopup() {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={cn(
           "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
@@ -119,7 +142,6 @@ export function AchievementUnlockPopup() {
         onClick={handleDismiss}
       />
 
-      {/* Popup */}
       <div
         className={cn(
           "fixed left-1/2 top-1/2 z-50 w-[90%] max-w-sm -translate-x-1/2 -translate-y-1/2 transform transition-all duration-300",
@@ -136,7 +158,6 @@ export function AchievementUnlockPopup() {
             colors.glow
           )}
         >
-          {/* Close button */}
           <button
             type="button"
             onClick={(e) => {
@@ -148,7 +169,6 @@ export function AchievementUnlockPopup() {
             <X className="h-5 w-5" />
           </button>
 
-          {/* Confetti/Sparkle effect */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-4 left-1/4 h-2 w-2 animate-ping rounded-full bg-yellow-400 opacity-75" style={{ animationDelay: "0ms" }} />
             <div className="absolute -top-2 right-1/4 h-1.5 w-1.5 animate-ping rounded-full bg-cyan-400 opacity-75" style={{ animationDelay: "200ms" }} />
@@ -156,14 +176,11 @@ export function AchievementUnlockPopup() {
             <div className="absolute top-12 -right-2 h-1.5 w-1.5 animate-ping rounded-full bg-white opacity-75" style={{ animationDelay: "600ms" }} />
           </div>
 
-          {/* Content */}
           <div className="relative text-center">
-            {/* Achievement Unlocked text */}
             <p className={cn("text-sm font-semibold uppercase tracking-widest mb-4", colors.text)}>
               🎉 Achievement Unlocked!
             </p>
 
-            {/* Icon */}
             <div
               className={cn(
                 "mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border-4",
@@ -178,17 +195,14 @@ export function AchievementUnlockPopup() {
               </span>
             </div>
 
-            {/* Achievement name */}
             <h2 className="text-2xl font-bold text-white mb-2">
               {currentUnlock.name}
             </h2>
 
-            {/* Description */}
             <p className="text-white/80 mb-4">
               {currentUnlock.description}
             </p>
 
-            {/* Difficulty badge */}
             <span
               className={cn(
                 "inline-block rounded-full px-4 py-1.5 text-sm font-semibold capitalize",
@@ -201,7 +215,6 @@ export function AchievementUnlockPopup() {
               {currentUnlock.difficulty}
             </span>
 
-            {/* Tap to view hint */}
             <p className="mt-6 text-xs text-white/50">
               Tap to view all achievements
             </p>
