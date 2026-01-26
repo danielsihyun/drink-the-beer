@@ -64,20 +64,40 @@ const DIFFICULTY_ORDER: Record<Difficulty, number> = {
   diamond: 3,
 }
 
+// Define explicit category order
+const CATEGORY_ORDER: string[] = [
+  "total_drinks",
+  "single_day",
+  "social",
+  "cheers",
+  "variety",
+  "streak",
+  "time_based",
+  "dayofweek_based",
+  "holiday_based",
+  "consistency",
+  "drink_specific",
+  "milestones",
+  "speed",
+  "patterns",
+  "secret",
+]
+
 const CATEGORY_LABELS: Record<string, string> = {
   total_drinks: "Total Drinks",
-  variety: "Variety",
   single_day: "Single Day",
-  streak: "Streaks",
   social: "Social",
+  cheers: "Cheers",
+  variety: "Variety",
+  streak: "Streaks",
   time_based: "Time Based",
+  dayofweek_based: "Day of The Week",
+  holiday_based: "Holidays",
   consistency: "Consistency",
-  milestones: "Milestones",
   drink_specific: "Drink Specific",
+  milestones: "Milestones",
   speed: "Speed",
   patterns: "Patterns",
-  sharing: "Sharing",
-  reactions: "Reactions",
   secret: "Secret",
 }
 
@@ -400,8 +420,7 @@ export default function FriendAwardsPage() {
         const { data: achievementsData, error: achievementsErr } = await supabase
           .from("achievements")
           .select("*")
-          .order("category")
-          .order("difficulty")
+          .order("sort_order", { ascending: true })
 
         if (achievementsErr) throw achievementsErr
 
@@ -440,8 +459,16 @@ export default function FriendAwardsPage() {
   const unlockedMap = new Map(userAchievements.map((ua) => [ua.achievement_id, ua.unlocked_at]))
 
   const categories = React.useMemo(() => {
-    const cats = new Set(achievements.map((a) => a.category))
-    return ["all", ...Array.from(cats)]
+    const availableCats = new Set(achievements.map((a) => a.category))
+    // Filter CATEGORY_ORDER to only include categories that exist in achievements
+    const orderedCats = CATEGORY_ORDER.filter((cat) => availableCats.has(cat))
+    // Add any categories not in CATEGORY_ORDER at the end
+    for (const cat of availableCats) {
+      if (!CATEGORY_ORDER.includes(cat)) {
+        orderedCats.push(cat)
+      }
+    }
+    return ["all", ...orderedCats]
   }, [achievements])
 
   const filteredAchievements = React.useMemo(() => {
@@ -451,16 +478,27 @@ export default function FriendAwardsPage() {
 
   const groupedAchievements = React.useMemo(() => {
     const groups: Record<string, Achievement[]> = {}
+    // Achievements are already sorted by sort_order from the database
     for (const achievement of filteredAchievements) {
       if (!groups[achievement.category]) {
         groups[achievement.category] = []
       }
       groups[achievement.category].push(achievement)
     }
-    for (const category in groups) {
-      groups[category].sort((a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty])
+    // Return as array of [category, achievements] pairs in the defined order
+    const orderedGroups: [string, Achievement[]][] = []
+    for (const category of CATEGORY_ORDER) {
+      if (groups[category]) {
+        orderedGroups.push([category, groups[category]])
+      }
     }
-    return groups
+    // Add any categories not in CATEGORY_ORDER at the end
+    for (const category of Object.keys(groups)) {
+      if (!CATEGORY_ORDER.includes(category)) {
+        orderedGroups.push([category, groups[category]])
+      }
+    }
+    return orderedGroups
   }, [filteredAchievements])
 
   const stats = React.useMemo(() => {
@@ -537,7 +575,7 @@ export default function FriendAwardsPage() {
         <div className="space-y-6">
           <StatsHeader {...stats} />
 
-          {Object.entries(groupedAchievements).map(([category, categoryAchievements]) => (
+          {groupedAchievements.map(([category, categoryAchievements]) => (
             <div key={category}>
               <h3 className="text-lg font-semibold mb-3">{CATEGORY_LABELS[category] || category}</h3>
               <div className="grid gap-3">
