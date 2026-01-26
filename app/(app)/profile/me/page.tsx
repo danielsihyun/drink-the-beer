@@ -1180,7 +1180,7 @@ export default function ProfilePage() {
       setProfile(updated)
       setEditedProfile(updated)
       setIsEditingProfile(false)
-      setSuccess("Username changed successfully.")
+      setSuccess("Profile saved successfully.")
     } catch (e: any) {
       setError(e?.message ?? "Could not save profile.")
     } finally {
