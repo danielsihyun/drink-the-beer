@@ -1192,21 +1192,27 @@ export default function ProfilePage() {
     if (!userId) return
 
     try {
-      // Build the new showcase array - maintain 3 slots with specific positions
-      // We'll store empty strings for empty slots to preserve positions
-      const currentShowcase = [...(profile.showcaseAchievements || [])]
+      // Get current filled achievements (no empty strings)
+      const currentShowcase = (profile.showcaseAchievements || []).filter(id => id && id !== "")
       
-      // Pad array to 3 slots
-      while (currentShowcase.length < 3) {
-        currentShowcase.push("")
+      let newShowcase: string[]
+      
+      if (achievementId) {
+        if (slotIndex >= currentShowcase.length) {
+          // Adding new medal
+          newShowcase = [...currentShowcase, achievementId]
+        } else {
+          // Replacing existing medal
+          newShowcase = [...currentShowcase]
+          newShowcase[slotIndex] = achievementId
+        }
+      } else {
+        // Removing medal at slotIndex
+        newShowcase = currentShowcase.filter((_, idx) => idx !== slotIndex)
       }
-      
-      // Update the specific slot
-      currentShowcase[slotIndex] = achievementId || ""
-      
-      // For storage, we keep the array as-is to preserve positions
-      // Empty strings represent empty slots
-      const newShowcase = currentShowcase
+
+      // Ensure max 3
+      newShowcase = newShowcase.slice(0, 3)
 
       const { error } = await supabase
         .from("profiles")
@@ -1219,6 +1225,24 @@ export default function ProfilePage() {
       setEditedProfile((p) => ({ ...p, showcaseAchievements: newShowcase }))
     } catch (e: any) {
       setError(e?.message ?? "Could not save showcase")
+    }
+  }
+
+  async function reorderShowcaseAchievements(newOrder: string[]) {
+    if (!userId) return
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ showcase_achievements: newOrder })
+        .eq("id", userId)
+
+      if (error) throw error
+
+      setProfile((p) => ({ ...p, showcaseAchievements: newOrder }))
+      setEditedProfile((p) => ({ ...p, showcaseAchievements: newOrder }))
+    } catch (e: any) {
+      setError(e?.message ?? "Could not reorder showcase")
     }
   }
 
@@ -1455,6 +1479,7 @@ export default function ProfilePage() {
                   showcaseIds={current.showcaseAchievements}
                   achievements={achievements}
                   onSelectSlot={(index) => setSelectedMedalSlot(index)}
+                  onReorder={reorderShowcaseAchievements}
                   layout="horizontal"
                 />
               </div>
@@ -2023,8 +2048,8 @@ export default function ProfilePage() {
       {selectedMedalSlot !== null && (
         <SingleMedalPickerModal
           slotIndex={selectedMedalSlot}
-          currentAchievementId={profile.showcaseAchievements[selectedMedalSlot] || null}
-          currentShowcaseIds={profile.showcaseAchievements}
+          currentAchievementId={profile.showcaseAchievements.filter(id => id && id !== "")[selectedMedalSlot] || null}
+          currentShowcaseIds={profile.showcaseAchievements.filter(id => id && id !== "")}
           allAchievements={achievements}
           unlockedIds={new Set(userAchievements.map((ua) => ua.achievement_id))}
           onSave={saveShowcaseAchievement}

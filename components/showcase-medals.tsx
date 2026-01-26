@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Plus, X, Check } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { Trophy, Medal, Star, Flame, Users, Sun, Moon, Clock, Calendar, Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Plus, X, Check } from "lucide-react"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
 
@@ -16,11 +15,6 @@ type Achievement = {
   requirement_value: string
   difficulty: Difficulty
   icon: string
-}
-
-type UserAchievement = {
-  achievement_id: string
-  unlocked_at: string
 }
 
 const DIFFICULTY_COLORS: Record<Difficulty, { bg: string; border: string; text: string }> = {
@@ -98,32 +92,101 @@ export function ShowcaseMedal({
   )
 }
 
-// Showcase display for profile card (3 medals max) - always clickable
+// Showcase display for profile card (3 medals max) - always clickable, draggable
 export function ProfileShowcase({
   showcaseIds,
   achievements,
   onSelectSlot,
+  onReorder,
   layout = "horizontal",
   readOnly = false,
 }: {
   showcaseIds: string[]
   achievements: Achievement[]
   onSelectSlot: (slotIndex: number) => void
+  onReorder?: (newOrder: string[]) => void
   layout?: "horizontal" | "vertical"
   readOnly?: boolean
 }) {
-  // Map showcase IDs to achievements, preserving empty slots
-  const showcaseAchievements = showcaseIds.map((id) => 
-    id ? achievements.find((a) => a.id === id) || null : null
-  )
+  const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null)
 
-  // Always show 3 slots
-  const slots = [0, 1, 2]
+  // Get the actual achievements (filter out empty strings)
+  const filledIds = showcaseIds.filter(id => id && id !== "")
+  
+  // Map to achievements
+  const filledAchievements = filledIds
+    .map(id => achievements.find(a => a.id === id))
+    .filter(Boolean) as Achievement[]
+
+  // Build display array: empty slots on left, medals on right
+  const emptySlotCount = 3 - filledAchievements.length
+  const displaySlots: (Achievement | null)[] = [
+    ...Array(emptySlotCount).fill(null),
+    ...filledAchievements
+  ]
 
   // In read-only mode, check if there are any medals to show
-  const hasMedals = showcaseAchievements.some(a => a !== null)
-  if (readOnly && !hasMedals) {
+  if (readOnly && filledAchievements.length === 0) {
     return null
+  }
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (readOnly || !displaySlots[index]) return
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (readOnly || draggedIndex === null) return
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (readOnly || draggedIndex === null || !onReorder) return
+
+    // Only allow dropping on filled slots for reordering
+    if (displaySlots[dropIndex] === null || displaySlots[draggedIndex] === null) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // Calculate the actual indices in filledIds array
+    const draggedFilledIndex = draggedIndex - emptySlotCount
+    const dropFilledIndex = dropIndex - emptySlotCount
+
+    if (draggedFilledIndex >= 0 && dropFilledIndex >= 0 && draggedFilledIndex !== dropFilledIndex) {
+      const newOrder = [...filledIds]
+      const [removed] = newOrder.splice(draggedFilledIndex, 1)
+      newOrder.splice(dropFilledIndex, 0, removed)
+      onReorder(newOrder)
+    }
+
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  // Map display index to actual slot index for the picker
+  const getSlotIndex = (displayIndex: number): number => {
+    // Slot index is based on filled position from right
+    // If clicking empty slot, it's always adding to the leftmost empty position
+    if (displaySlots[displayIndex] === null) {
+      return filledAchievements.length // Next available slot
+    }
+    // For filled slots, calculate position in filledIds
+    return displayIndex - emptySlotCount
   }
 
   return (
@@ -131,22 +194,32 @@ export function ProfileShowcase({
       "flex gap-1.5",
       layout === "vertical" ? "flex-col items-center" : "flex-row items-center"
     )}>
-      {slots.map((index) => {
-        const achievement = showcaseAchievements[index]
+      {displaySlots.map((achievement, index) => {
+        const isDragging = draggedIndex === index
+        const isDragOver = dragOverIndex === index && draggedIndex !== index
         
         if (achievement) {
           if (readOnly) {
-            // Read-only mode: just display, no interaction
-            return <ShowcaseMedal key={index} achievement={achievement} size="sm" />
+            return <ShowcaseMedal key={`${achievement.id}-${index}`} achievement={achievement} size="sm" />
           }
           
           return (
             <button
-              key={index}
+              key={`${achievement.id}-${index}`}
               type="button"
-              onClick={() => onSelectSlot(index)}
-              className="relative group"
-              title={`${achievement.name} - Click to change`}
+              onClick={() => onSelectSlot(getSlotIndex(index))}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              className={cn(
+                "relative group cursor-grab active:cursor-grabbing",
+                isDragging && "opacity-50",
+                isDragOver && "ring-2 ring-foreground/50 rounded-full"
+              )}
+              title={`${achievement.name} - Click to change, drag to reorder`}
             >
               <ShowcaseMedal achievement={achievement} size="sm" />
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -163,10 +236,16 @@ export function ProfileShowcase({
 
         return (
           <button
-            key={index}
+            key={`empty-${index}`}
             type="button"
-            onClick={() => onSelectSlot(index)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-foreground/20 text-foreground/30 hover:border-foreground/40 hover:text-foreground/50 transition-colors"
+            onClick={() => onSelectSlot(getSlotIndex(index))}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, index)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-foreground/20 text-foreground/30 hover:border-foreground/40 hover:text-foreground/50 transition-colors",
+              isDragOver && "border-foreground/50 bg-foreground/5"
+            )}
             title="Add a medal"
           >
             <Plus className="h-3 w-3" />
@@ -189,7 +268,7 @@ export function SingleMedalPickerModal({
 }: {
   slotIndex: number
   currentAchievementId: string | null
-  currentShowcaseIds: string[]
+  currentShowcaseIds: string[]  // Already filtered, no empty strings
   allAchievements: Achievement[]
   unlockedIds: Set<string>
   onSave: (slotIndex: number, achievementId: string | null) => void
@@ -231,7 +310,12 @@ export function SingleMedalPickerModal({
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
             <div className="text-base font-semibold">Choose Medal</div>
-            <div className="text-xs text-muted-foreground">Select an achievement for slot {slotIndex + 1}</div>
+            <div className="text-xs text-muted-foreground">
+              {slotIndex < currentShowcaseIds.length 
+                ? `Change medal in position ${slotIndex + 1}`
+                : "Add a new medal"
+              }
+            </div>
           </div>
           <button
             type="button"
