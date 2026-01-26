@@ -1528,7 +1528,7 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-2 max-w-[180px]">
+                    <div className="space-y-2 max-w-[150px]">
                       <input
                         type="text"
                         value={editedProfile.displayName}
