@@ -8,7 +8,7 @@ import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2,
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { ProfileShowcase, MedalPickerModal } from "@/components/showcase-medals"
+import { ProfileShowcase, SingleMedalPickerModal } from "@/components/showcase-medals"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
@@ -841,7 +841,7 @@ export default function ProfilePage() {
 
   const [achievements, setAchievements] = React.useState<Achievement[]>([])
   const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
-  const [showMedalPicker, setShowMedalPicker] = React.useState(false)
+  const [selectedMedalSlot, setSelectedMedalSlot] = React.useState<number | null>(null)
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -1188,19 +1188,35 @@ export default function ProfilePage() {
     }
   }
 
-  async function saveShowcaseAchievements(ids: string[]) {
+  async function saveShowcaseAchievement(slotIndex: number, achievementId: string | null) {
     if (!userId) return
 
     try {
+      // Build the new showcase array - maintain 3 slots with specific positions
+      // We'll store empty strings for empty slots to preserve positions
+      const currentShowcase = [...(profile.showcaseAchievements || [])]
+      
+      // Pad array to 3 slots
+      while (currentShowcase.length < 3) {
+        currentShowcase.push("")
+      }
+      
+      // Update the specific slot
+      currentShowcase[slotIndex] = achievementId || ""
+      
+      // For storage, we keep the array as-is to preserve positions
+      // Empty strings represent empty slots
+      const newShowcase = currentShowcase
+
       const { error } = await supabase
         .from("profiles")
-        .update({ showcase_achievements: ids })
+        .update({ showcase_achievements: newShowcase })
         .eq("id", userId)
 
       if (error) throw error
 
-      setProfile((p) => ({ ...p, showcaseAchievements: ids }))
-      setEditedProfile((p) => ({ ...p, showcaseAchievements: ids }))
+      setProfile((p) => ({ ...p, showcaseAchievements: newShowcase }))
+      setEditedProfile((p) => ({ ...p, showcaseAchievements: newShowcase }))
     } catch (e: any) {
       setError(e?.message ?? "Could not save showcase")
     }
@@ -1434,17 +1450,14 @@ export default function ProfilePage() {
             {/* PROFILE CARD */}
             <div className="relative rounded-2xl border bg-background/50 p-3">
               {/* Showcase Medals - top right corner */}
-              {(current.showcaseAchievements.length > 0 || isEditingProfile) && (
-                <div className="absolute top-3 right-3">
-                  <ProfileShowcase
-                    showcaseIds={current.showcaseAchievements}
-                    achievements={achievements}
-                    isEditing={isEditingProfile}
-                    onOpenPicker={() => setShowMedalPicker(true)}
-                    layout="horizontal"
-                  />
-                </div>
-              )}
+              <div className="absolute top-3 right-3">
+                <ProfileShowcase
+                  showcaseIds={current.showcaseAchievements}
+                  achievements={achievements}
+                  onSelectSlot={(index) => setSelectedMedalSlot(index)}
+                  layout="horizontal"
+                />
+              </div>
 
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -1490,7 +1503,7 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-2 max-w-[140px]">
+                    <div className="space-y-2 max-w-[180px]">
                       <input
                         type="text"
                         value={editedProfile.displayName}
@@ -2007,13 +2020,15 @@ export default function ProfilePage() {
       ) : null}
 
       {/* Medal Picker Modal */}
-      {showMedalPicker && (
-        <MedalPickerModal
-          currentShowcase={editedProfile.showcaseAchievements}
+      {selectedMedalSlot !== null && (
+        <SingleMedalPickerModal
+          slotIndex={selectedMedalSlot}
+          currentAchievementId={profile.showcaseAchievements[selectedMedalSlot] || null}
+          currentShowcaseIds={profile.showcaseAchievements}
           allAchievements={achievements}
           unlockedIds={new Set(userAchievements.map((ua) => ua.achievement_id))}
-          onSave={saveShowcaseAchievements}
-          onClose={() => setShowMedalPicker(false)}
+          onSave={saveShowcaseAchievement}
+          onClose={() => setSelectedMedalSlot(null)}
         />
       )}
     </>

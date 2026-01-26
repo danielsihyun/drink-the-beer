@@ -75,11 +75,11 @@ export function ShowcaseMedal({
   size = "md" 
 }: { 
   achievement: Achievement
-  size?: "sm" | "md"
+  size?: "xs" | "sm" | "md"
 }) {
   const colors = DIFFICULTY_COLORS[achievement.difficulty]
-  const sizeClasses = size === "sm" ? "h-8 w-8" : "h-10 w-10"
-  const iconSize = size === "sm" ? "h-4 w-4" : "h-5 w-5"
+  const sizeClasses = size === "xs" ? "h-6 w-6" : size === "sm" ? "h-8 w-8" : "h-10 w-10"
+  const iconSize = size === "xs" ? "h-3 w-3" : size === "sm" ? "h-4 w-4" : "h-5 w-5"
 
   return (
     <div
@@ -98,43 +98,32 @@ export function ShowcaseMedal({
   )
 }
 
-// Empty slot for adding a medal
-function EmptyMedalSlot({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-foreground/20 text-foreground/30 hover:border-foreground/40 hover:text-foreground/50 transition-colors"
-      title="Add a medal"
-    >
-      <Plus className="h-4 w-4" />
-    </button>
-  )
-}
-
-// Showcase display for profile card (3 medals max)
+// Showcase display for profile card (3 medals max) - always clickable
 export function ProfileShowcase({
   showcaseIds,
   achievements,
-  isEditing,
-  onOpenPicker,
-  layout = "vertical",
+  onSelectSlot,
+  layout = "horizontal",
+  readOnly = false,
 }: {
   showcaseIds: string[]
   achievements: Achievement[]
-  isEditing: boolean
-  onOpenPicker: () => void
+  onSelectSlot: (slotIndex: number) => void
   layout?: "horizontal" | "vertical"
+  readOnly?: boolean
 }) {
-  const showcaseAchievements = showcaseIds
-    .map((id) => achievements.find((a) => a.id === id))
-    .filter(Boolean) as Achievement[]
+  // Map showcase IDs to achievements, preserving empty slots
+  const showcaseAchievements = showcaseIds.map((id) => 
+    id ? achievements.find((a) => a.id === id) || null : null
+  )
 
   // Always show 3 slots
   const slots = [0, 1, 2]
 
-  if (!isEditing && showcaseAchievements.length === 0) {
-    return null // Don't show anything if no medals and not editing
+  // In read-only mode, check if there are any medals to show
+  const hasMedals = showcaseAchievements.some(a => a !== null)
+  if (readOnly && !hasMedals) {
+    return null
   }
 
   return (
@@ -146,74 +135,87 @@ export function ProfileShowcase({
         const achievement = showcaseAchievements[index]
         
         if (achievement) {
-          if (isEditing) {
-            return (
-              <button
-                key={index}
-                type="button"
-                onClick={onOpenPicker}
-                className="relative group"
-                title={`${achievement.name} - Click to change`}
-              >
-                <ShowcaseMedal achievement={achievement} size="sm" />
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-white text-[10px]">Edit</span>
-                </div>
-              </button>
-            )
+          if (readOnly) {
+            // Read-only mode: just display, no interaction
+            return <ShowcaseMedal key={index} achievement={achievement} size="sm" />
           }
-          return <ShowcaseMedal key={index} achievement={achievement} size="sm" />
-        }
-
-        if (isEditing) {
+          
           return (
             <button
               key={index}
               type="button"
-              onClick={onOpenPicker}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-foreground/20 text-foreground/30 hover:border-foreground/40 hover:text-foreground/50 transition-colors"
-              title="Add a medal"
+              onClick={() => onSelectSlot(index)}
+              className="relative group"
+              title={`${achievement.name} - Click to change`}
             >
-              <Plus className="h-3 w-3" />
+              <ShowcaseMedal achievement={achievement} size="sm" />
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-white text-[10px]">Edit</span>
+              </div>
             </button>
           )
         }
 
-        return null
+        // Empty slot - only show if not read-only
+        if (readOnly) {
+          return null
+        }
+
+        return (
+          <button
+            key={index}
+            type="button"
+            onClick={() => onSelectSlot(index)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-foreground/20 text-foreground/30 hover:border-foreground/40 hover:text-foreground/50 transition-colors"
+            title="Add a medal"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )
       })}
     </div>
   )
 }
 
-// Medal picker modal
-export function MedalPickerModal({
-  currentShowcase,
+// Single medal picker modal (for one slot at a time)
+export function SingleMedalPickerModal({
+  slotIndex,
+  currentAchievementId,
+  currentShowcaseIds,
   allAchievements,
   unlockedIds,
   onSave,
   onClose,
 }: {
-  currentShowcase: string[]
+  slotIndex: number
+  currentAchievementId: string | null
+  currentShowcaseIds: string[]
   allAchievements: Achievement[]
   unlockedIds: Set<string>
-  onSave: (ids: string[]) => void
+  onSave: (slotIndex: number, achievementId: string | null) => void
   onClose: () => void
 }) {
-  const [selected, setSelected] = React.useState<string[]>(currentShowcase)
+  const [selected, setSelected] = React.useState<string | null>(currentAchievementId)
 
   const unlockedAchievements = allAchievements.filter((a) => unlockedIds.has(a.id))
-
-  const toggleSelection = (id: string) => {
-    if (selected.includes(id)) {
-      setSelected(selected.filter((s) => s !== id))
-    } else if (selected.length < 3) {
-      setSelected([...selected, id])
-    }
-  }
+  
+  // Get IDs that are already selected in OTHER slots
+  const alreadySelectedInOtherSlots = new Set(
+    currentShowcaseIds.filter((id, idx) => id && idx !== slotIndex)
+  )
 
   const handleSave = () => {
-    onSave(selected)
+    onSave(slotIndex, selected)
     onClose()
+  }
+
+  const toggleSelection = (achievementId: string) => {
+    if (selected === achievementId) {
+      // Clicking already selected item unselects it
+      setSelected(null)
+    } else {
+      setSelected(achievementId)
+    }
   }
 
   return (
@@ -228,8 +230,8 @@ export function MedalPickerModal({
       <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
-            <div className="text-base font-semibold">Showcase Medals</div>
-            <div className="text-xs text-muted-foreground">Select up to 3 medals to display</div>
+            <div className="text-base font-semibold">Choose Medal</div>
+            <div className="text-xs text-muted-foreground">Select an achievement for slot {slotIndex + 1}</div>
           </div>
           <button
             type="button"
@@ -241,31 +243,42 @@ export function MedalPickerModal({
           </button>
         </div>
 
-        {/* Selected medals preview */}
+        {/* Current selection preview */}
         <div className="px-4 py-3 border-b bg-foreground/5">
-          <div className="text-xs text-muted-foreground mb-2">Selected ({selected.length}/3)</div>
-          <div className="flex items-center gap-2 min-h-[40px]">
-            {selected.length === 0 ? (
-              <span className="text-sm text-muted-foreground">No medals selected</span>
-            ) : (
-              selected.map((id) => {
-                const achievement = allAchievements.find((a) => a.id === id)
+          <div className="text-xs text-muted-foreground mb-2">Selected</div>
+          <div className="flex items-center gap-3 min-h-[40px]">
+            {selected ? (
+              (() => {
+                const achievement = allAchievements.find((a) => a.id === selected)
                 if (!achievement) return null
+                const colors = DIFFICULTY_COLORS[achievement.difficulty]
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => toggleSelection(id)}
-                    className="relative group"
-                    title="Click to remove"
-                  >
-                    <ShowcaseMedal achievement={achievement} />
-                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="h-4 w-4 text-white" />
+                  <>
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                        colors.bg,
+                        colors.border
+                      )}
+                    >
+                      <span className={colors.text}>
+                        {getIconComponent(achievement.icon, "h-5 w-5")}
+                      </span>
                     </div>
-                  </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{achievement.name}</span>
+                      <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
+                    </div>
+                  </>
                 )
-              })
+              })()
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-foreground/20">
+                  <Plus className="h-4 w-4 text-foreground/30" />
+                </div>
+                <span className="text-sm text-muted-foreground">Empty slot</span>
+              </div>
             )}
           </div>
         </div>
@@ -279,20 +292,23 @@ export function MedalPickerModal({
           ) : (
             <div className="divide-y">
               {unlockedAchievements.map((achievement) => {
-                const isSelected = selected.includes(achievement.id)
+                const isSelected = selected === achievement.id
+                const isUsedInOtherSlot = alreadySelectedInOtherSlots.has(achievement.id)
                 const colors = DIFFICULTY_COLORS[achievement.difficulty]
-                const canSelect = isSelected || selected.length < 3
 
                 return (
                   <button
                     key={achievement.id}
                     type="button"
-                    onClick={() => canSelect && toggleSelection(achievement.id)}
-                    disabled={!canSelect}
+                    onClick={() => !isUsedInOtherSlot && toggleSelection(achievement.id)}
+                    disabled={isUsedInOtherSlot}
                     className={cn(
                       "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                      isSelected ? "bg-foreground/10" : "hover:bg-foreground/5",
-                      !canSelect && "opacity-50 cursor-not-allowed"
+                      isUsedInOtherSlot 
+                        ? "opacity-50 cursor-not-allowed" 
+                        : isSelected 
+                          ? "bg-foreground/10" 
+                          : "hover:bg-foreground/5"
                     )}
                   >
                     <div
@@ -319,6 +335,11 @@ export function MedalPickerModal({
                         >
                           {achievement.difficulty}
                         </span>
+                        {isUsedInOtherSlot && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            Already selected
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
                     </div>

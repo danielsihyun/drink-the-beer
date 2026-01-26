@@ -1197,18 +1197,16 @@ export default function UserProfilePage() {
       ) : profile ? (
         <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
           <div className="relative rounded-2xl border bg-background/50 p-3">
-            {/* Showcase Medals - top right corner */}
-            {profile.showcaseAchievements.length > 0 && (
-              <div className="absolute top-3 right-3">
-                <ProfileShowcase
-                  showcaseIds={profile.showcaseAchievements}
-                  achievements={achievements}
-                  isEditing={false}
-                  onOpenPicker={() => {}}
-                  layout="horizontal"
-                />
-              </div>
-            )}
+            {/* Showcase Medals - top right corner (read-only for other users) */}
+            <div className="absolute top-3 right-3">
+              <ProfileShowcase
+                showcaseIds={profile.showcaseAchievements}
+                achievements={achievements}
+                onSelectSlot={() => {}}
+                layout="horizontal"
+                readOnly
+              />
+            </div>
 
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
