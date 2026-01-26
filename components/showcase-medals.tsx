@@ -283,6 +283,9 @@ export function SingleMedalPickerModal({
     currentShowcaseIds.filter((id, idx) => id && idx !== slotIndex)
   )
 
+  // Filter out the currently selected achievement from the list
+  const availableAchievements = unlockedAchievements.filter(a => a.id !== selected)
+
   const handleSave = () => {
     onSave(slotIndex, selected)
     onClose()
@@ -290,12 +293,13 @@ export function SingleMedalPickerModal({
 
   const toggleSelection = (achievementId: string) => {
     if (selected === achievementId) {
-      // Clicking already selected item unselects it
       setSelected(null)
     } else {
       setSelected(achievementId)
     }
   }
+
+  const selectedAchievement = selected ? allAchievements.find(a => a.id === selected) : null
 
   return (
     <div
@@ -330,38 +334,56 @@ export function SingleMedalPickerModal({
         {/* Current selection preview */}
         <div className="px-4 py-3 border-b bg-foreground/5">
           <div className="text-xs text-muted-foreground mb-2">Selected</div>
-          <div className="flex items-center gap-3 min-h-[40px]">
-            {selected ? (
-              (() => {
-                const achievement = allAchievements.find((a) => a.id === selected)
-                if (!achievement) return null
-                const colors = DIFFICULTY_COLORS[achievement.difficulty]
-                return (
-                  <>
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full border-2",
-                        colors.bg,
-                        colors.border
-                      )}
-                    >
-                      <span className={colors.text}>
-                        {getIconComponent(achievement.icon, "h-5 w-5")}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium">{achievement.name}</span>
-                      <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
-                    </div>
-                  </>
-                )
-              })()
+          <div className="min-h-[56px]">
+            {selectedAchievement ? (
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="flex w-full items-center gap-3 rounded-lg p-2 -m-2 text-left hover:bg-foreground/5 transition-colors"
+              >
+                {(() => {
+                  const colors = DIFFICULTY_COLORS[selectedAchievement.difficulty]
+                  return (
+                    <>
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                          colors.bg,
+                          colors.border
+                        )}
+                      >
+                        <span className={colors.text}>
+                          {getIconComponent(selectedAchievement.icon, "h-5 w-5")}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{selectedAchievement.name}</span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                              colors.bg,
+                              colors.text
+                            )}
+                          >
+                            {selectedAchievement.difficulty}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{selectedAchievement.description}</p>
+                      </div>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-green-500 bg-green-500">
+                        <Check className="h-4 w-4 text-white" />
+                      </div>
+                    </>
+                  )
+                })()}
+              </button>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 p-2 -m-2">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-foreground/20">
                   <Plus className="h-4 w-4 text-foreground/30" />
                 </div>
-                <span className="text-sm text-muted-foreground">Empty slot</span>
+                <span className="text-sm text-muted-foreground">Tap an achievement below to select</span>
               </div>
             )}
           </div>
@@ -369,14 +391,17 @@ export function SingleMedalPickerModal({
 
         {/* Scrollable list of unlocked achievements */}
         <div className="max-h-[50vh] overflow-y-auto">
-          {unlockedAchievements.length === 0 ? (
+          {availableAchievements.length === 0 && !selectedAchievement ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No achievements unlocked yet. Keep drinking to earn medals!
             </div>
+          ) : availableAchievements.length === 0 && selectedAchievement ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No other achievements available
+            </div>
           ) : (
             <div className="divide-y">
-              {unlockedAchievements.map((achievement) => {
-                const isSelected = selected === achievement.id
+              {availableAchievements.map((achievement) => {
                 const isUsedInOtherSlot = alreadySelectedInOtherSlots.has(achievement.id)
                 const colors = DIFFICULTY_COLORS[achievement.difficulty]
 
@@ -390,9 +415,7 @@ export function SingleMedalPickerModal({
                       "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
                       isUsedInOtherSlot 
                         ? "opacity-50 cursor-not-allowed" 
-                        : isSelected 
-                          ? "bg-foreground/10" 
-                          : "hover:bg-foreground/5"
+                        : "hover:bg-foreground/5"
                     )}
                   >
                     <div
@@ -428,14 +451,7 @@ export function SingleMedalPickerModal({
                       <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
                     </div>
 
-                    <div
-                      className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0",
-                        isSelected ? "border-green-500 bg-green-500" : "border-foreground/20"
-                      )}
-                    >
-                      {isSelected && <Check className="h-4 w-4 text-white" />}
-                    </div>
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-foreground/20" />
                   </button>
                 )
               })}

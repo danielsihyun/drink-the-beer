@@ -1199,10 +1199,10 @@ export default function ProfilePage() {
       
       if (achievementId) {
         if (slotIndex >= currentShowcase.length) {
-          // Adding new medal
-          newShowcase = [...currentShowcase, achievementId]
+          // Adding new medal - prepend it (newest on left, oldest on right)
+          newShowcase = [achievementId, ...currentShowcase]
         } else {
-          // Replacing existing medal
+          // Replacing existing medal at specific position
           newShowcase = [...currentShowcase]
           newShowcase[slotIndex] = achievementId
         }
