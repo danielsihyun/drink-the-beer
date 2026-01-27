@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Loader2, X, MapPin } from "lucide-react"
+import { Camera, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
@@ -367,48 +367,6 @@ export default function LogDrinkPage() {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  // Helper to render location status indicator
-  function renderLocationStatus() {
-    switch (locationStatus) {
-      case "granted":
-        return location ? (
-          <div className="flex items-center gap-1.5 text-xs text-emerald-500">
-            <MapPin className="h-3.5 w-3.5" />
-            <span>Location enabled</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-amber-500">
-            <MapPin className="h-3.5 w-3.5" />
-            <span>Location unavailable</span>
-          </div>
-        )
-      case "denied":
-        return (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            <span>Location disabled</span>
-          </div>
-        )
-      case "requesting":
-        return (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span>Getting location…</span>
-          </div>
-        )
-      case "unavailable":
-        return null
-      default:
-        // idle - will prompt on first post
-        return (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            <span>Location will be requested</span>
-          </div>
-        )
-    }
-  }
-
   return (
     <>
       <div className="container max-w-2xl px-3 py-1.5">
@@ -526,15 +484,12 @@ export default function LogDrinkPage() {
           <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
         </section>
 
-        {/* Location status indicator */}
-        <div className="mt-4 flex justify-end">{renderLocationStatus()}</div>
-
         <button
           type="button"
           onClick={onSubmit}
           disabled={!canPost}
           className={[
-            "mt-2 w-full rounded-2xl border p-3 text-sm font-medium",
+            "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
             canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
           ].join(" ")}
         >
