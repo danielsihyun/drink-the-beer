@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Loader2, X } from "lucide-react"
+import { Camera, Loader2, X, MapPin } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
@@ -13,6 +13,8 @@ type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | 
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
 type Area = { width: number; height: number; x: number; y: number }
+
+type LocationStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable"
 
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -81,8 +83,9 @@ export default function LogDrinkPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
   const [cropping, setCropping] = React.useState(false)
 
-  // Geolocation state - captured silently in background
+  // Geolocation state
   const [location, setLocation] = React.useState<{ latitude: number; longitude: number } | null>(null)
+  const [locationStatus, setLocationStatus] = React.useState<LocationStatus>("idle")
 
   // crop area should max out the square
   const cropWrapRef = React.useRef<HTMLDivElement | null>(null)
@@ -90,28 +93,101 @@ export default function LogDrinkPage() {
 
   const canPost = Boolean(file && drinkType && !submitting)
 
-  // Silently request geolocation when page loads
-  React.useEffect(() => {
-    if (!navigator.geolocation) return
+  // ==========================================================================
+  // GEOLOCATION HANDLING
+  // - On page load: check permission state (without prompting)
+  // - If already granted: get location silently
+  // - If denied: skip, don't bother user
+  // - If prompt needed: wait until user taps "Post" (user gesture required)
+  // - Browser remembers the choice permanently for this domain
+  // ==========================================================================
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        })
-      },
-      () => {
-        // Silently fail - location is optional
-        setLocation(null)
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000, // Cache for 1 minute
+  // Get location helper - used both on load (if granted) and on submit (if prompt)
+  const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocationStatus("unavailable")
+        resolve(null)
+        return
       }
-    )
+
+      setLocationStatus("requesting")
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }
+          setLocation(loc)
+          setLocationStatus("granted")
+          resolve(loc)
+        },
+        (err) => {
+          // User denied or error occurred
+          console.log("Geolocation error:", err.code, err.message)
+          if (err.code === 1) {
+            // PERMISSION_DENIED
+            setLocationStatus("denied")
+          } else {
+            // POSITION_UNAVAILABLE or TIMEOUT - permission may still be granted
+            setLocationStatus("granted")
+          }
+          resolve(null)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60000, // Cache for 1 minute
+        }
+      )
+    })
   }, [])
+
+  // Check permission state on mount
+  React.useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("unavailable")
+      return
+    }
+
+    // Use Permissions API to check state without triggering a prompt
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions
+        .query({ name: "geolocation" })
+        .then((permissionStatus) => {
+          if (permissionStatus.state === "granted") {
+            // Already have permission - get location silently in background
+            getLocation()
+          } else if (permissionStatus.state === "denied") {
+            // User previously denied - don't ask again
+            setLocationStatus("denied")
+          } else {
+            // "prompt" - will need to ask, but wait for user gesture
+            setLocationStatus("idle")
+          }
+
+          // Listen for permission changes (e.g., user changes in browser settings)
+          permissionStatus.addEventListener("change", () => {
+            if (permissionStatus.state === "granted") {
+              // Permission was just granted - get location
+              getLocation()
+            } else if (permissionStatus.state === "denied") {
+              setLocationStatus("denied")
+              setLocation(null)
+            }
+          })
+        })
+        .catch(() => {
+          // Permissions API not supported (e.g., older Safari)
+          // We'll request on submit with user gesture
+          setLocationStatus("idle")
+        })
+    } else {
+      // No Permissions API - will request on submit
+      setLocationStatus("idle")
+    }
+  }, [getLocation])
 
   React.useEffect(() => {
     if (!file) return
@@ -161,6 +237,7 @@ export default function LogDrinkPage() {
     setZoom(1)
     setCroppedAreaPixels(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
+    // Note: We don't reset location/locationStatus - those persist across posts
   }
 
   async function onSubmit() {
@@ -178,6 +255,17 @@ export default function LogDrinkPage() {
       if (!user) {
         router.replace("/login?redirectTo=%2Flog")
         return
+      }
+
+      // ==========================================================================
+      // LOCATION: Request if we don't have it yet and haven't been denied
+      // This is triggered by user action (tapping Post), so the browser allows the prompt
+      // The browser will remember the user's choice for future visits
+      // ==========================================================================
+      let finalLocation = location
+      if (!finalLocation && locationStatus === "idle") {
+        // First time posting - this will show the permission prompt
+        finalLocation = await getLocation()
       }
 
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
@@ -198,8 +286,8 @@ export default function LogDrinkPage() {
       if (uploadErr) throw uploadErr
 
       const nextCaption = caption.trim()
-      
-      // Include location if available
+
+      // Build insert data
       const insertData: {
         user_id: string
         photo_path: string
@@ -214,9 +302,10 @@ export default function LogDrinkPage() {
         caption: nextCaption.length ? nextCaption : null,
       }
 
-      if (location) {
-        insertData.latitude = location.latitude
-        insertData.longitude = location.longitude
+      // Include location if available
+      if (finalLocation) {
+        insertData.latitude = finalLocation.latitude
+        insertData.longitude = finalLocation.longitude
       }
 
       const { error: insErr } = await supabase.from("drink_logs").insert(insertData)
@@ -226,8 +315,9 @@ export default function LogDrinkPage() {
 
       resetForm()
       router.replace("/feed?posted=1")
-    } catch (e: any) {
-      setError(e?.message ?? "Something went wrong. Please try again.")
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Something went wrong. Please try again."
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -256,8 +346,9 @@ export default function LogDrinkPage() {
       const cropped = await getCroppedFile(rawUrl, croppedAreaPixels, outputMime)
       setFile(cropped)
       setCropOpen(false)
-    } catch (e: any) {
-      setError(e?.message ?? "Could not crop image.")
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Could not crop image."
+      setError(message)
       setCropOpen(false)
       setRawFile(null)
       setRawUrl(null)
@@ -274,6 +365,48 @@ export default function LogDrinkPage() {
     setCrop({ x: 0, y: 0 })
     setZoom(1)
     if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  // Helper to render location status indicator
+  function renderLocationStatus() {
+    switch (locationStatus) {
+      case "granted":
+        return location ? (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-500">
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Location enabled</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-amber-500">
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Location unavailable</span>
+          </div>
+        )
+      case "denied":
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Location disabled</span>
+          </div>
+        )
+      case "requesting":
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span>Getting location…</span>
+          </div>
+        )
+      case "unavailable":
+        return null
+      default:
+        // idle - will prompt on first post
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Location will be requested</span>
+          </div>
+        )
+    }
   }
 
   return (
@@ -393,12 +526,15 @@ export default function LogDrinkPage() {
           <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
         </section>
 
+        {/* Location status indicator */}
+        <div className="mt-4 flex justify-end">{renderLocationStatus()}</div>
+
         <button
           type="button"
           onClick={onSubmit}
           disabled={!canPost}
           className={[
-            "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
+            "mt-2 w-full rounded-2xl border p-3 text-sm font-medium",
             canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
           ].join(" ")}
         >
@@ -415,7 +551,11 @@ export default function LogDrinkPage() {
 
       {/* Crop Modal (Instagram-ish: pan + zoom in a square frame) */}
       {cropOpen && rawUrl ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="text-base font-semibold">Crop</div>
@@ -446,15 +586,13 @@ export default function LogDrinkPage() {
                   aspect={1}
                   cropSize={cropSize ?? undefined}
                   objectFit="cover"
-                  showGrid={true}          // ✅ bring back 3x3 grid
-                  zoomWithScroll={false}   // ✅ keep pinch zoom, no scroll wheel zoom
+                  showGrid={true}
+                  zoomWithScroll={false}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels as Area)}
                 />
               </div>
-
-              {/* ✅ removed zoom slider (pinch to zoom still works) */}
 
               <div className="mt-5 flex gap-3">
                 <button
