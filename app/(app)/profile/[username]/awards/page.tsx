@@ -310,7 +310,7 @@ function StatsHeader({
     <div className="rounded-xl border bg-background/50 p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Achievements Unlocked</p>
+          <p className="text-sm text-muted-foreground">Medals Earned</p>
           <p className="text-3xl font-bold">
             {unlocked} <span className="text-lg font-normal text-muted-foreground">/ {total}</span>
           </p>
@@ -412,7 +412,7 @@ export default function FriendAwardsPage() {
         if (friendshipErr) throw friendshipErr
 
         if (!friendshipData) {
-          setError("You must be friends to view their awards")
+          setError("You must be friends to view their medals")
           setLoading(false)
           return
         }
@@ -434,7 +434,7 @@ export default function FriendAwardsPage() {
         setAchievements((achievementsData ?? []) as Achievement[])
         setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
       } catch (e: any) {
-        setError(e?.message ?? "Could not load achievements.")
+        setError(e?.message ?? "Could not load medals.")
       } finally {
         setLoading(false)
       }
@@ -514,7 +514,7 @@ export default function FriendAwardsPage() {
     return { total, unlocked, bronze, silver, gold, diamond }
   }, [achievements, userAchievements, unlockedIds])
 
-  const titleText = `${username}'s Awards`
+  const titleText = `${username}'s Medals`
 
   return (
     <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
@@ -593,7 +593,7 @@ export default function FriendAwardsPage() {
 
           {filteredAchievements.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              No achievements found in this category.
+              No medals found in this category.
             </div>
           )}
         </div>

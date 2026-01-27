@@ -1,6 +1,6 @@
 "use client"
 
-import { Trophy, BarChart3 } from "lucide-react"
+import { Medal, BarChart3 } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -1180,7 +1180,7 @@ export default function ProfilePage() {
       setProfile(updated)
       setEditedProfile(updated)
       setIsEditingProfile(false)
-      setSuccess("Profile saved successfully.")
+      setSuccess("Username changed successfully.")
     } catch (e: any) {
       setError(e?.message ?? "Could not save profile.")
     } finally {
@@ -1528,7 +1528,7 @@ export default function ProfilePage() {
 
                 <div className="flex-1">
                   {isEditingProfile ? (
-                    <div className="space-y-2 max-w-[150px]">
+                    <div className="space-y-2 max-w-[180px]">
                       <input
                         type="text"
                         value={editedProfile.displayName}
@@ -1632,8 +1632,8 @@ export default function ProfilePage() {
                   href="/awards"
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
                 >
-                  <Trophy className="h-4 w-4" />
-                  Awards
+                  <Medal className="h-4 w-4" />
+                  Medals
                 </Link>
                 <Link
                   href="/analytics"

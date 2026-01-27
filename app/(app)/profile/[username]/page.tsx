@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2, Trophy, BarChart3, X } from "lucide-react"
+import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2, Medal, BarChart3, X } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -1241,15 +1241,15 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Awards and Analytics buttons - only show when friends */}
+          {/* Medals and Analytics buttons - only show when friends */}
           {friendshipStatus === "friends" && (
             <div className="flex gap-3">
               <Link
                 href={`/profile/${profile.username}/awards`}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
               >
-                <Trophy className="h-4 w-4" />
-                Awards
+                <Medal className="h-4 w-4" />
+                Medals
               </Link>
               <Link
                 href={`/profile/${profile.username}/analytics`}

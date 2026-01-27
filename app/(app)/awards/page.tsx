@@ -252,7 +252,7 @@ function StatsHeader({
     <div className="rounded-xl border bg-background/50 p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Achievements Unlocked</p>
+          <p className="text-sm text-muted-foreground">Medals Earned</p>
           <p className="text-3xl font-bold">
             {unlocked} <span className="text-lg font-normal text-muted-foreground">/ {total}</span>
           </p>
@@ -335,7 +335,7 @@ export default function AwardsPage() {
         setAchievements((achievementsData ?? []) as Achievement[])
         setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
       } catch (e: any) {
-        setError(e?.message ?? "Could not load achievements.")
+        setError(e?.message ?? "Could not load medals.")
       } finally {
         setLoading(false)
       }
@@ -427,7 +427,7 @@ export default function AwardsPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h2 className="text-2xl font-bold">Awards</h2>
+          <h2 className="text-2xl font-bold">Medals</h2>
         </div>
 
         <div className="relative" data-filter-menu>
@@ -492,7 +492,7 @@ export default function AwardsPage() {
 
           {filteredAchievements.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              No achievements found in this category.
+              No medals found in this category.
             </div>
           )}
         </div>
