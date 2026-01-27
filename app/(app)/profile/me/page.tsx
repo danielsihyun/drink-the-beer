@@ -385,7 +385,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
         <div className="flex items-start gap-4">
           <div className="h-20 w-20 rounded-full bg-foreground/10" />
@@ -1470,7 +1470,7 @@ export default function ProfilePage() {
         {loading ? (
           <LoadingSkeleton />
         ) : (
-          <div className="space-y-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {/* PROFILE CARD */}
             <div className="relative rounded-2xl border bg-background/50 p-3">
               {/* Showcase Medals - top right corner */}
