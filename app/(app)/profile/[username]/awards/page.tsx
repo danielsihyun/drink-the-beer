@@ -38,10 +38,10 @@ const DIFFICULTY_COLORS: Record<Difficulty, { bg: string; border: string; text: 
     glow: "shadow-amber-500/20",
   },
   silver: {
-    bg: "bg-slate-300/20",
-    border: "border-slate-400/50",
-    text: "text-slate-400",
-    glow: "shadow-slate-400/20",
+    bg: "bg-slate-400/30",
+    border: "border-slate-500/70",
+    text: "text-slate-500",
+    glow: "shadow-slate-500/20",
   },
   gold: {
     bg: "bg-yellow-500/20",

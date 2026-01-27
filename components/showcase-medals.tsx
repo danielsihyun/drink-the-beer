@@ -24,9 +24,9 @@ const DIFFICULTY_COLORS: Record<Difficulty, { bg: string; border: string; text: 
     text: "text-amber-600",
   },
   silver: {
-    bg: "bg-slate-300/30",
-    border: "border-slate-400/50",
-    text: "text-slate-400",
+    bg: "bg-slate-400/30",
+    border: "border-slate-500/70",
+    text: "text-slate-500",
   },
   gold: {
     bg: "bg-yellow-500/30",
