@@ -38,10 +38,10 @@ const DIFFICULTY_COLORS: Record<Difficulty, { bg: string; border: string; text: 
     glow: "shadow-amber-500/20",
   },
   silver: {
-    bg: "bg-slate-400/30",
-    border: "border-slate-500/70",
-    text: "text-slate-500",
-    glow: "shadow-slate-500/20",
+    bg: "bg-slate-300/20",
+    border: "border-slate-400/50",
+    text: "text-slate-400",
+    glow: "shadow-slate-400/20",
   },
   gold: {
     bg: "bg-yellow-500/20",
@@ -91,7 +91,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   variety: "Variety",
   streak: "Streaks",
   time_based: "Time Based",
-  dayofweek_based: "Day of The Week",
+  dayofweek_based: "Day of Week",
   holiday_based: "Holidays",
   consistency: "Consistency",
   drink_specific: "Drink Specific",
@@ -159,7 +159,7 @@ function AchievementCard({
   return (
     <div
       className={cn(
-        "relative rounded-xl border p-4 transition-all",
+        "rounded-xl border p-3 transition-all overflow-hidden",
         unlocked ? colors.bg : "bg-foreground/5",
         unlocked ? colors.border : "border-foreground/10",
         unlocked && "shadow-lg",
@@ -167,32 +167,32 @@ function AchievementCard({
         !unlocked && "opacity-50"
       )}
     >
-      <div className={cn("flex gap-3", unlocked ? "items-center" : "items-start")}>
+      <div className="flex gap-3 items-center">
         <div
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-full",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
             unlocked ? colors.bg : "bg-foreground/10",
             unlocked ? colors.border : "border-foreground/20",
             "border-2"
           )}
         >
           {isSecret ? (
-            <Lock className={cn("h-6 w-6", unlocked ? colors.text : "text-foreground/30")} />
+            <Lock className={cn("h-5 w-5", unlocked ? colors.text : "text-foreground/30")} />
           ) : (
             <span className={cn(unlocked ? colors.text : "text-foreground/30")}>
-              {getIconComponent(achievement.icon, "h-6 w-6")}
+              {getIconComponent(achievement.icon, "h-5 w-5")}
             </span>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className={cn("font-semibold truncate", unlocked ? "text-foreground" : "text-foreground/50")}>
+            <h3 className={cn("font-semibold truncate text-sm", unlocked ? "text-foreground" : "text-foreground/50")}>
               {isSecret ? "???" : achievement.name}
             </h3>
             <span
               className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize",
                 unlocked ? colors.bg : "bg-foreground/10",
                 unlocked ? colors.text : "text-foreground/40"
               )}
@@ -200,11 +200,11 @@ function AchievementCard({
               {achievement.difficulty}
             </span>
           </div>
-          <p className={cn("text-sm mt-0.5", unlocked ? "text-foreground/70" : "text-foreground/40")}>
+          <p className={cn("text-xs mt-0.5", unlocked ? "text-foreground/70" : "text-foreground/40")}>
             {isSecret ? "Hidden achievement" : achievement.description}
           </p>
           {unlocked && unlockedAt && (
-            <p className="text-xs text-foreground/50 mt-1">
+            <p className="text-[10px] text-foreground/50 mt-1">
               Unlocked {new Date(unlockedAt).toLocaleDateString()}
             </p>
           )}
@@ -249,17 +249,17 @@ function StatsHeader({
   const percentage = total > 0 ? Math.round((unlocked / total) * 100) : 0
 
   return (
-    <div className="rounded-xl border bg-background/50 p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Medals Earned</p>
-          <p className="text-3xl font-bold">
-            {unlocked} <span className="text-lg font-normal text-muted-foreground">/ {total}</span>
+    <div className="rounded-xl border bg-background/50 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Achievements Unlocked</p>
+          <p className="text-2xl font-bold">
+            {unlocked} <span className="text-base font-normal text-muted-foreground">/ {total}</span>
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-4xl font-bold">{percentage}%</p>
-          <p className="text-sm text-muted-foreground">Complete</p>
+        <div className="text-right shrink-0">
+          <p className="text-3xl font-bold">{percentage}%</p>
+          <p className="text-xs text-muted-foreground">Complete</p>
         </div>
       </div>
 
@@ -273,19 +273,19 @@ function StatsHeader({
       <div className="grid grid-cols-4 gap-2 text-center">
         <div className={cn("rounded-lg p-2", DIFFICULTY_COLORS.bronze.bg)}>
           <p className={cn("text-lg font-bold", DIFFICULTY_COLORS.bronze.text)}>{bronze}</p>
-          <p className="text-xs text-muted-foreground">Bronze</p>
+          <p className="text-[10px] text-muted-foreground">Bronze</p>
         </div>
         <div className={cn("rounded-lg p-2", DIFFICULTY_COLORS.silver.bg)}>
           <p className={cn("text-lg font-bold", DIFFICULTY_COLORS.silver.text)}>{silver}</p>
-          <p className="text-xs text-muted-foreground">Silver</p>
+          <p className="text-[10px] text-muted-foreground">Silver</p>
         </div>
         <div className={cn("rounded-lg p-2", DIFFICULTY_COLORS.gold.bg)}>
           <p className={cn("text-lg font-bold", DIFFICULTY_COLORS.gold.text)}>{gold}</p>
-          <p className="text-xs text-muted-foreground">Gold</p>
+          <p className="text-[10px] text-muted-foreground">Gold</p>
         </div>
         <div className={cn("rounded-lg p-2", DIFFICULTY_COLORS.diamond.bg)}>
           <p className={cn("text-lg font-bold", DIFFICULTY_COLORS.diamond.text)}>{diamond}</p>
-          <p className="text-xs text-muted-foreground">Diamond</p>
+          <p className="text-[10px] text-muted-foreground">Diamond</p>
         </div>
       </div>
     </div>
@@ -335,7 +335,7 @@ export default function AwardsPage() {
         setAchievements((achievementsData ?? []) as Achievement[])
         setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
       } catch (e: any) {
-        setError(e?.message ?? "Could not load medals.")
+        setError(e?.message ?? "Could not load achievements.")
       } finally {
         setLoading(false)
       }
@@ -416,28 +416,30 @@ export default function AwardsPage() {
   }, [achievements, userAchievements, unlockedIds])
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto w-full max-w-2xl px-4 py-2 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)] overflow-x-hidden">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => router.back()}
-            className="inline-flex items-center justify-center rounded-full border p-2"
+            className="inline-flex items-center justify-center rounded-full border p-2 shrink-0"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h2 className="text-2xl font-bold">Medals</h2>
+          <h2 className="text-2xl font-bold truncate">Awards</h2>
         </div>
 
-        <div className="relative" data-filter-menu>
+        <div className="relative shrink-0" data-filter-menu>
           <button
             type="button"
             onClick={() => setShowFilterMenu(!showFilterMenu)}
             className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
           >
-            <Filter className="h-4 w-4" />
-            {selectedCategory === "all" ? "All" : CATEGORY_LABELS[selectedCategory] || selectedCategory}
+            <Filter className="h-4 w-4 shrink-0" />
+            <span className="truncate max-w-[80px]">
+              {selectedCategory === "all" ? "All" : CATEGORY_LABELS[selectedCategory] || selectedCategory}
+            </span>
           </button>
 
           {showFilterMenu && (
@@ -471,13 +473,13 @@ export default function AwardsPage() {
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5 w-full min-w-0">
           <StatsHeader {...stats} />
 
           {groupedAchievements.map(([category, categoryAchievements]) => (
-            <div key={category}>
-              <h3 className="text-lg font-semibold mb-3">{CATEGORY_LABELS[category] || category}</h3>
-              <div className="grid gap-3">
+            <div key={category} className="min-w-0">
+              <h3 className="text-base font-semibold mb-2">{CATEGORY_LABELS[category] || category}</h3>
+              <div className="space-y-2">
                 {categoryAchievements.map((achievement) => (
                   <AchievementCard
                     key={achievement.id}
@@ -492,7 +494,7 @@ export default function AwardsPage() {
 
           {filteredAchievements.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              No medals found in this category.
+              No achievements found in this category.
             </div>
           )}
         </div>

@@ -316,7 +316,7 @@ export function SingleMedalPickerModal({
             <div className="text-base font-semibold">Choose Medal</div>
             <div className="text-xs text-muted-foreground">
               {slotIndex < currentShowcaseIds.length 
-                ? `Change medal in position ${slotIndex + 1}`
+                ? `Change medal in slot ${slotIndex + 1}`
                 : "Add a new medal"
               }
             </div>
