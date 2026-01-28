@@ -416,7 +416,7 @@ export default function AwardsPage() {
   }, [achievements, userAchievements, unlockedIds])
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem) overflow-hidden]">
+    <div className="w-full max-w-2xl mx-auto px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
