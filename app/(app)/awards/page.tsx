@@ -9,7 +9,7 @@ import {
   Target, Heart, Award, Flag, Zap, Share, ThumbsUp, Sparkles, Lock, Filter,
   Coffee, Leaf, Ghost, Gift, Cake, PartyPopper, Repeat, CalendarCheck,
   CheckCircle, RefreshCw, Beer, Wine, GlassWater, Timer, TrendingUp,
-  RotateCw, Rocket
+  RotateCw, Rocket, ChevronDown
 } from "lucide-react"
 
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
@@ -217,16 +217,56 @@ function AchievementCard({
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="space-y-3">
-          <div className="h-6 w-32 animate-pulse rounded bg-foreground/10" />
-          <div className="grid gap-3">
-            {[1, 2, 3].map((j) => (
-              <div key={j} className="h-24 animate-pulse rounded-xl bg-foreground/10" />
-            ))}
+      {/* Stats Header Skeleton */}
+      <div className="rounded-xl border bg-background/50 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-4 w-24 animate-pulse rounded bg-foreground/10" />
+            <div className="h-8 w-20 animate-pulse rounded bg-foreground/10" />
+          </div>
+          <div className="text-right space-y-2">
+            <div className="h-10 w-16 animate-pulse rounded bg-foreground/10 ml-auto" />
+            <div className="h-4 w-20 animate-pulse rounded bg-foreground/10" />
           </div>
         </div>
-      ))}
+        <div className="h-2 rounded-full bg-foreground/10" />
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-lg p-2 bg-foreground/5 space-y-2">
+              <div className="h-5 w-8 animate-pulse rounded bg-foreground/10 mx-auto" />
+              <div className="h-3 w-12 animate-pulse rounded bg-foreground/10 mx-auto" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Category Skeletons */}
+      <div className="[&>*:last-child]:mb-0">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="mb-6">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-32 animate-pulse rounded bg-foreground/10" />
+              <div className="h-4 w-4 animate-pulse rounded bg-foreground/10" />
+            </div>
+            <div className="grid gap-3 mt-3">
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="rounded-xl border border-foreground/10 p-4">
+                  <div className="flex gap-3 items-center">
+                    <div className="h-12 w-12 animate-pulse rounded-full bg-foreground/10" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-32 animate-pulse rounded bg-foreground/10" />
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-foreground/10" />
+                      </div>
+                      <div className="h-4 w-48 animate-pulse rounded bg-foreground/10" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -286,6 +326,65 @@ function StatsHeader({
         <div className={cn("rounded-lg p-2", DIFFICULTY_COLORS.diamond.bg)}>
           <p className={cn("text-lg font-bold", DIFFICULTY_COLORS.diamond.text)}>{diamond}</p>
           <p className="text-xs text-muted-foreground">Diamond</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CollapsibleCategory({
+  category,
+  achievements,
+  unlockedIds,
+  unlockedMap,
+  defaultExpanded = true,
+}: {
+  category: string
+  achievements: Achievement[]
+  unlockedIds: Set<string>
+  unlockedMap: Map<string, string>
+  defaultExpanded?: boolean
+}) {
+  const [isExpanded, setIsExpanded] = React.useState(defaultExpanded)
+  const unlockedCount = achievements.filter((a) => unlockedIds.has(a.id)).length
+
+  return (
+    <div className={isExpanded ? "mb-6" : "mb-3"}>
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">{CATEGORY_LABELS[category] || category}</h3>
+          <span className="text-sm text-muted-foreground">
+            {unlockedCount}/{achievements.length}
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 text-muted-foreground transition-transform duration-200",
+            isExpanded && "rotate-180"
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "grid gap-3 overflow-hidden transition-all duration-300",
+          isExpanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"
+        )}
+      >
+        <div className="min-h-0">
+          <div className="grid gap-3">
+            {achievements.map((achievement) => (
+              <AchievementCard
+                key={achievement.id}
+                achievement={achievement}
+                unlocked={unlockedIds.has(achievement.id)}
+                unlockedAt={unlockedMap.get(achievement.id)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -474,21 +573,17 @@ export default function AwardsPage() {
         <div className="space-y-6">
           <StatsHeader {...stats} />
 
-          {groupedAchievements.map(([category, categoryAchievements]) => (
-            <div key={category}>
-              <h3 className="text-lg font-semibold mb-3">{CATEGORY_LABELS[category] || category}</h3>
-              <div className="grid gap-3">
-                {categoryAchievements.map((achievement) => (
-                  <AchievementCard
-                    key={achievement.id}
-                    achievement={achievement}
-                    unlocked={unlockedIds.has(achievement.id)}
-                    unlockedAt={unlockedMap.get(achievement.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+          <div className="[&>*:last-child]:mb-0">
+            {groupedAchievements.map(([category, categoryAchievements]) => (
+              <CollapsibleCategory
+                key={category}
+                category={category}
+                achievements={categoryAchievements}
+                unlockedIds={unlockedIds}
+                unlockedMap={unlockedMap}
+              />
+            ))}
+          </div>
 
           {filteredAchievements.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
