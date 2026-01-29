@@ -119,14 +119,15 @@ export function MedalDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-3"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="relative w-full max-w-[390px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
+      <div className="container max-w-2xl px-3">
+        <div className="relative w-full overflow-hidden rounded-2xl border bg-background shadow-2xl">
         {/* X button in top right */}
         <button
           type="button"
@@ -176,6 +177,7 @@ export function MedalDetailModal({
               Earned on {formattedDate}
             </p>
           )}
+        </div>
         </div>
       </div>
     </div>
