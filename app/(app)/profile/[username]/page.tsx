@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowUpDown, Lock, Clock, UserPlus, Loader2, Medal, BarChart
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { ProfileShowcase } from "@/components/showcase-medals"
+import { ProfileShowcase, MedalDetailModal } from "@/components/showcase-medals"
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
@@ -22,6 +22,11 @@ type Achievement = {
   requirement_value: string
   difficulty: Difficulty
   icon: string
+}
+
+type UserAchievement = {
+  achievement_id: string
+  unlocked_at: string
 }
 
 type DrinkLogRow = {
@@ -755,6 +760,8 @@ export default function UserProfilePage() {
   const sortMenuRef = React.useRef<HTMLDivElement>(null)
 
   const [achievements, setAchievements] = React.useState<Achievement[]>([])
+  const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
+  const [selectedMedal, setSelectedMedal] = React.useState<Achievement | null>(null)
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -889,6 +896,13 @@ export default function UserProfilePage() {
         .from("achievements")
         .select("*")
       setAchievements((achievementsData ?? []) as Achievement[])
+
+      // Fetch user's achievements to get unlock dates
+      const { data: userAchievementsData } = await supabase
+        .from("user_achievements")
+        .select("achievement_id, unlocked_at")
+        .eq("user_id", p.id)
+      setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
 
       const ui: UiProfile = {
         id: p.id,
@@ -1121,6 +1135,12 @@ export default function UserProfilePage() {
 
   const groupedDrinks = getGroupedDrinks()
 
+  // Get unlock date for a specific achievement
+  const getUnlockDate = (achievementId: string): string | null => {
+    const ua = userAchievements.find(u => u.achievement_id === achievementId)
+    return ua?.unlocked_at ?? null
+  }
+
   const renderTimeline = () => {
     if (friendshipStatus === "pending_outgoing") {
       return <PendingRequestState username={profile?.username ?? username} />
@@ -1203,6 +1223,7 @@ export default function UserProfilePage() {
                 showcaseIds={profile.showcaseAchievements}
                 achievements={achievements}
                 onSelectSlot={() => {}}
+                onMedalClick={(achievement) => setSelectedMedal(achievement)}
                 layout="horizontal"
                 readOnly
               />
@@ -1310,6 +1331,15 @@ export default function UserProfilePage() {
           drinkLogId={cheersListPost.id}
           cheersCount={cheersListPost.cheersCount}
           onClose={() => setCheersListPost(null)}
+        />
+      )}
+
+      {/* Medal Detail Modal */}
+      {selectedMedal && (
+        <MedalDetailModal
+          achievement={selectedMedal}
+          unlockedAt={getUnlockDate(selectedMedal.id)}
+          onClose={() => setSelectedMedal(null)}
         />
       )}
     </div>

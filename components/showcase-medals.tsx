@@ -92,12 +92,103 @@ export function ShowcaseMedal({
   )
 }
 
+// Modal to show medal details (for read-only viewing)
+export function MedalDetailModal({
+  achievement,
+  unlockedAt,
+  onClose,
+}: {
+  achievement: Achievement
+  unlockedAt?: string | null
+  onClose: () => void
+}) {
+  const colors = DIFFICULTY_COLORS[achievement.difficulty]
+  
+  const formatDate = (iso: string | null | undefined) => {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    return new Intl.DateTimeFormat(undefined, { 
+      month: "long", 
+      day: "numeric",
+      year: "numeric" 
+    }).format(d)
+  }
+
+  const formattedDate = formatDate(unlockedAt)
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-3"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="relative w-full max-w-[390px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        {/* X button in top right */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10 z-10"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="flex flex-col items-center px-6 py-6">
+          {/* Medal icon */}
+          <div
+            className={cn(
+              "flex h-20 w-20 items-center justify-center rounded-full border-4",
+              colors.bg,
+              colors.border
+            )}
+          >
+            <span className={colors.text}>
+              {getIconComponent(achievement.icon, "h-10 w-10")}
+            </span>
+          </div>
+
+          {/* Title with difficulty badge inline */}
+          <div className="mt-4 flex items-center gap-2">
+            <h3 className="text-lg font-bold">{achievement.name}</h3>
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+                colors.bg,
+                colors.text
+              )}
+            >
+              {achievement.difficulty}
+            </span>
+          </div>
+
+          {/* Description */}
+          <p className="mt-2 text-sm text-center text-muted-foreground">
+            {achievement.description}
+          </p>
+
+          {/* Date acquired */}
+          {formattedDate && (
+            <p className="mt-3 text-xs text-center opacity-60">
+              Earned on {formattedDate}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Showcase display for profile card (2 medals max) - always clickable, draggable
 export function ProfileShowcase({
   showcaseIds,
   achievements,
   onSelectSlot,
   onReorder,
+  onMedalClick,
   layout = "horizontal",
   readOnly = false,
 }: {
@@ -105,6 +196,7 @@ export function ProfileShowcase({
   achievements: Achievement[]
   onSelectSlot: (slotIndex: number) => void
   onReorder?: (newOrder: string[]) => void
+  onMedalClick?: (achievement: Achievement) => void
   layout?: "horizontal" | "vertical"
   readOnly?: boolean
 }) {
@@ -200,7 +292,17 @@ export function ProfileShowcase({
         
         if (achievement) {
           if (readOnly) {
-            return <ShowcaseMedal key={`${achievement.id}-${index}`} achievement={achievement} size="sm" />
+            return (
+              <button
+                key={`${achievement.id}-${index}`}
+                type="button"
+                onClick={() => onMedalClick?.(achievement)}
+                className="transition-transform hover:scale-110 active:scale-95"
+                title={achievement.name}
+              >
+                <ShowcaseMedal achievement={achievement} size="sm" />
+              </button>
+            )
           }
           
           return (

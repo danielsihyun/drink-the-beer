@@ -226,7 +226,6 @@
   animation: bounce-beer 0.6s ease-out;
 }
 
-html,
 body {
   overflow-y: scroll;      /* fallback */
   scrollbar-gutter: stable; /* modern browsers */
