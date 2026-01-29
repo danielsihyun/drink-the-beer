@@ -1067,7 +1067,7 @@ export default function ProfilePage() {
         newShowcase = currentShowcase.filter((_, idx) => idx !== slotIndex)
       }
 
-      newShowcase = newShowcase.slice(0, 3)
+      newShowcase = newShowcase.slice(0, 2)
 
       const { error } = await supabase
         .from("profiles")
