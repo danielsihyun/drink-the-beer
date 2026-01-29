@@ -551,7 +551,7 @@ export default function FriendsPage() {
       <div className="container max-w-2xl px-3 py-1.5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Friends</h2>
-
+  
           <div className="relative">
             <button
               type="button"
@@ -562,7 +562,7 @@ export default function FriendsPage() {
             </button>
           </div>
         </div>
-
+  
         <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
           <Search className="h-4 w-4 opacity-60" />
           <input
@@ -571,24 +571,40 @@ export default function FriendsPage() {
             disabled
           />
         </div>
-
+  
         <div className="mt-6 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
-          <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
-            <div className="h-3 w-32 rounded bg-foreground/10" />
+  
+          {/* Match loaded card spacing: rounded-2xl border bg-background/50 p-3 */}
+          <div className="animate-pulse rounded-2xl border bg-background/50 p-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-foreground/10" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-3 w-32 rounded bg-foreground/10" />
+                <div className="h-2 w-24 rounded bg-foreground/10" />
+              </div>
+              <div className="h-9 w-20 rounded-full bg-foreground/10" />
+            </div>
           </div>
         </div>
-
-        <div className="mt-6 space-y-3">
+  
+        <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
           <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
+  
+          {/* Match loaded list item spacing: rounded-2xl border bg-background/50 p-3 */}
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-full bg-foreground/10" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-28 rounded bg-foreground/10" />
-                  <div className="h-2 w-20 rounded bg-foreground/10" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-3 w-36 rounded bg-foreground/10" />
+                  <div className="h-2 w-24 rounded bg-foreground/10" />
+                  <div className="mt-2 flex gap-4">
+                    <div className="h-3 w-20 rounded bg-foreground/10" />
+                    <div className="h-3 w-20 rounded bg-foreground/10" />
+                  </div>
                 </div>
+                <div className="h-8 w-8 rounded-full bg-foreground/10" />
               </div>
             </div>
           ))}
@@ -596,6 +612,7 @@ export default function FriendsPage() {
       </div>
     )
   }
+  
 
   const friendsSorted = sortedFriends(friends)
 

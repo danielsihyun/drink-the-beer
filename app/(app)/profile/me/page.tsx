@@ -4,7 +4,7 @@ import { Medal, BarChart3 } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpDown, Camera, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X, Lock } from "lucide-react"
+import { ArrowUpDown, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -30,6 +30,7 @@ type UserAchievement = {
   achievement_id: string
   unlocked_at: string
 }
+
 type DrinkLogRow = {
   id: string
   user_id: string
@@ -125,7 +126,6 @@ function CheersListModal({
       setError(null)
       
       try {
-        // Fetch cheers
         const { data: cheersData, error: cheersErr } = await supabase
           .from("drink_cheers")
           .select("user_id, created_at")
@@ -140,10 +140,8 @@ function CheersListModal({
           return
         }
 
-        // Get unique user IDs
         const userIds = [...new Set(cheersData.map((c) => c.user_id))]
 
-        // Fetch profiles for those users
         const { data: profilesData, error: profilesErr } = await supabase
           .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
@@ -151,14 +149,10 @@ function CheersListModal({
 
         if (profilesErr) throw profilesErr
 
-        
-
-        // Create a map of profiles by ID
         const profilesMap = new Map(
           (profilesData ?? []).map((p: any) => [p.id, p])
         )
 
-        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
         const avatarPaths = cheersData.map((cheer: any) => {
           const profile = profilesMap.get(cheer.user_id)
           return profile?.avatar_path ?? null
@@ -172,7 +166,6 @@ function CheersListModal({
           )
         )
 
-        // Build user list (no more awaits needed)
         const cheersUsers: CheersUser[] = cheersData.map((cheer: any, i: number) => {
           const profile = profilesMap.get(cheer.user_id)
           return {
@@ -219,7 +212,6 @@ function CheersListModal({
           </button>
         </div>
 
-        {/* Scrollable list - shows ~5 users, rest are scrollable */}
         <div className="max-h-[280px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
@@ -601,7 +593,6 @@ function GroupedDrinkCard({
 
   const currentDrink = group.drinks[currentIndex]
 
-  // Handle scroll to update current index
   const handleScroll = React.useCallback(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -615,7 +606,6 @@ function GroupedDrinkCard({
     }
   }, [currentIndex, group.drinks.length])
 
-  // Scroll to specific index when dot is clicked
   const scrollToIndex = (index: number) => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -663,7 +653,6 @@ function GroupedDrinkCard({
 
       <div className="mt-3 overflow-hidden rounded-xl border">
         <div className="relative">
-          {/* Scrollable image container with native scroll-snap */}
           <div 
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -688,7 +677,6 @@ function GroupedDrinkCard({
             ))}
           </div>
 
-          {/* Dots indicator */}
           {group.drinks.length > 1 && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               {group.drinks.map((_, index) => (
@@ -829,7 +817,6 @@ export default function ProfilePage() {
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [success, setSuccess] = React.useState<string | null>(null)
 
   const [userId, setUserId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
@@ -843,24 +830,7 @@ export default function ProfilePage() {
   const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
   const [selectedMedalSlot, setSelectedMedalSlot] = React.useState<number | null>(null)
 
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
-        setShowSortMenu(false)
-      }
-    }
-    if (showSortMenu) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [showSortMenu])
-
-  const [isEditingProfile, setIsEditingProfile] = React.useState(false)
-  const [editedProfile, setEditedProfile] = React.useState<UiProfile>(DEFAULT_PROFILE)
-  const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
   const [loggingOut, setLoggingOut] = React.useState(false)
-  const [savingProfile, setSavingProfile] = React.useState(false)
 
   const [editPostOpen, setEditPostOpen] = React.useState(false)
   const [deletePostOpen, setDeletePostOpen] = React.useState(false)
@@ -875,26 +845,18 @@ export default function ProfilePage() {
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
 
-  const [passwordOpen, setPasswordOpen] = React.useState(false)
-  const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false)
-
-  const [pwCurrent, setPwCurrent] = React.useState("")
-  const [pwNew, setPwNew] = React.useState("")
-  const [pwConfirm, setPwConfirm] = React.useState("")
-  const [pwBusy, setPwBusy] = React.useState(false)
-  const [pwError, setPwError] = React.useState<string | null>(null)
-
-  const [delConfirm, setDelConfirm] = React.useState("")
-  const [delBusy, setDelBusy] = React.useState(false)
-  const [delError, setDelError] = React.useState<string | null>(null)
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
+  // Close dropdown when clicking outside
   React.useEffect(() => {
-    let t: any
-    if (success) t = setTimeout(() => setSuccess(null), 4000)
-    return () => clearTimeout(t)
-  }, [success])
+    function handleClickOutside(event: MouseEvent) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false)
+      }
+    }
+    if (showSortMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showSortMenu])
 
   const loadCheersState = React.useCallback(
     async (postIds: string[], currentViewerId: string) => {
@@ -938,7 +900,7 @@ export default function ProfilePage() {
       if (userErr) throw userErr
       const user = userRes.user
       if (!user) {
-        router.replace("/login?redirectTo=%2Fprofile")
+        router.replace("/login?redirectTo=%2Fprofile%2Fme")
         return
       }
 
@@ -974,7 +936,6 @@ export default function ProfilePage() {
 
       const base = (rows ?? []) as DrinkLogRow[]
 
-      // ✅ OPTIMIZED: Batch fetch all photo URLs in parallel
       const photoUrls = await Promise.all(
         base.map((r) =>
           supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60).then(res => res.data?.signedUrl ?? "")
@@ -999,12 +960,10 @@ export default function ProfilePage() {
       const ids = mapped.map((m) => m.id)
       await loadCheersState(ids, user.id)
 
-      // Fetch all achievements
       const { data: achievementsData } = await supabase
         .from("achievements")
         .select("*")
 
-      // Fetch user's unlocked achievements
       const { data: userAchievementsData } = await supabase
         .from("user_achievements")
         .select("achievement_id, unlocked_at")
@@ -1026,7 +985,6 @@ export default function ProfilePage() {
       }
 
       setProfile(ui)
-      setEditedProfile(ui)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your profile.")
     } finally {
@@ -1090,128 +1048,25 @@ export default function ProfilePage() {
     }
   }
 
-  const handleEditClick = () => {
-    setEditedProfile(profile)
-    setAvatarFile(null)
-    setIsEditingProfile(true)
-    setError(null)
-  }
-
-  const handleCancelEdit = () => {
-    setEditedProfile(profile)
-    setAvatarFile(null)
-    setIsEditingProfile(false)
-    setError(null)
-  }
-
-  const handleAvatarClick = () => {
-    if (isEditingProfile) fileInputRef.current?.click()
-  }
-
-  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      setAvatarFile(f)
-      const url = URL.createObjectURL(f)
-      setEditedProfile({ ...editedProfile, avatarUrl: url })
-    }
-  }
-
-  async function handleSaveProfile() {
-    setError(null)
-    setSavingProfile(true)
-
-    try {
-      const { data: userRes } = await supabase.auth.getUser()
-      const user = userRes.user
-      if (!user) {
-        router.replace("/login?redirectTo=%2Fprofile")
-        return
-      }
-
-      const nextUsername = editedProfile.username.trim().toLowerCase()
-      const nextDisplayName = editedProfile.displayName.trim()
-
-      if (nextUsername.length < 3) throw new Error("Username must be at least 3 characters.")
-      if (!/^[a-z0-9_]+$/.test(nextUsername)) {
-        throw new Error("Username must be letters, numbers, and underscores only.")
-      }
-
-      let nextAvatarPath = profile.avatarPath
-      let nextAvatarUrl = profile.avatarUrl
-
-      if (avatarFile) {
-        const ext = avatarFile.name.split(".").pop() || "jpg"
-        const path = `${user.id}/${crypto.randomUUID()}.${ext}`
-
-        const { error: upErr } = await supabase.storage
-          .from("profile-photos")
-          .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
-
-        if (upErr) throw upErr
-
-        const { data } = await supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60)
-        nextAvatarPath = path
-        nextAvatarUrl = data?.signedUrl ?? null
-      }
-
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({
-          username: nextUsername,
-          display_name: nextDisplayName,
-          avatar_path: nextAvatarPath,
-        })
-        .eq("id", user.id)
-
-      if (updErr) {
-        if ((updErr as any).code === "23505") throw new Error("Username is taken. Try something else.")
-        throw updErr
-      }
-
-      const updated: UiProfile = {
-        ...profile,
-        username: nextUsername,
-        displayName: nextDisplayName,
-        avatarPath: nextAvatarPath,
-        avatarUrl: nextAvatarUrl,
-      }
-
-      setProfile(updated)
-      setEditedProfile(updated)
-      setIsEditingProfile(false)
-      setSuccess("Username changed successfully.")
-    } catch (e: any) {
-      setError(e?.message ?? "Could not save profile.")
-    } finally {
-      setSavingProfile(false)
-    }
-  }
-
   async function saveShowcaseAchievement(slotIndex: number, achievementId: string | null) {
     if (!userId) return
 
     try {
-      // Get current filled achievements (no empty strings)
       const currentShowcase = (profile.showcaseAchievements || []).filter(id => id && id !== "")
       
       let newShowcase: string[]
       
       if (achievementId) {
         if (slotIndex >= currentShowcase.length) {
-          // Adding new medal - prepend it (newest on left, oldest on right)
           newShowcase = [achievementId, ...currentShowcase]
         } else {
-          // Replacing existing medal at specific position
           newShowcase = [...currentShowcase]
           newShowcase[slotIndex] = achievementId
         }
       } else {
-        // Removing medal at slotIndex
         newShowcase = currentShowcase.filter((_, idx) => idx !== slotIndex)
       }
 
-      // Ensure max 3
       newShowcase = newShowcase.slice(0, 3)
 
       const { error } = await supabase
@@ -1222,7 +1077,6 @@ export default function ProfilePage() {
       if (error) throw error
 
       setProfile((p) => ({ ...p, showcaseAchievements: newShowcase }))
-      setEditedProfile((p) => ({ ...p, showcaseAchievements: newShowcase }))
     } catch (e: any) {
       setError(e?.message ?? "Could not save showcase")
     }
@@ -1240,7 +1094,6 @@ export default function ProfilePage() {
       if (error) throw error
 
       setProfile((p) => ({ ...p, showcaseAchievements: newOrder }))
-      setEditedProfile((p) => ({ ...p, showcaseAchievements: newOrder }))
     } catch (e: any) {
       setError(e?.message ?? "Could not reorder showcase")
     }
@@ -1324,7 +1177,6 @@ export default function ProfilePage() {
 
       setLogs((prev) => prev.filter((l) => l.id !== activePost.id))
       setProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
-      setEditedProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
 
       setDeletePostOpen(false)
       setActivePost(null)
@@ -1347,85 +1199,12 @@ export default function ProfilePage() {
 
     return Object.entries(groups).map(([label, drinks]) => ({
       label,
-      // Reverse to show oldest first (chronological order within the group)
       drinks: [...drinks].reverse(),
       count: drinks.length,
     }))
   }
 
   const groupedDrinks = getGroupedDrinks()
-  const current = isEditingProfile ? editedProfile : profile
-
-  async function onChangePassword() {
-    setPwError(null)
-    setPwBusy(true)
-
-    try {
-      const { data: userRes, error: uErr } = await supabase.auth.getUser()
-      if (uErr) throw uErr
-      const user = userRes.user
-      if (!user?.email) throw new Error("Missing email on session user.")
-
-      if (!pwCurrent.trim() || !pwNew.trim() || !pwConfirm.trim()) throw new Error("Please fill in all fields.")
-      if (pwNew.length < 8) throw new Error("Password must be at least 8 characters.")
-      if (pwNew !== pwConfirm) throw new Error("Passwords do not match.")
-
-      const { error: signErr } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: pwCurrent,
-      })
-      if (signErr) throw new Error("Current password is incorrect.")
-
-      const { error: updErr } = await supabase.auth.updateUser({ password: pwNew })
-      if (updErr) throw updErr
-
-      setPasswordOpen(false)
-      setPwCurrent("")
-      setPwNew("")
-      setPwConfirm("")
-      setSuccess("Password changed successfully.")
-    } catch (e: any) {
-      setPwError(e?.message ?? "Could not change password.")
-    } finally {
-      setPwBusy(false)
-    }
-  }
-
-  async function onDeleteAccount() {
-    setDelError(null)
-    setDelBusy(true)
-
-    try {
-      if (delConfirm.trim().toUpperCase() !== "DELETE") {
-        throw new Error('Type "DELETE" to confirm.')
-      }
-
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
-
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and log back in.")
-
-      const res = await fetch("/api/delete-account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ token }),
-      })
-
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error ?? "Delete failed.")
-
-      await supabase.auth.signOut()
-      router.replace("/signup")
-    } catch (e: any) {
-      setDelError(e?.message ?? "Could not delete account.")
-    } finally {
-      setDelBusy(false)
-    }
-  }
 
   return (
     <>
@@ -1434,15 +1213,13 @@ export default function ProfilePage() {
           <h2 className="text-2xl font-bold">Profile</h2>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleEditClick}
-              disabled={isEditingProfile}
+            <Link
+              href="/profile/edit"
               className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
             >
               <Edit2 className="h-4 w-4" />
               Edit Profile
-            </button>
+            </Link>
             <button
               type="button"
               onClick={onLogout}
@@ -1456,14 +1233,8 @@ export default function ProfilePage() {
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
-          </div>
-        ) : null}
-
-        {success ? (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
-            {success}
           </div>
         ) : null}
 
@@ -1476,7 +1247,7 @@ export default function ProfilePage() {
               {/* Showcase Medals - top right corner */}
               <div className="absolute top-3 right-3">
                 <ProfileShowcase
-                  showcaseIds={current.showcaseAchievements}
+                  showcaseIds={profile.showcaseAchievements}
                   achievements={achievements}
                   onSelectSlot={(index) => setSelectedMedalSlot(index)}
                   onReorder={reorderShowcaseAchievements}
@@ -1486,10 +1257,10 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  {current.avatarUrl ? (
+                  {profile.avatarUrl ? (
                     <div className="relative h-20 w-20 overflow-hidden rounded-full">
                       <Image
-                        src={current.avatarUrl || "/placeholder.svg"}
+                        src={profile.avatarUrl || "/placeholder.svg"}
                         alt="Profile"
                         fill
                         className="object-cover"
@@ -1499,63 +1270,16 @@ export default function ProfilePage() {
                   ) : (
                     <div
                       className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
-                      style={{ backgroundColor: current.avatarColor }}
+                      style={{ backgroundColor: profile.avatarColor }}
                     >
-                      {current.username[0]?.toUpperCase() ?? "Y"}
+                      {profile.username[0]?.toUpperCase() ?? "Y"}
                     </div>
-                  )}
-
-                  {isEditingProfile && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleAvatarClick}
-                        className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-black text-white"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={handleAvatarFileChange}
-                      />
-                    </>
                   )}
                 </div>
 
                 <div className="flex-1">
-                  {isEditingProfile ? (
-                    <div className="space-y-2 max-w-[180px]">
-                      <input
-                        type="text"
-                        value={editedProfile.displayName}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
-                        className="w-full rounded-lg border bg-background px-3 py-1.5 text-base font-bold"
-                        placeholder="Display Name"
-                      />
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm opacity-60">@</span>
-                        <input
-                          type="text"
-                          value={editedProfile.username}
-                          onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, username: e.target.value.toLowerCase() })
-                          }
-                          className="flex-1 rounded-lg border bg-background px-2 py-1 text-sm"
-                          placeholder="username"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-bold">{profile.displayName}</h3>
-                      <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
-                    </>
-                  )}
-
+                  <h3 className="text-lg font-bold">{profile.displayName}</h3>
+                  <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
                   <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
 
                   <div className="mt-1 flex gap-4 text-sm">
@@ -1570,117 +1294,59 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-
-              {isEditingProfile ? (
-                <div className="absolute bottom-3 right-3 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPwError(null)
-                      setPasswordOpen(true)
-                    }}
-                    className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                    style={{ width: "30px", height: "30px" }}
-                    aria-label="Change password"
-                    title="Change password"
-                  >
-                    <Lock className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDelError(null)
-                      setDelConfirm("")
-                      setDeleteAccountOpen(true)
-                    }}
-                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                    style={{ width: "30px", height: "30px" }}
-                    aria-label="Delete account"
-                    title="Delete account"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : null}
             </div>
 
-            {isEditingProfile ? (
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-                  disabled={savingProfile}
-                >
-                  <X className="h-4 w-4" />
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveProfile}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
-                  disabled={savingProfile}
-                >
-                  {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Save Changes
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <Link
-                  href="/awards"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-                >
-                  <Medal className="h-4 w-4" />
-                  Medals
-                </Link>
-                <Link
-                  href="/analytics"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  Analytics
-                </Link>
-              </div>
-            )}
+            <div className="flex gap-3">
+              <Link
+                href="/awards"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              >
+                <Medal className="h-4 w-4" />
+                Medals
+              </Link>
+              <Link
+                href="/analytics"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </Link>
+            </div>
 
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-bold">My Timeline</h3>
 
-                {!isEditingProfile && (
-                  <div className="relative" ref={sortMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSortMenu(!showSortMenu)}
-                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                      {granularity}
-                    </button>
+                <div className="relative" ref={sortMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    {granularity}
+                  </button>
 
-                    {showSortMenu && (
-                      <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
-                        {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => {
-                              setGranularity(option)
-                              setShowSortMenu(false)
-                            }}
-                            className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                              granularity === option ? "font-semibold" : ""
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {showSortMenu && (
+                    <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
+                      {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setGranularity(option)
+                            setShowSortMenu(false)
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
+                            granularity === option ? "font-semibold" : ""
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {logs.length === 0 ? (
@@ -1692,7 +1358,7 @@ export default function ProfilePage() {
                         <DrinkLogCard
                           key={log.id}
                           log={log}
-                          profile={current}
+                          profile={profile}
                           onEdit={openEditPost}
                           onDelete={openDeletePost}
                           onToggleCheers={toggleCheers}
@@ -1705,7 +1371,7 @@ export default function ProfilePage() {
                         <GroupedDrinkCard 
                           key={`${group.label}-${index}`} 
                           group={group}
-                          profile={current}
+                          profile={profile}
                           onEdit={openEditPost}
                           onDelete={openDeletePost}
                           onToggleCheers={toggleCheers}
@@ -1730,157 +1396,6 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Change Password popup */}
-      {passwordOpen ? (
-        <OverlayPage
-          title="Change password"
-          onClose={() => {
-            if (pwBusy) return
-            setPasswordOpen(false)
-            setPwError(null)
-          }}
-        >
-          {pwError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {pwError}
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border bg-background/50 p-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm font-medium">Current password</div>
-                <input
-                  type="password"
-                  value={pwCurrent}
-                  onChange={(e) => setPwCurrent(e.target.value)}
-                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-                  placeholder="••••••••"
-                  disabled={pwBusy}
-                />
-              </div>
-
-              <div>
-                <div className="text-sm font-medium">New password</div>
-                <input
-                  type="password"
-                  value={pwNew}
-                  onChange={(e) => setPwNew(e.target.value)}
-                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-                  placeholder="At least 8 characters"
-                  disabled={pwBusy}
-                />
-              </div>
-
-              <div>
-                <div className="text-sm font-medium">Confirm new password</div>
-                <input
-                  type="password"
-                  value={pwConfirm}
-                  onChange={(e) => setPwConfirm(e.target.value)}
-                  className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-                  placeholder="••••••••"
-                  disabled={pwBusy}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (pwBusy) return
-                setPasswordOpen(false)
-                setPwError(null)
-              }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-              disabled={pwBusy}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={onChangePassword}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
-              disabled={pwBusy}
-            >
-              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </button>
-          </div>
-        </OverlayPage>
-      ) : null}
-
-      {/* Delete Account popup */}
-      {deleteAccountOpen ? (
-        <OverlayPage
-          title="Delete account"
-          onClose={() => {
-            if (delBusy) return
-            setDeleteAccountOpen(false)
-            setDelError(null)
-          }}
-        >
-          {delError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {delError}
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border bg-background/50 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
-                <Trash2 className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="text-base font-semibold">This is permanent</div>
-                <p className="mt-1 text-sm opacity-70">
-                  This will delete your profile and posts. This cannot be undone.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-sm font-medium">Type DELETE to confirm</div>
-              <input
-                value={delConfirm}
-                onChange={(e) => setDelConfirm(e.target.value)}
-                className="mt-2 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-                placeholder="DELETE"
-                disabled={delBusy}
-              />
-            </div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (delBusy) return
-                setDeleteAccountOpen(false)
-                setDelError(null)
-              }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-              disabled={delBusy}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={onDeleteAccount}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200"
-              disabled={delBusy}
-            >
-              {delBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Delete
-            </button>
-          </div>
-        </OverlayPage>
-      ) : null}
-
       {/* Post edit popup */}
       {editPostOpen && activePost ? (
         <OverlayPage
@@ -1893,7 +1408,7 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {postError}
             </div>
           ) : null}
@@ -1987,14 +1502,14 @@ export default function ProfilePage() {
           }}
         >
           {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {postError}
             </div>
           ) : null}
 
           <div className="rounded-2xl border bg-background/50 p-3">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-400">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div className="flex-1">
@@ -2034,7 +1549,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={deletePostConfirmed}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-400"
               disabled={postBusy}
             >
               {postBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
