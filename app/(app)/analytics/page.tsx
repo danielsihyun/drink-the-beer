@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
-import { ActivityGrid } from "@/components/activity-grid"
 import {
   AreaChart,
   Area,
@@ -247,10 +246,8 @@ function KpiCards({
 
 function DrinkChart({
   data,
-  timeRange,
 }: {
   data: DrinkEntry[]
-  timeRange: TimeRange
 }) {
   const totalDrinks = data.reduce((sum, d) => sum + d.count, 0)
 
@@ -266,9 +263,8 @@ function DrinkChart({
   const endDate = data.length > 0 ? data[data.length - 1].date : ""
 
   return (
-    <Card className="bg-card border-border p-4 space-y-4">
-      <div className="space-y-1 mb-10">
-        <p className="text-sm text-muted-foreground">Total</p>
+    <Card className="bg-card border-border p-4">
+      <div className="mb-6">
         <p className="text-4xl font-bold text-foreground">
           {totalDrinks}
           <span className="text-lg font-normal text-muted-foreground ml-2">
@@ -312,17 +308,17 @@ function DrinkChart({
             />
             <YAxis hide domain={[0, "auto"]} />
             <Tooltip
-              position={{ y: -56 }}
+              position={{ y: -44 }}
               wrapperStyle={{ pointerEvents: 'none' }}
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
                   const count = payload[0].payload.count
                   return (
-                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-                      <p className="text-sm font-medium text-foreground">
+                    <div className="bg-popover border border-border rounded-lg px-2.5 py-1.5">
+                      <p className="text-xs font-medium text-foreground">
                         {count} {count === 1 ? "drink" : "drinks"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[10px] text-muted-foreground">
                         {payload[0].payload.displayDate}
                       </p>
                     </div>
@@ -357,18 +353,15 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
 
   if (data.length === 0) {
     return (
-      <Card className="bg-card border-border p-6">
-        <h3 className="text-sm font-medium text-muted-foreground mb-4">Drink Type Breakdown</h3>
+      <Card className="bg-card border-border px-6 py-3">
         <p className="text-muted-foreground text-center py-8">No data available</p>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-card border-border p-6 space-y-4">
-      <h3 className="text-sm font-medium text-muted-foreground">Drink Type Breakdown</h3>
-
-      <div className="flex flex-col md:flex-row items-center gap-6">
+    <Card className="bg-card border-border px-6 py-3">
+      <div className="flex flex-col md:flex-row items-center gap-1">
         <div className="w-full md:w-1/2 h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -563,7 +556,9 @@ export default function AnalyticsPage() {
       })
     })
 
-    return Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
+    return Object.entries(typeCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
   if (loading) {
@@ -643,9 +638,8 @@ export default function AnalyticsPage() {
 
       <div className="space-y-4">
         <KpiCards data={kpiData} />
-        <DrinkChart data={filteredData} timeRange={timeRange} />
+        <DrinkChart data={filteredData} />
         <DrinkBreakdown data={breakdownData} />
-        {/*<ActivityGrid data={filteredData} timeRange={timeRange} />*/}
       </div>
     </div>
   )
