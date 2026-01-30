@@ -250,6 +250,7 @@ function DrinkChart({
   data: DrinkEntry[]
 }) {
   const totalDrinks = data.reduce((sum, d) => sum + d.count, 0)
+  const maxCount = Math.max(...data.map((d) => d.count), 1)
 
   const chartData = data.map((entry) => ({
     date: entry.date,
@@ -306,7 +307,7 @@ function DrinkChart({
                 )
               }}
             />
-            <YAxis hide domain={[0, "auto"]} />
+            <YAxis hide domain={[0, maxCount]} />
             <Tooltip
               position={{ y: -44 }}
               wrapperStyle={{ pointerEvents: 'none' }}
