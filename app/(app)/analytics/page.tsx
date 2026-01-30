@@ -225,7 +225,7 @@ function KpiCards({
       {cards.map((card) => {
         const isMostCommon = card.label === "Most Common"
         return (
-          <Card key={card.label} className="bg-card border-border p-3">
+          <Card key={card.label} className="bg-card border-border p-3 shadow-none">
             <div className="flex items-center gap-2">
               <card.icon className={cn("w-4 h-4", card.color)} />
               <span className="text-xs text-muted-foreground">{card.label}</span>
@@ -263,7 +263,7 @@ function DrinkChart({
   const endDate = data.length > 0 ? data[data.length - 1].date : ""
 
   return (
-    <Card className="bg-card border-border p-4">
+    <Card className="bg-card border-border p-4 shadow-none">
       <div className="mb-6">
         <p className="text-4xl font-bold text-foreground">
           {totalDrinks}
@@ -353,14 +353,14 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
 
   if (data.length === 0) {
     return (
-      <Card className="bg-card border-border px-6 py-3">
+      <Card className="bg-card border-border px-6 py-3 shadow-none">
         <p className="text-muted-foreground text-center py-8">No data available</p>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-card border-border px-6 py-3">
+    <Card className="bg-card border-border px-6 py-3 shadow-none">
       <div className="flex flex-col md:flex-row items-center gap-1">
         <div className="w-full md:w-1/2 h-[200px]">
           <ResponsiveContainer width="100%" height="100%">

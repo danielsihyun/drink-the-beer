@@ -177,7 +177,6 @@ function ResponsiveTitle({ text }: { text: string }) {
       const containerWidth = container.clientWidth
       if (containerWidth === 0) return
 
-      // Create a temporary span to measure text width at base size
       const measureSpan = document.createElement('span')
       measureSpan.style.cssText = `
         position: absolute;
@@ -235,7 +234,6 @@ function KpiCards({
   const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
   const [fontSize, setFontSize] = React.useState<number | null>(null)
 
-  // Reset font size when data changes
   React.useLayoutEffect(() => {
     setFontSize(null)
   }, [data.mostCommon])
@@ -285,7 +283,7 @@ function KpiCards({
       {cards.map((card) => {
         const isMostCommon = card.label === "Most Common"
         return (
-          <Card key={card.label} className="bg-card border-border p-3">
+          <Card key={card.label} className="bg-card border-border p-3 shadow-none">
             <div className="flex items-center gap-2">
               <card.icon className={cn("w-4 h-4", card.color)} />
               <span className="text-xs text-muted-foreground">{card.label}</span>
@@ -323,9 +321,8 @@ function DrinkChart({
   const endDate = data.length > 0 ? data[data.length - 1].date : ""
 
   return (
-    <Card className="bg-card border-border p-4 space-y-4">
-      <div className="space-y-1 mb-10">
-        <p className="text-sm text-muted-foreground">Total</p>
+    <Card className="bg-card border-border p-4 shadow-none">
+      <div className="mb-6">
         <p className="text-4xl font-bold text-foreground">
           {totalDrinks}
           <span className="text-lg font-normal text-muted-foreground ml-2">
@@ -369,17 +366,17 @@ function DrinkChart({
             />
             <YAxis hide domain={[0, "auto"]} />
             <Tooltip
-              position={{ y: -56 }}
+              position={{ y: -44 }}
               wrapperStyle={{ pointerEvents: 'none' }}
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
                   const count = payload[0].payload.count
                   return (
-                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-                      <p className="text-sm font-medium text-foreground">
+                    <div className="bg-popover border border-border rounded-lg px-2.5 py-1.5">
+                      <p className="text-xs font-medium text-foreground">
                         {count} {count === 1 ? "drink" : "drinks"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[10px] text-muted-foreground">
                         {payload[0].payload.displayDate}
                       </p>
                     </div>
@@ -414,18 +411,15 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
 
   if (data.length === 0) {
     return (
-      <Card className="bg-card border-border p-6">
-        <h3 className="text-sm font-medium text-muted-foreground mb-4">Drink Type Breakdown</h3>
+      <Card className="bg-card border-border px-6 py-3 shadow-none">
         <p className="text-muted-foreground text-center py-8">No data available</p>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-card border-border p-6 space-y-4">
-      <h3 className="text-sm font-medium text-muted-foreground">Drink Type Breakdown</h3>
-
-      <div className="flex flex-col md:flex-row items-center gap-6">
+    <Card className="bg-card border-border px-6 py-3 shadow-none">
+      <div className="flex flex-col md:flex-row items-center gap-1">
         <div className="w-full md:w-1/2 h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -448,7 +442,7 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
                     const item = payload[0].payload
                     const percentage = ((item.value / total) * 100).toFixed(1)
                     return (
-                      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                      <div className="bg-popover border border-border rounded-lg px-3 py-2">
                         <p className="text-sm font-medium text-foreground">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.value} ({percentage}%)
@@ -513,7 +507,6 @@ export default function FriendAnalyticsPage() {
       setLoading(true)
 
       try {
-        // Check if viewer is logged in
         const { data: userRes, error: userErr } = await supabase.auth.getUser()
         if (userErr) throw userErr
         if (!userRes.user) {
@@ -523,7 +516,6 @@ export default function FriendAnalyticsPage() {
 
         const viewerId = userRes.user.id
 
-        // Get the profile user's ID from username
         const { data: profileData, error: profileErr } = await supabase
           .from("profile_public_stats")
           .select("id, display_name")
@@ -541,13 +533,11 @@ export default function FriendAnalyticsPage() {
 
         const profileUserId = profileData.id
 
-        // If viewing own profile, redirect to /analytics
         if (profileUserId === viewerId) {
           router.replace("/analytics")
           return
         }
 
-        // Check friendship status
         const { data: friendshipData, error: friendshipErr } = await supabase
           .from("friendships")
           .select("status")
@@ -565,7 +555,6 @@ export default function FriendAnalyticsPage() {
           return
         }
 
-        // Fetch drink logs
         const { data: logs, error: logsErr } = await supabase
           .from("drink_logs")
           .select("id, drink_type, created_at")
@@ -668,7 +657,9 @@ export default function FriendAnalyticsPage() {
       })
     })
 
-    return Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
+    return Object.entries(typeCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
   const titleText = `${username}'s Analytics`
