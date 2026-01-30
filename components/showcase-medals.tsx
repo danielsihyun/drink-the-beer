@@ -104,6 +104,25 @@ export function MedalDetailModal({
 }) {
   const colors = DIFFICULTY_COLORS[achievement.difficulty]
   
+  // Lock body scroll when modal is open (mobile-friendly)
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   const formatDate = (iso: string | null | undefined) => {
     if (!iso) return null
     const d = new Date(iso)
@@ -119,7 +138,7 @@ export function MedalDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-3"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -378,6 +397,25 @@ export function SingleMedalPickerModal({
 }) {
   const [selected, setSelected] = React.useState<string | null>(currentAchievementId)
 
+  // Lock body scroll when modal is open (mobile-friendly)
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   const unlockedAchievements = allAchievements.filter((a) => unlockedIds.has(a.id))
   
   // Get IDs that are already selected in OTHER slots
@@ -412,7 +450,7 @@ export function SingleMedalPickerModal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl">
+      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
             <div className="text-base font-semibold">Choose Medal</div>
@@ -434,14 +472,14 @@ export function SingleMedalPickerModal({
         </div>
 
         {/* Current selection preview */}
-        <div className="px-4 py-3 border-b bg-foreground/5">
-          <div className="text-xs text-muted-foreground mb-2">Selected</div>
+        <div className="border-b bg-foreground/5">
+          <div className="text-xs text-muted-foreground px-4 pt-2">Selected</div>
           <div className="min-h-[56px]">
             {selectedAchievement ? (
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="flex w-full items-center gap-3 rounded-lg p-2 -m-2 text-left hover:bg-foreground/5 transition-colors"
+                className="flex w-full items-center gap-3 px-4 pt-2 pb-3 text-left hover:bg-foreground/5 transition-colors"
               >
                 {(() => {
                   const colors = DIFFICULTY_COLORS[selectedAchievement.difficulty]
@@ -473,7 +511,7 @@ export function SingleMedalPickerModal({
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{selectedAchievement.description}</p>
                       </div>
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-green-500 bg-green-500">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-green-500 bg-green-500 mr-[10px]">
                         <Check className="h-4 w-4 text-white" />
                       </div>
                     </>
@@ -481,7 +519,7 @@ export function SingleMedalPickerModal({
                 })()}
               </button>
             ) : (
-              <div className="flex items-center gap-3 p-2 -m-2">
+              <div className="flex items-center gap-3 px-4 pt-1 pb-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-foreground/20">
                   <Plus className="h-4 w-4 text-foreground/30" />
                 </div>
@@ -492,7 +530,7 @@ export function SingleMedalPickerModal({
         </div>
 
         {/* Scrollable list of unlocked achievements */}
-        <div className="max-h-[50vh] overflow-y-auto">
+        <div className="max-h-[224px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {availableAchievements.length === 0 && !selectedAchievement ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No achievements unlocked yet. Keep drinking to earn medals!
@@ -553,7 +591,7 @@ export function SingleMedalPickerModal({
                       <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
                     </div>
 
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-foreground/20" />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-foreground/20 mr-[10px]" />
                   </button>
                 )
               })}

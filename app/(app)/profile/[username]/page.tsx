@@ -108,6 +108,25 @@ function CheersListModal({
   const [users, setUsers] = React.useState<CheersUser[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
+  // Lock body scroll when modal is open (mobile-friendly)
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   React.useEffect(() => {
     async function fetchCheers() {
       setLoading(true)
@@ -191,7 +210,7 @@ function CheersListModal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-2xl">
+      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="text-base font-semibold">
             Cheers {cheersCount > 0 && `(${cheersCount})`}
@@ -775,6 +794,35 @@ export default function UserProfilePage() {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showSortMenu])
+
+  // Lock body scroll when medal detail modal is open (mobile-friendly)
+  const scrollYRef = React.useRef(0)
+  React.useEffect(() => {
+    if (selectedMedal) {
+      scrollYRef.current = window.scrollY
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollYRef.current}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      if (scrollYRef.current) {
+        window.scrollTo(0, scrollYRef.current)
+      }
+    }
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+    }
+  }, [selectedMedal])
 
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})

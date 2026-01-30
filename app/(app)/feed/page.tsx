@@ -157,6 +157,25 @@ function CheersListModal({
   const [users, setUsers] = React.useState<CheersUser[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
+  // Lock body scroll when modal is open (mobile-friendly)
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   React.useEffect(() => {
     async function fetchCheers() {
       setLoading(true)
@@ -240,7 +259,7 @@ function CheersListModal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-2xl">
+      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="text-base font-semibold">
             Cheers {cheersCount > 0 && `(${cheersCount})`}
@@ -319,29 +338,49 @@ function OverlayPage({
   children: React.ReactNode
   onClose: () => void
 }) {
+  // Lock body scroll when modal is open (mobile-friendly)
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 py-6"
       role="dialog"
       aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <div className="container max-w-2xl px-4">
-        <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="text-base font-semibold">{title}</div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full"
-              aria-label="Close"
-              title="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="max-h-[80vh] overflow-y-auto px-4 py-4">{children}</div>
+      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="text-base font-semibold">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+            aria-label="Close"
+            title="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
       </div>
     </div>
   )
