@@ -63,6 +63,90 @@ function getIconComponent(iconName: string, className?: string) {
   return icons[iconName] || <Trophy className={className} />
 }
 
+// Auto-scrolling text for long descriptions
+function MarqueeText({ text, className }: { text: string; className?: string }) {
+  const containerRef = React.useRef<HTMLParagraphElement>(null)
+  const textRef = React.useRef<HTMLSpanElement>(null)
+  const [shouldScroll, setShouldScroll] = React.useState(false)
+  const [isVisible, setIsVisible] = React.useState(false)
+  const [isScrolling, setIsScrolling] = React.useState(false)
+  const [scrollDistance, setScrollDistance] = React.useState(0)
+
+  // Check if text is truncated
+  React.useEffect(() => {
+    const container = containerRef.current
+    const textEl = textRef.current
+    if (!container || !textEl) return
+
+    const isTruncated = textEl.scrollWidth > container.clientWidth
+    setShouldScroll(isTruncated)
+    if (isTruncated) {
+      setScrollDistance(textEl.scrollWidth - container.clientWidth + 8)
+    }
+  }, [text])
+
+  // Intersection Observer to detect when element is visible
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+        if (!entry.isIntersecting) {
+          setIsScrolling(false)
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  // Start scrolling after 3 seconds when visible
+  React.useEffect(() => {
+    if (!shouldScroll || !isVisible) return
+
+    const startTimer = setTimeout(() => {
+      setIsScrolling(true)
+    }, 2000)
+
+    return () => clearTimeout(startTimer)
+  }, [shouldScroll, isVisible])
+
+  // Reset and repeat cycle
+  React.useEffect(() => {
+    if (!isScrolling || !shouldScroll || !isVisible) return
+
+    // Reset after scroll completes + 1.5s pause
+    const resetTimer = setTimeout(() => {
+      setIsScrolling(false)
+      // Restart the cycle after reset
+      setTimeout(() => {
+        if (isVisible) setIsScrolling(true)
+      }, 2000)
+    }, 4500)
+
+    return () => clearTimeout(resetTimer)
+  }, [isScrolling, shouldScroll, isVisible])
+
+  return (
+    <p ref={containerRef} className={cn("overflow-hidden", className)}>
+      <span
+        ref={textRef}
+        className="inline-block whitespace-nowrap"
+        style={{
+          transform: isScrolling ? `translateX(-${scrollDistance}px)` : 'translateX(0)',
+          transition: isScrolling ? 'transform 3s linear' : 'transform 0.3s ease-out',
+        }}
+      >
+        {text}
+      </span>
+    </p>
+  )
+}
+
 // Small medal display for the profile card
 export function ShowcaseMedal({ 
   achievement, 
@@ -479,7 +563,7 @@ export function SingleMedalPickerModal({
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="flex w-full items-center gap-3 px-4 pt-2 pb-3 text-left hover:bg-foreground/5 transition-colors"
+                className="flex w-full items-center gap-3 px-4 pt-1 pb-3 text-left hover:bg-foreground/5 transition-colors"
               >
                 {(() => {
                   const colors = DIFFICULTY_COLORS[selectedAchievement.difficulty]
@@ -509,7 +593,7 @@ export function SingleMedalPickerModal({
                             {selectedAchievement.difficulty}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">{selectedAchievement.description}</p>
+                        <MarqueeText text={selectedAchievement.description} className="text-xs text-muted-foreground" />
                       </div>
                       <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-green-500 bg-green-500 mr-[10px]">
                         <Check className="h-4 w-4 text-white" />
@@ -582,13 +666,8 @@ export function SingleMedalPickerModal({
                         >
                           {achievement.difficulty}
                         </span>
-                        {isUsedInOtherSlot && (
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            Already selected
-                          </span>
-                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
+                      <MarqueeText text={achievement.description} className="text-xs text-muted-foreground" />
                     </div>
 
                     <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 border-foreground/20 mr-[10px]" />
