@@ -835,7 +835,7 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
       <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
+          <BarChart data={dayData} margin={{ top: 13, right: 0, left: 0, bottom: 0 }}>
             <XAxis 
               dataKey="day" 
               axisLine={false} 
@@ -1754,10 +1754,10 @@ export default function AnalyticsPage() {
         <KpiCards data={kpiData} />
         <StreakAndActivityCards data={streakData} />
         <DrinkChart data={filteredData} />
-        <TypeTrendChart data={filteredData} timeRange={timeRange} />
-        <DayOfWeekChart data={filteredData} />
         <CheersStatsCard stats={cheersStats} />
+        <DayOfWeekChart data={filteredData} />
         <DrinkBreakdown data={breakdownData} />
+        <TypeTrendChart data={filteredData} timeRange={timeRange} />
       </div>
     </div>
   )
