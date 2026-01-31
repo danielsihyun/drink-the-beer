@@ -336,6 +336,8 @@ function KpiCards({
     avgPerDay: number
     mostInADay: number
     mostCommon: string
+    longestStreak: number
+    daysSinceLastDrink: number
   }
 }) {
   const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
@@ -383,41 +385,6 @@ function KpiCards({
       icon: Star,
       color: "text-chart-4",
     },
-  ]
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {cards.map((card) => {
-        const isMostCommon = card.label === "Most Common"
-        return (
-          <Card key={card.label} className="bg-card border-border px-3 pt-3 pb-2 shadow-none">
-            <div className="flex items-center gap-2">
-              <card.icon className={cn("w-4 h-4", card.color)} />
-              <span className="text-xs text-muted-foreground">{card.label}</span>
-            </div>
-            <p
-              ref={isMostCommon ? mostCommonRef : undefined}
-              className="font-semibold text-foreground truncate -mt-4 h-9 flex items-center text-2xl"
-              style={isMostCommon && fontSize ? { fontSize: `${fontSize}px` } : undefined}
-            >
-              {card.value}
-            </p>
-          </Card>
-        )
-      })}
-    </div>
-  )
-}
-
-function StreakAndActivityCards({
-  data,
-}: {
-  data: {
-    longestStreak: number
-    daysSinceLastDrink: number
-  }
-}) {
-  const cards = [
     {
       label: "Longest Streak",
       value: data.longestStreak.toString(),
@@ -426,7 +393,7 @@ function StreakAndActivityCards({
       color: "text-orange-500",
     },
     {
-      label: "Days Since Last Drink",
+      label: "Since Last Drink",
       value: data.daysSinceLastDrink.toString(),
       suffix: data.daysSinceLastDrink === 1 ? "day" : "days",
       icon: CalendarDays,
@@ -436,20 +403,34 @@ function StreakAndActivityCards({
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {cards.map((card) => (
-        <Card key={card.label} className="bg-card border-border px-3 pt-3 pb-2 shadow-none">
-          <div className="flex items-center gap-2">
-            <card.icon className={cn("w-4 h-4", card.color)} />
-            <span className="text-xs text-muted-foreground">{card.label}</span>
-          </div>
-          <div className="-mt-4 h-9 flex items-baseline gap-1.5">
-            <p className="font-semibold text-foreground text-2xl">
-              {card.value}
-            </p>
-            <span className="text-xs text-muted-foreground">{card.suffix}</span>
-          </div>
-        </Card>
-      ))}
+      {cards.map((card) => {
+        const isMostCommon = card.label === "Most Common"
+        const hasSuffix = 'suffix' in card && card.suffix
+        return (
+          <Card key={card.label} className="bg-card border-border px-3 pt-3 pb-2 shadow-none">
+            <div className="flex items-center gap-2">
+              <card.icon className={cn("w-4 h-4", card.color)} />
+              <span className="text-xs text-muted-foreground">{card.label}</span>
+            </div>
+            {hasSuffix ? (
+              <div className="-mt-4 h-9 flex items-baseline gap-1.5">
+                <p className="font-semibold text-foreground text-2xl">
+                  {card.value}
+                </p>
+                <span className="text-xs text-muted-foreground">{card.suffix}</span>
+              </div>
+            ) : (
+              <p
+                ref={isMostCommon ? mostCommonRef : undefined}
+                className="font-semibold text-foreground truncate -mt-4 h-9 flex items-center text-2xl"
+                style={isMostCommon && fontSize ? { fontSize: `${fontSize}px` } : undefined}
+              >
+                {card.value}
+              </p>
+            )}
+          </Card>
+        )
+      })}
     </div>
   )
 }
@@ -947,7 +928,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
     <Card className="bg-card border-border p-4 shadow-none">
       <div className="flex items-center gap-2 -mb-2">
         <CheersIcon filled className="h-5 w-5" />
-        <h3 className="text-sm font-medium text-muted-foreground">Cheers Stats</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Cheers</h3>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -1695,7 +1676,7 @@ export default function AnalyticsPage() {
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse rounded-xl border bg-background/50 p-4">
                 <div className="h-3 w-16 rounded bg-foreground/10" />
                 <div className="mt-2 h-6 w-12 rounded bg-foreground/10" />
@@ -1751,8 +1732,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="space-y-4">
-        <KpiCards data={kpiData} />
-        <StreakAndActivityCards data={streakData} />
+        <KpiCards data={{ ...kpiData, ...streakData }} />
         <DrinkChart data={filteredData} />
         <CheersStatsCard stats={cheersStats} />
         <DayOfWeekChart data={filteredData} />
