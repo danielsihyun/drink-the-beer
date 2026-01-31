@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Loader2, X } from "lucide-react"
+import { Camera, Check, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
@@ -82,14 +82,11 @@ export default function LogDrinkPage() {
   const [zoom, setZoom] = React.useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
   const [cropping, setCropping] = React.useState(false)
+  const [cropObjectFit, setCropObjectFit] = React.useState<"horizontal-cover" | "vertical-cover">("horizontal-cover")
 
   // Geolocation state
   const [location, setLocation] = React.useState<{ latitude: number; longitude: number } | null>(null)
   const [locationStatus, setLocationStatus] = React.useState<LocationStatus>("idle")
-
-  // crop area should max out the square
-  const cropWrapRef = React.useRef<HTMLDivElement | null>(null)
-  const [cropSize, setCropSize] = React.useState<{ width: number; height: number } | null>(null)
 
   const canPost = Boolean(file && drinkType && !submitting)
 
@@ -196,35 +193,6 @@ export default function LogDrinkPage() {
     return () => URL.revokeObjectURL(url)
   }, [file])
 
-  React.useEffect(() => {
-    if (!rawFile) return
-    const url = URL.createObjectURL(rawFile)
-    setRawUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [rawFile])
-
-  // keep crop target full-bleed inside the square container
-  React.useEffect(() => {
-    if (!cropOpen) return
-    if (!cropWrapRef.current) return
-    const el = cropWrapRef.current
-
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect()
-      const s = Math.floor(Math.min(r.width, r.height))
-      setCropSize({ width: s, height: s })
-    })
-
-    ro.observe(el)
-
-    // set initial size immediately
-    const r0 = el.getBoundingClientRect()
-    const s0 = Math.floor(Math.min(r0.width, r0.height))
-    setCropSize({ width: s0, height: s0 })
-
-    return () => ro.disconnect()
-  }, [cropOpen])
-
   function resetForm() {
     setDrinkType(null)
     setCaption("")
@@ -328,12 +296,24 @@ export default function LogDrinkPage() {
     setError(null)
     setSuccess(null)
 
-    // Open cropper for the newly selected image
-    setRawFile(f)
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
-    setCroppedAreaPixels(null)
-    setCropOpen(true)
+    const url = URL.createObjectURL(f)
+    const img = new window.Image()
+    img.onload = () => {
+      const aspect = img.width / img.height
+      // Portrait: fill height, pan left/right not possible. Landscape: fill width, pan up/down not possible
+      setCropObjectFit(aspect < 1 ? "vertical-cover" : "horizontal-cover")
+      setRawFile(f)
+      setRawUrl(url)
+      setCrop({ x: 0, y: 0 })
+      setZoom(1)
+      setCroppedAreaPixels(null)
+      setCropOpen(true)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      setError("Could not load image.")
+    }
+    img.src = url
   }
 
   async function onConfirmCrop() {
@@ -345,10 +325,14 @@ export default function LogDrinkPage() {
       const outputMime = rawFile?.type === "image/png" ? "image/png" : "image/jpeg"
       const cropped = await getCroppedFile(rawUrl, croppedAreaPixels, outputMime)
       setFile(cropped)
+      URL.revokeObjectURL(rawUrl)
+      setRawUrl(null)
+      setRawFile(null)
       setCropOpen(false)
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Could not crop image."
       setError(message)
+      if (rawUrl) URL.revokeObjectURL(rawUrl)
       setCropOpen(false)
       setRawFile(null)
       setRawUrl(null)
@@ -358,6 +342,7 @@ export default function LogDrinkPage() {
   }
 
   function onCancelCrop() {
+    if (rawUrl) URL.revokeObjectURL(rawUrl)
     setCropOpen(false)
     setRawFile(null)
     setRawUrl(null)
@@ -504,72 +489,67 @@ export default function LogDrinkPage() {
         </button>
       </div>
 
-      {/* Crop Modal (Instagram-ish: pan + zoom in a square frame) */}
+      {/* Crop Modal - Instagram-style: pan + zoom with dynamic sizing */}
       {cropOpen && rawUrl ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="text-base font-semibold">Crop</div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (cropping) return
-                  onCancelCrop()
-                }}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full"
-                aria-label="Close"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-4">
+          <div className="w-[344px] overflow-hidden rounded-2xl bg-background shadow-2xl">
+            <div className="relative overflow-hidden">
+              {/* Crop area - extends past all sides to clip white bars */}
               <div
-                ref={cropWrapRef}
-                className="relative w-full overflow-hidden rounded-xl border"
+                className="relative w-[143%] -ml-[21.5%] -mt-[21.5%] -mb-[21.5%] [&_.reactEasyCrop_CropArea]:!border-0"
                 style={{ aspectRatio: "1 / 1" }}
               >
                 <Cropper
+                  key={`${rawUrl}-${cropObjectFit}`}
                   image={rawUrl}
                   crop={crop}
                   zoom={zoom}
                   aspect={1}
-                  cropSize={cropSize ?? undefined}
-                  objectFit="cover"
+                  objectFit={cropObjectFit}
                   showGrid={true}
-                  zoomWithScroll={false}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels as Area)}
                 />
+                {/* White overlays on all 4 sides */}
+                <div className="pointer-events-none absolute left-0 right-0 top-0 h-[15%] bg-background" />
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[15%] bg-background" />
+                <div className="pointer-events-none absolute bottom-0 left-0 top-0 w-[15%] bg-background" />
+                <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-[15%] bg-background" />
               </div>
 
-              <div className="mt-5 flex gap-3">
+              {/* Header with X on left, checkmark on right */}
+              <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
                 <button
                   type="button"
                   onClick={() => {
                     if (cropping) return
                     onCancelCrop()
                   }}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
                   disabled={cropping}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+                  aria-label="Cancel"
+                  title="Cancel"
                 >
-                  Cancel
+                  <X className="h-5 w-5" />
                 </button>
-
                 <button
                   type="button"
                   onClick={onConfirmCrop}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
                   disabled={cropping}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+                  aria-label="Done"
+                  title="Done"
                 >
-                  {cropping ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Done
+                  {cropping ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Check className="h-5 w-5" />
+                  )}
                 </button>
               </div>
             </div>
