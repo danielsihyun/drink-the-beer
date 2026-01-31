@@ -870,16 +870,12 @@ function OverlayPage({
   onClose,
   onSave,
   saving,
-  saveIcon,
-  saveIconClassName,
 }: {
   title: string
   children: React.ReactNode
   onClose: () => void
   onSave?: () => void
   saving?: boolean
-  saveIcon?: React.ReactNode
-  saveIconClassName?: string
 }) {
   // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
@@ -928,14 +924,11 @@ function OverlayPage({
                 type="button"
                 onClick={onSave}
                 disabled={saving}
-                className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10",
-                  saveIconClassName
-                )}
-                aria-label="Confirm"
-                title="Confirm"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+                aria-label="Save"
+                title="Save"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : (saveIcon || <Check className="h-4 w-4" />)}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               </button>
             )}
           </div>
@@ -1595,8 +1588,6 @@ export default function ProfilePage() {
           }}
           onSave={deletePostConfirmed}
           saving={postBusy}
-          saveIcon={<Trash2 className="h-4 w-4" />}
-          saveIconClassName="text-red-400"
         >
           {postError ? (
             <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
