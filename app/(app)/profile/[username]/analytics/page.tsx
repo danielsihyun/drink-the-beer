@@ -1315,7 +1315,7 @@ export default function FriendAnalyticsPage() {
   }
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+    <div className="container max-w-2xl px-3 py-1.5 pb-0">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button

@@ -339,7 +339,7 @@ function DraggableCard({
     >
       {/* Drag Handle */}
       <div
-        className="absolute top-3 right-3 z-10 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none"
+        className="absolute top-3 right-3 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -1554,7 +1554,7 @@ export default function AnalyticsPage() {
 
   return (
     <DragContext.Provider value={{ draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions }}>
-      <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+      <div className="container max-w-2xl px-3 py-1.5 pb-0">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
