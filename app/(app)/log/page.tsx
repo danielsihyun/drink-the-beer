@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Check, Loader2, X } from "lucide-react"
+import { Camera, Check, ChevronDown, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
@@ -64,6 +64,7 @@ export default function LogDrinkPage() {
   const { checkAchievements } = useAchievements()
 
   const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
+  const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const [caption, setCaption] = React.useState("")
   const [file, setFile] = React.useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
@@ -73,6 +74,7 @@ export default function LogDrinkPage() {
   const [success, setSuccess] = React.useState<string | null>(null)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Crop UI state
   const [cropOpen, setCropOpen] = React.useState(false)
@@ -90,16 +92,21 @@ export default function LogDrinkPage() {
 
   const canPost = Boolean(file && drinkType && !submitting)
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   // ==========================================================================
   // GEOLOCATION HANDLING
-  // - On page load: check permission state (without prompting)
-  // - If already granted: get location silently
-  // - If denied: skip, don't bother user
-  // - If prompt needed: wait until user taps "Post" (user gesture required)
-  // - Browser remembers the choice permanently for this domain
   // ==========================================================================
 
-  // Get location helper - used both on load (if granted) and on submit (if prompt)
   const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -121,13 +128,10 @@ export default function LogDrinkPage() {
           resolve(loc)
         },
         (err) => {
-          // User denied or error occurred
           console.log("Geolocation error:", err.code, err.message)
           if (err.code === 1) {
-            // PERMISSION_DENIED
             setLocationStatus("denied")
           } else {
-            // POSITION_UNAVAILABLE or TIMEOUT - permission may still be granted
             setLocationStatus("granted")
           }
           resolve(null)
@@ -135,39 +139,32 @@ export default function LogDrinkPage() {
         {
           enableHighAccuracy: true,
           timeout: 15000,
-          maximumAge: 60000, // Cache for 1 minute
+          maximumAge: 60000,
         }
       )
     })
   }, [])
 
-  // Check permission state on mount
   React.useEffect(() => {
     if (!navigator.geolocation) {
       setLocationStatus("unavailable")
       return
     }
 
-    // Use Permissions API to check state without triggering a prompt
     if (navigator.permissions && navigator.permissions.query) {
       navigator.permissions
         .query({ name: "geolocation" })
         .then((permissionStatus) => {
           if (permissionStatus.state === "granted") {
-            // Already have permission - get location silently in background
             getLocation()
           } else if (permissionStatus.state === "denied") {
-            // User previously denied - don't ask again
             setLocationStatus("denied")
           } else {
-            // "prompt" - will need to ask, but wait for user gesture
             setLocationStatus("idle")
           }
 
-          // Listen for permission changes (e.g., user changes in browser settings)
           permissionStatus.addEventListener("change", () => {
             if (permissionStatus.state === "granted") {
-              // Permission was just granted - get location
               getLocation()
             } else if (permissionStatus.state === "denied") {
               setLocationStatus("denied")
@@ -176,12 +173,9 @@ export default function LogDrinkPage() {
           })
         })
         .catch(() => {
-          // Permissions API not supported (e.g., older Safari)
-          // We'll request on submit with user gesture
           setLocationStatus("idle")
         })
     } else {
-      // No Permissions API - will request on submit
       setLocationStatus("idle")
     }
   }, [getLocation])
@@ -205,7 +199,6 @@ export default function LogDrinkPage() {
     setZoom(1)
     setCroppedAreaPixels(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
-    // Note: We don't reset location/locationStatus - those persist across posts
   }
 
   async function onSubmit() {
@@ -225,14 +218,8 @@ export default function LogDrinkPage() {
         return
       }
 
-      // ==========================================================================
-      // LOCATION: Request if we don't have it yet and haven't been denied
-      // This is triggered by user action (tapping Post), so the browser allows the prompt
-      // The browser will remember the user's choice for future visits
-      // ==========================================================================
       let finalLocation = location
       if (!finalLocation && locationStatus === "idle") {
-        // First time posting - this will show the permission prompt
         finalLocation = await getLocation()
       }
 
@@ -255,7 +242,6 @@ export default function LogDrinkPage() {
 
       const nextCaption = caption.trim()
 
-      // Build insert data
       const insertData: {
         user_id: string
         photo_path: string
@@ -270,7 +256,6 @@ export default function LogDrinkPage() {
         caption: nextCaption.length ? nextCaption : null,
       }
 
-      // Include location if available
       if (finalLocation) {
         insertData.latitude = finalLocation.latitude
         insertData.longitude = finalLocation.longitude
@@ -300,7 +285,6 @@ export default function LogDrinkPage() {
     const img = new window.Image()
     img.onload = () => {
       const aspect = img.width / img.height
-      // Portrait: fill height, pan left/right not possible. Landscape: fill width, pan up/down not possible
       setCropObjectFit(aspect < 1 ? "vertical-cover" : "horizontal-cover")
       setRawFile(f)
       setRawUrl(url)
@@ -321,7 +305,6 @@ export default function LogDrinkPage() {
 
     setCropping(true)
     try {
-      // Prefer PNG if user picked PNG, otherwise JPEG
       const outputMime = rawFile?.type === "image/png" ? "image/png" : "image/jpeg"
       const cropped = await getCroppedFile(rawUrl, croppedAreaPixels, outputMime)
       setFile(cropped)
@@ -427,29 +410,55 @@ export default function LogDrinkPage() {
 
         <section className="mt-4 rounded-2xl border bg-background/50 p-3">
           <h2 className="text-sm font-medium">Drink type</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {DRINK_TYPES.map((t) => {
-              const selected = t === drinkType
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setDrinkType(t)
-                    setError(null)
-                    setSuccess(null)
-                  }}
-                  className={[
-                    "rounded-full border px-4 py-2 text-sm",
-                    "active:scale-[0.99]",
-                    selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-bg/5",
-                  ].join(" ")}
-                  aria-pressed={selected}
-                >
-                  {t}
-                </button>
-              )
-            })}
+          <div className="relative mt-3" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setDropdownOpen(!dropdownOpen)
+                setError(null)
+                setSuccess(null)
+              }}
+              className={[
+                "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition-all",
+                "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
+                dropdownOpen ? "border-black/30 ring-2 ring-black/20" : "",
+                drinkType ? "text-foreground" : "text-muted-foreground",
+              ].join(" ")}
+            >
+              <span>{drinkType || "Select a drink type"}</span>
+              <ChevronDown
+                className={[
+                  "h-4 w-4 transition-transform duration-200",
+                  dropdownOpen ? "rotate-180" : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border bg-background shadow-lg">
+                {DRINK_TYPES.map((t, index) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setDrinkType(t)
+                      setDropdownOpen(false)
+                      setError(null)
+                      setSuccess(null)
+                    }}
+                    className={[
+                      "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
+                      "hover:bg-black/5 active:bg-black/10",
+                      t === drinkType ? "bg-black/5 font-medium" : "",
+                      index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : "",
+                    ].join(" ")}
+                  >
+                    <span>{t}</span>
+                    {t === drinkType && <Check className="h-4 w-4" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -498,7 +507,6 @@ export default function LogDrinkPage() {
         >
           <div className="w-[344px] overflow-hidden rounded-2xl bg-background shadow-2xl">
             <div className="relative overflow-hidden">
-              {/* Crop area - extends past all sides to clip white bars */}
               <div
                 className="relative w-[143%] -ml-[21.5%] -mt-[21.5%] -mb-[21.5%] [&_.reactEasyCrop_CropArea]:!border-0"
                 style={{ aspectRatio: "1 / 1" }}
@@ -515,14 +523,12 @@ export default function LogDrinkPage() {
                   onZoomChange={setZoom}
                   onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels as Area)}
                 />
-                {/* White overlays on all 4 sides */}
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-[15%] bg-background" />
                 <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[15%] bg-background" />
                 <div className="pointer-events-none absolute bottom-0 left-0 top-0 w-[15%] bg-background" />
                 <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-[15%] bg-background" />
               </div>
 
-              {/* Header with X on left, checkmark on right */}
               <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
                 <button
                   type="button"

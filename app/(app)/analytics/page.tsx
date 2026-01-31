@@ -520,6 +520,103 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
   )
 }
 
+// Auto-scrolling legend for charts
+function MarqueeLegend({ children, className }: { children: React.ReactNode; className?: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const [shouldScroll, setShouldScroll] = React.useState(false)
+  const [isVisible, setIsVisible] = React.useState(false)
+  const [isScrolling, setIsScrolling] = React.useState(false)
+  const [scrollDistance, setScrollDistance] = React.useState(0)
+  const [scrollDuration, setScrollDuration] = React.useState(0)
+
+  // Pixels per second - adjust this to change scroll speed
+  const SCROLL_SPEED = 40
+
+  // Check if content overflows
+  React.useEffect(() => {
+    const container = containerRef.current
+    const content = contentRef.current
+    if (!container || !content) return
+
+    const checkOverflow = () => {
+      const isOverflowing = content.scrollWidth > container.clientWidth
+      setShouldScroll(isOverflowing)
+      if (isOverflowing) {
+        const distance = content.scrollWidth - container.clientWidth + 8
+        setScrollDistance(distance)
+        setScrollDuration(distance / SCROLL_SPEED)
+      }
+    }
+
+    checkOverflow()
+    // Recheck on resize
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [children])
+
+  // Intersection Observer to detect when element is visible
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+        if (!entry.isIntersecting) {
+          setIsScrolling(false)
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  // Start scrolling after 2 seconds when visible
+  React.useEffect(() => {
+    if (!shouldScroll || !isVisible) return
+
+    const startTimer = setTimeout(() => {
+      setIsScrolling(true)
+    }, 2000)
+
+    return () => clearTimeout(startTimer)
+  }, [shouldScroll, isVisible])
+
+  // Reset and repeat cycle
+  React.useEffect(() => {
+    if (!isScrolling || !shouldScroll || !isVisible || scrollDuration === 0) return
+
+    // Reset after scroll completes + 1.5s pause
+    const resetTimer = setTimeout(() => {
+      setIsScrolling(false)
+      // Restart the cycle after reset
+      setTimeout(() => {
+        if (isVisible) setIsScrolling(true)
+      }, 2000)
+    }, (scrollDuration * 1000) + 1500)
+
+    return () => clearTimeout(resetTimer)
+  }, [isScrolling, shouldScroll, isVisible, scrollDuration])
+
+  return (
+    <div ref={containerRef} className={cn("overflow-hidden", className)}>
+      <div
+        ref={contentRef}
+        className="flex gap-3 w-max"
+        style={{
+          transform: isScrolling ? `translateX(-${scrollDistance}px)` : 'translateX(0)',
+          transition: isScrolling ? `transform ${scrollDuration}s linear` : 'transform 0.3s ease-out',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: TimeRange }) {
   const chartData = React.useMemo(() => {
     const bucketSize = timeRange === "1W" ? 1 : timeRange === "1M" ? 7 : timeRange === "3M" ? 14 : 30
@@ -644,21 +741,21 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
                 dataKey={type}
                 stackId="1"
                 fill={STACKED_COLORS[type] || "#6b7280"}
-                shape={RoundedTopBar}
+                shape={RoundedTopBar as any}
               />
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
       
-      <div className="flex flex-wrap gap-3 -mt-5">
+      <MarqueeLegend className="-mt-5">
         {allTypes.map((type) => (
-          <div key={type} className="flex items-center gap-1.5">
+          <div key={type} className="flex items-center gap-1.5 shrink-0">
             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STACKED_COLORS[type] || "#6b7280" }} />
             <span className="text-xs text-muted-foreground">{type}</span>
           </div>
         ))}
-      </div>
+      </MarqueeLegend>
     </Card>
   )
 }
