@@ -351,10 +351,16 @@ export default function LogDrinkPage() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border bg-background/50 p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">Photo</h2>
-            {file ? (
+        <div className="relative">
+          {previewUrl ? (
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border bg-background/50">
+              <Image
+                src={previewUrl}
+                alt="Drink preview"
+                fill
+                className="object-cover"
+                unoptimized
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -362,51 +368,36 @@ export default function LogDrinkPage() {
                   setPreviewUrl(null)
                   if (fileInputRef.current) fileInputRef.current.value = ""
                 }}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
+                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-opacity hover:bg-black/70"
+                aria-label="Clear photo"
               >
                 <X className="h-4 w-4" />
-                Clear
               </button>
-            ) : null}
-          </div>
-
-          <div className="mt-3">
-            {previewUrl ? (
-              <div className="relative overflow-hidden rounded-xl border">
-                <Image
-                  src={previewUrl || "/placeholder.svg"}
-                  alt="Drink preview"
-                  width={900}
-                  height={1200}
-                  className="h-72 w-full object-cover"
-                  unoptimized
-                />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed bg-background/50 text-center transition-colors hover:border-black/30"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border">
+                <Camera className="h-6 w-6" />
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border">
-                  <Camera className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Add a photo</p>
-                  <p className="mt-1 text-xs opacity-70">Choose from library, take a photo, or pick a file</p>
-                </div>
-              </button>
-            )}
+              <div>
+                <p className="text-sm font-medium">Add a photo</p>
+                <p className="mt-1 text-xs opacity-70">Tap to take or choose a photo</p>
+              </div>
+            </button>
+          )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-        </section>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
 
         <div className="relative mt-4" ref={dropdownRef}>
           <button
