@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star } from "lucide-react"
+import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star, Flame, CalendarDays } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
 } from "recharts"
 
 type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
@@ -24,12 +26,16 @@ type DrinkLogRow = {
   id: string
   drink_type: string
   created_at: string
+  caption: string | null
 }
 
 type DrinkEntry = {
   date: string
   count: number
   types: string[]
+  hours: number[]
+  drinkIds: string[]
+  captions: (string | null)[]
 }
 
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
@@ -42,6 +48,17 @@ const timeRangeOptions: { key: TimeRange; label: string }[] = [
 ]
 
 const PIE_COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa", "#fb923c", "#2dd4bf"]
+const STACKED_COLORS: Record<string, string> = {
+  "Beer": "#fbbf24",
+  "Wine": "#a855f7",
+  "Cocktail": "#ec4899",
+  "Shot": "#ef4444",
+  "Seltzer": "#22d3ee",
+  "Spirit": "#f97316",
+  "Other": "#6b7280",
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear()
@@ -56,17 +73,22 @@ function parseLocalDateString(dateStr: string): Date {
 }
 
 function transformDrinkLogs(logs: DrinkLogRow[]): DrinkEntry[] {
-  const byDate: Record<string, { count: number; types: string[] }> = {}
+  const byDate: Record<string, { count: number; types: string[]; hours: number[]; drinkIds: string[]; captions: (string | null)[] }> = {}
 
   for (const log of logs) {
-    const date = getLocalDateString(new Date(log.created_at))
+    const logDate = new Date(log.created_at)
+    const date = getLocalDateString(logDate)
+    const hour = logDate.getHours()
 
     if (!byDate[date]) {
-      byDate[date] = { count: 0, types: [] }
+      byDate[date] = { count: 0, types: [], hours: [], drinkIds: [], captions: [] }
     }
 
     byDate[date].count += 1
     byDate[date].types.push(log.drink_type)
+    byDate[date].hours.push(hour)
+    byDate[date].drinkIds.push(log.id)
+    byDate[date].captions.push(log.caption)
   }
 
   return Object.entries(byDate)
@@ -74,6 +96,9 @@ function transformDrinkLogs(logs: DrinkLogRow[]): DrinkEntry[] {
       date,
       count: data.count,
       types: data.types,
+      hours: data.hours,
+      drinkIds: data.drinkIds,
+      captions: data.captions,
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }
@@ -101,67 +126,104 @@ function formatAxisDate(dateStr: string): string {
   })
 }
 
-function TimeRangeSelector({
-    value,
-    onChange,
-  }: {
-    value: TimeRange
-    onChange: (value: TimeRange) => void
-  }) {
-    const [showMenu, setShowMenu] = React.useState(false)
-    const menuRef = React.useRef<HTMLDivElement>(null)
-  
-    React.useEffect(() => {
-      function handleClickOutside(event: MouseEvent) {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setShowMenu(false)
-        }
-      }
-  
-      if (showMenu) {
-        document.addEventListener("mousedown", handleClickOutside)
-      }
-  
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside)
-      }
-    }, [showMenu])
-  
-    return (
-      <div ref={menuRef} className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => setShowMenu(!showMenu)}
-          className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-        >
-          <Calendar className="h-4 w-4" />
-          {getTimeRangeLabel(value)}
-        </button>
-  
-        {showMenu ? (
-          <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
-            {timeRangeOptions.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => {
-                  onChange(opt.key)
-                  setShowMenu(false)
-                }}
-                className={cn(
-                  "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
-                  value === opt.key ? "font-semibold" : ""
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    )
+function formatShortDate(dateStr: string): string {
+  const date = parseLocalDateString(dateStr)
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function getDateRangeForTimeRange(timeRange: TimeRange, now: Date): { start: Date; end: Date } {
+  let startDate: Date
+
+  switch (timeRange) {
+    case "1W":
+      startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+      break
+    case "1M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+      break
+    case "3M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
+      break
+    case "6M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
+      break
+    case "1Y":
+      startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+      break
+    case "YTD":
+      startDate = new Date(now.getFullYear(), 0, 1)
+      break
+    default:
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
   }
-  
+  startDate.setHours(0, 0, 0, 0)
+
+  return { start: startDate, end: now }
+}
+
+function TimeRangeSelector({
+  value,
+  onChange,
+}: {
+  value: TimeRange
+  onChange: (value: TimeRange) => void
+}) {
+  const [showMenu, setShowMenu] = React.useState(false)
+  const menuRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+
+    if (showMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showMenu])
+
+  return (
+    <div ref={menuRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setShowMenu(!showMenu)}
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+      >
+        <Calendar className="h-4 w-4" />
+        {getTimeRangeLabel(value)}
+      </button>
+
+      {showMenu ? (
+        <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
+          {timeRangeOptions.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => {
+                onChange(opt.key)
+                setShowMenu(false)
+              }}
+              className={cn(
+                "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
+                value === opt.key ? "font-semibold" : ""
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 function ResponsiveTitle({ text }: { text: string }) {
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -229,6 +291,8 @@ function KpiCards({
     avgPerDay: number
     mostInADay: number
     mostCommon: string
+    longestStreak: number
+    daysSinceLastDrink: number
   }
 }) {
   const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
@@ -255,46 +319,73 @@ function KpiCards({
     {
       label: "Total Drinks",
       value: data.totalDrinks.toString(),
+      suffix: data.totalDrinks === 1 ? "drink" : "drinks",
       icon: GlassWater,
       color: "text-chart-1",
     },
     {
       label: "Avg per Day",
       value: data.avgPerDay.toFixed(2),
+      suffix: "drinks",
       icon: TrendingUp,
       color: "text-chart-2",
     },
     {
-      label: "Most in a Day",
+      label: "Best Day",
       value: data.mostInADay.toString(),
+      suffix: data.mostInADay === 1 ? "drink" : "drinks",
       icon: Trophy,
       color: "text-chart-3",
     },
     {
-      label: "Most Common",
+      label: "Favorite",
       value: data.mostCommon,
       icon: Star,
       color: "text-chart-4",
     },
+    {
+      label: "Longest Streak",
+      value: data.longestStreak.toString(),
+      suffix: data.longestStreak === 1 ? "day" : "days",
+      icon: Flame,
+      color: "text-orange-500",
+    },
+    {
+      label: "Since Last Drink",
+      value: data.daysSinceLastDrink.toString(),
+      suffix: data.daysSinceLastDrink === 1 ? "day" : "days",
+      icon: CalendarDays,
+      color: "text-green-500",
+    },
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-4">
       {cards.map((card) => {
         const isMostCommon = card.label === "Most Common"
+        const hasSuffix = 'suffix' in card && card.suffix
         return (
-          <Card key={card.label} className="bg-card border-border p-3 shadow-none">
+          <Card key={card.label} className="bg-card border-border px-3 pt-3 pb-2 shadow-none">
             <div className="flex items-center gap-2">
               <card.icon className={cn("w-4 h-4", card.color)} />
               <span className="text-xs text-muted-foreground">{card.label}</span>
             </div>
-            <p
-              ref={isMostCommon ? mostCommonRef : undefined}
-              className="font-semibold text-foreground truncate -mt-4 h-9 flex items-center text-2xl"
-              style={isMostCommon && fontSize ? { fontSize: `${fontSize}px` } : undefined}
-            >
-              {card.value}
-            </p>
+            {hasSuffix ? (
+              <div className="-mt-4 h-9 flex items-baseline gap-1.5">
+                <p className="font-semibold text-foreground text-2xl">
+                  {card.value}
+                </p>
+                <span className="text-xs text-muted-foreground">{card.suffix}</span>
+              </div>
+            ) : (
+              <p
+                ref={isMostCommon ? mostCommonRef : undefined}
+                className="font-semibold text-foreground truncate -mt-4 h-9 flex items-center text-2xl"
+                style={isMostCommon && fontSize ? { fontSize: `${fontSize}px` } : undefined}
+              >
+                {card.value}
+              </p>
+            )}
           </Card>
         )
       })}
@@ -302,11 +393,7 @@ function KpiCards({
   )
 }
 
-function DrinkChart({
-  data,
-}: {
-  data: DrinkEntry[]
-}) {
+function DrinkChart({ data }: { data: DrinkEntry[] }) {
   const totalDrinks = data.reduce((sum, d) => sum + d.count, 0)
   const maxCount = Math.max(...data.map((d) => d.count), 1)
 
@@ -336,7 +423,7 @@ function DrinkChart({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
-            margin={{ top: 10, right: 10, left: 10, bottom: 0}}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
           >
             <defs>
               <linearGradient id="colorCountFriend" x1="0" y1="0" x2="0" y2="1">
@@ -407,19 +494,325 @@ function DrinkChart({
   )
 }
 
-function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
-  const total = React.useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
+// Auto-scrolling legend for charts
+function MarqueeLegend({ children, className }: { children: React.ReactNode; className?: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const [shouldScroll, setShouldScroll] = React.useState(false)
+  const [isVisible, setIsVisible] = React.useState(false)
+  const [isScrolling, setIsScrolling] = React.useState(false)
+  const [scrollDistance, setScrollDistance] = React.useState(0)
+  const [scrollDuration, setScrollDuration] = React.useState(0)
 
-  if (data.length === 0) {
+  // Pixels per second - adjust this to change scroll speed
+  const SCROLL_SPEED = 40
+
+  // Check if content overflows
+  React.useEffect(() => {
+    const container = containerRef.current
+    const content = contentRef.current
+    if (!container || !content) return
+
+    const checkOverflow = () => {
+      const isOverflowing = content.scrollWidth > container.clientWidth
+      setShouldScroll(isOverflowing)
+      if (isOverflowing) {
+        const distance = content.scrollWidth - container.clientWidth + 8
+        setScrollDistance(distance)
+        setScrollDuration(distance / SCROLL_SPEED)
+      }
+    }
+
+    checkOverflow()
+    // Recheck on resize
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [children])
+
+  // Intersection Observer to detect when element is visible
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+        if (!entry.isIntersecting) {
+          setIsScrolling(false)
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  // Start scrolling after 2 seconds when visible
+  React.useEffect(() => {
+    if (!shouldScroll || !isVisible) return
+
+    const startTimer = setTimeout(() => {
+      setIsScrolling(true)
+    }, 2000)
+
+    return () => clearTimeout(startTimer)
+  }, [shouldScroll, isVisible])
+
+  // Reset and repeat cycle
+  React.useEffect(() => {
+    if (!isScrolling || !shouldScroll || !isVisible || scrollDuration === 0) return
+
+    // Reset after scroll completes + 1.5s pause
+    const resetTimer = setTimeout(() => {
+      setIsScrolling(false)
+      // Restart the cycle after reset
+      setTimeout(() => {
+        if (isVisible) setIsScrolling(true)
+      }, 2000)
+    }, (scrollDuration * 1000) + 1500)
+
+    return () => clearTimeout(resetTimer)
+  }, [isScrolling, shouldScroll, isVisible, scrollDuration])
+
+  return (
+    <div ref={containerRef} className={cn("overflow-hidden", className)}>
+      <div
+        ref={contentRef}
+        className="flex gap-3 w-max"
+        style={{
+          transform: isScrolling ? `translateX(-${scrollDistance}px)` : 'translateX(0)',
+          transition: isScrolling ? `transform ${scrollDuration}s linear` : 'transform 0.3s ease-out',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: TimeRange }) {
+  const chartData = React.useMemo(() => {
+    const bucketSize = timeRange === "1W" ? 1 : timeRange === "1M" ? 7 : timeRange === "3M" ? 14 : 30
+    const buckets: { date: string; label: string; [key: string]: number | string }[] = []
+    
+    let currentBucket: { date: string; label: string; types: Record<string, number> } | null = null
+    let dayCount = 0
+    let bucketIndex = 0
+
+    for (const entry of data) {
+      if (!currentBucket || dayCount >= bucketSize) {
+        if (currentBucket) {
+          buckets.push({ date: currentBucket.date, label: currentBucket.label, ...currentBucket.types })
+        }
+        bucketIndex++
+        const label = timeRange === "1W" 
+          ? formatShortDate(entry.date)
+          : `W${bucketIndex}`
+        currentBucket = { date: entry.date, label, types: {} }
+        dayCount = 0
+      }
+
+      entry.types.forEach((type) => {
+        currentBucket!.types[type] = (currentBucket!.types[type] || 0) + 1
+      })
+      dayCount++
+    }
+
+    if (currentBucket && Object.keys(currentBucket.types).length > 0) {
+      buckets.push({ date: currentBucket.date, label: currentBucket.label, ...currentBucket.types })
+    }
+
+    return buckets
+  }, [data, timeRange])
+
+  // Sort types by total count descending (highest at bottom of stack)
+  const allTypes = React.useMemo(() => {
+    const typeTotals: Record<string, number> = {}
+    data.forEach((entry) => entry.types.forEach((t) => {
+      typeTotals[t] = (typeTotals[t] || 0) + 1
+    }))
+    
+    return Object.entries(typeTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type]) => type)
+  }, [data])
+
+  // Custom bar shape that rounds top corners only for the topmost segment
+  const RoundedTopBar = React.useCallback((props: any) => {
+    const { x, y, width, height, fill, dataKey, payload } = props
+    
+    if (!height || height <= 0) return null
+    
+    // Check if this is the topmost bar with a value
+    const typeIndex = allTypes.indexOf(dataKey)
+    const typesAbove = allTypes.slice(typeIndex + 1)
+    const isTopmost = typesAbove.every(type => !payload[type] || payload[type] === 0)
+    
+    if (isTopmost) {
+      const radius = 4
+      // Path with rounded top corners only
+      const path = `
+        M ${x},${y + height}
+        L ${x},${y + radius}
+        Q ${x},${y} ${x + radius},${y}
+        L ${x + width - radius},${y}
+        Q ${x + width},${y} ${x + width},${y + radius}
+        L ${x + width},${y + height}
+        Z
+      `
+      return <path d={path} fill={fill} />
+    }
+    
+    return <rect x={x} y={y} width={width} height={height} fill={fill} />
+  }, [allTypes])
+
+  if (chartData.length === 0 || allTypes.length === 0) {
     return (
-      <Card className="bg-card border-border px-6 py-3 shadow-none">
+      <Card className="bg-card border-border p-4 shadow-none">
+        <h3 className="text-sm font-medium text-muted-foreground mb-4">Type Trend</h3>
         <p className="text-muted-foreground text-center py-8">No data available</p>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-card border-border px-6 py-3 shadow-none">
+    <Card className="bg-card border-border p-4 shadow-none">
+      <h3 className="text-sm font-medium text-muted-foreground -mb-1">Type Trend Over Time</h3>
+      <div className="h-[200px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: -15, right: 10, left: 10, bottom: 0 }}>
+            <XAxis
+              dataKey="label"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: '#888' }}
+            />
+            <YAxis hide />
+            <Tooltip
+              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+              content={({ active, payload, label }) => {
+                if (active && payload?.length) {
+                  const total = payload.reduce((sum: number, p: any) => sum + (p.value || 0), 0)
+                  return (
+                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                      <p className="text-xs font-medium text-foreground mb-1">{total} drinks</p>
+                      {payload.map((p: any) => p.value > 0 && (
+                        <div key={p.dataKey} className="flex items-center gap-2 text-xs">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.fill }} />
+                          <span>{p.dataKey}: {p.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }
+                return null
+              }}
+            />
+            {allTypes.map((type) => (
+              <Bar
+                key={type}
+                dataKey={type}
+                stackId="1"
+                fill={STACKED_COLORS[type] || "#6b7280"}
+                shape={RoundedTopBar as any}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      
+      <MarqueeLegend className="-mt-5">
+        {allTypes.map((type) => (
+          <div key={type} className="flex items-center gap-1.5 shrink-0">
+            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STACKED_COLORS[type] || "#6b7280" }} />
+            <span className="text-xs text-muted-foreground">{type}</span>
+          </div>
+        ))}
+      </MarqueeLegend>
+    </Card>
+  )
+}
+
+function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
+  const dayData = React.useMemo(() => {
+    const counts = [0, 0, 0, 0, 0, 0, 0]
+    
+    data.forEach((entry) => {
+      if (entry.count > 0) {
+        const date = parseLocalDateString(entry.date)
+        const dayOfWeek = date.getDay()
+        counts[dayOfWeek] += entry.count
+      }
+    })
+
+    return DAY_NAMES.map((name, i) => ({
+      day: name,
+      drinks: counts[i],
+    }))
+  }, [data])
+
+  const maxDrinks = Math.max(...dayData.map((d) => d.drinks), 1)
+
+  return (
+    <Card className="bg-card border-border px-4 pt-4 pb-2 shadow-none">
+      <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
+      <div className="h-[160px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
+            <XAxis 
+              dataKey="day" 
+              axisLine={false} 
+              tickLine={false}
+              tick={{ fontSize: 12, fill: '#888' }}
+            />
+            <YAxis hide domain={[0, maxDrinks]} />
+            <Tooltip
+              position={{ y: -36 }}
+              wrapperStyle={{ pointerEvents: 'none' }}
+              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+              content={({ active, payload }) => {
+                if (active && payload?.[0]) {
+                  const count = payload[0].payload.drinks
+                  return (
+                    <div className="bg-popover border border-border rounded-lg px-2.5 py-1.5">
+                      <p className="text-xs font-medium text-foreground">
+                        {count} {count === 1 ? "drink" : "drinks"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {payload[0].payload.day}
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              }}
+            />
+            <Bar 
+              dataKey="drinks" 
+              fill="#60a5fa" 
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  )
+}
+
+function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
+  const total = React.useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
+
+  if (data.length === 0) {
+    return (
+      <Card className="bg-card border-border p-4 shadow-none">
+        <p className="text-muted-foreground text-center py-8">No data available</p>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="bg-card border-border p-4 shadow-none">
       <div className="flex flex-col md:flex-row items-center gap-1">
         <div className="w-full md:w-1/2 h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -443,7 +836,7 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
                     const item = payload[0].payload
                     const percentage = ((item.value / total) * 100).toFixed(1)
                     return (
-                      <div className="bg-popover border border-border rounded-lg px-3 py-2">
+                      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
                         <p className="text-sm font-medium text-foreground">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.value} ({percentage}%)
@@ -458,7 +851,7 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="w-full md:w-1/2 space-y-3">
+        <div className="w-full md:w-1/2 space-y-3 mb-1">
           {data.map((item, index) => {
             const percentage = ((item.value / total) * 100).toFixed(1)
             return (
@@ -558,7 +951,7 @@ export default function FriendAnalyticsPage() {
 
         const { data: logs, error: logsErr } = await supabase
           .from("drink_logs")
-          .select("id, drink_type, created_at")
+          .select("id, drink_type, created_at, caption")
           .eq("user_id", profileUserId)
           .order("created_at", { ascending: true })
 
@@ -579,54 +972,30 @@ export default function FriendAnalyticsPage() {
 
   const filteredData = React.useMemo(() => {
     const now = new Date()
+    const { start: startDate } = getDateRangeForTimeRange(timeRange, now)
     const todayStr = getLocalDateString(now)
-    let startDate: Date
-  
-    switch (timeRange) {
-      case "1W":
-        startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
-        break
-      case "1M":
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-        break
-      case "3M":
-        startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-        break
-      case "6M":
-        startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
-        break
-      case "1Y":
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-        break
-      case "YTD":
-        startDate = new Date(now.getFullYear(), 0, 1)
-        break
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-    }
-    startDate.setHours(0, 0, 0, 0)
-  
+
     const dataByDate = new Map<string, DrinkEntry>()
     for (const entry of allData) {
       dataByDate.set(entry.date, entry)
     }
-  
+
     const result: DrinkEntry[] = []
     const current = new Date(startDate)
-  
+
     while (getLocalDateString(current) <= todayStr) {
       const dateStr = getLocalDateString(current)
       const existing = dataByDate.get(dateStr)
-  
+
       if (existing) {
         result.push(existing)
       } else {
-        result.push({ date: dateStr, count: 0, types: [] })
+        result.push({ date: dateStr, count: 0, types: [], hours: [], drinkIds: [], captions: [] })
       }
-  
+
       current.setDate(current.getDate() + 1)
     }
-  
+
     return result
   }, [allData, timeRange])
 
@@ -634,20 +1003,58 @@ export default function FriendAnalyticsPage() {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
     const mostInADay = Math.max(...filteredData.map((d) => d.count), 0)
-  
+
     const typeCounts: Record<string, number> = {}
     filteredData.forEach((day) => {
       day.types.forEach((type) => {
         typeCounts[type] = (typeCounts[type] || 0) + 1
       })
     })
-  
+
     const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
     const topCount = sortedTypes[0]?.[1] ?? 0
     const tiedTypes = sortedTypes.filter(([, count]) => count === topCount).map(([name]) => name)
     const mostCommon = tiedTypes.length > 0 ? tiedTypes.join("/") : "N/A"
-  
+
     return { totalDrinks, avgPerDay, mostInADay, mostCommon }
+  }, [filteredData])
+
+  const streakData = React.useMemo(() => {
+    let longestStreak = 0
+    let tempStreak = 0
+    let daysSinceLastDrink = 0
+
+    // Calculate longest streak
+    for (let i = 0; i < filteredData.length; i++) {
+      const entry = filteredData[i]
+      
+      if (entry.count > 0) {
+        tempStreak++
+        longestStreak = Math.max(longestStreak, tempStreak)
+      } else {
+        tempStreak = 0
+      }
+    }
+
+    // Calculate days since last drink
+    let foundLastDrink = false
+    for (let i = filteredData.length - 1; i >= 0; i--) {
+      if (filteredData[i].count > 0) {
+        foundLastDrink = true
+        break
+      }
+      daysSinceLastDrink++
+    }
+
+    // If no drinks found in the filtered period, count all days
+    if (!foundLastDrink) {
+      daysSinceLastDrink = filteredData.length
+    }
+
+    return {
+      longestStreak,
+      daysSinceLastDrink,
+    }
   }, [filteredData])
 
   const breakdownData = React.useMemo(() => {
@@ -684,8 +1091,8 @@ export default function FriendAnalyticsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse rounded-xl border bg-background/50 p-4">
                 <div className="h-3 w-16 rounded bg-foreground/10" />
                 <div className="mt-2 h-6 w-12 rounded bg-foreground/10" />
@@ -741,9 +1148,11 @@ export default function FriendAnalyticsPage() {
       </div>
 
       <div className="space-y-4">
-        <KpiCards data={kpiData} />
+        <KpiCards data={{ ...kpiData, ...streakData }} />
         <DrinkChart data={filteredData} />
+        <DayOfWeekChart data={filteredData} />
         <DrinkBreakdown data={breakdownData} />
+        <TypeTrendChart data={filteredData} timeRange={timeRange} />
       </div>
     </div>
   )

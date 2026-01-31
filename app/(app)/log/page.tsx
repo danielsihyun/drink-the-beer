@@ -408,59 +408,56 @@ export default function LogDrinkPage() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-2xl border bg-background/50 p-3">
-          <h2 className="text-sm font-medium">Drink type</h2>
-          <div className="relative mt-3" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setDropdownOpen(!dropdownOpen)
-                setError(null)
-                setSuccess(null)
-              }}
+        <div className="relative mt-4" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setDropdownOpen(!dropdownOpen)
+              setError(null)
+              setSuccess(null)
+            }}
+            className={[
+              "flex w-full items-center justify-between rounded-2xl border bg-background/50 px-4 py-4 text-sm transition-all",
+              "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
+              dropdownOpen ? "border-black/30 ring-2 ring-black/20" : "",
+              drinkType ? "text-foreground" : "text-muted-foreground",
+            ].join(" ")}
+          >
+            <span>{drinkType || "Select drink type"}</span>
+            <ChevronDown
               className={[
-                "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition-all",
-                "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
-                dropdownOpen ? "border-black/30 ring-2 ring-black/20" : "",
-                drinkType ? "text-foreground" : "text-muted-foreground",
+                "h-4 w-4 transition-transform duration-200",
+                dropdownOpen ? "rotate-180" : "",
               ].join(" ")}
-            >
-              <span>{drinkType || "Select a drink type"}</span>
-              <ChevronDown
-                className={[
-                  "h-4 w-4 transition-transform duration-200",
-                  dropdownOpen ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
+            />
+          </button>
 
-            {dropdownOpen && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border bg-background shadow-lg">
-                {DRINK_TYPES.map((t, index) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      setDrinkType(t)
-                      setDropdownOpen(false)
-                      setError(null)
-                      setSuccess(null)
-                    }}
-                    className={[
-                      "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
-                      "hover:bg-black/5 active:bg-black/10",
-                      t === drinkType ? "bg-black/5 font-medium" : "",
-                      index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : "",
-                    ].join(" ")}
-                  >
-                    <span>{t}</span>
-                    {t === drinkType && <Check className="h-4 w-4" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+          {dropdownOpen && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-lg">
+              {DRINK_TYPES.map((t, index) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setDrinkType(t)
+                    setDropdownOpen(false)
+                    setError(null)
+                    setSuccess(null)
+                  }}
+                  className={[
+                    "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
+                    "hover:bg-black/5 active:bg-black/10",
+                    t === drinkType ? "bg-black/5 font-medium" : "",
+                    index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : "",
+                  ].join(" ")}
+                >
+                  <span>{t}</span>
+                  {t === drinkType && <Check className="h-4 w-4" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <section className="mt-4 rounded-2xl border bg-background/50 p-3">
           <h2 className="text-sm font-medium">Caption (optional)</h2>
