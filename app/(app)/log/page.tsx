@@ -459,8 +459,7 @@ export default function LogDrinkPage() {
           )}
         </div>
 
-        <section className="mt-4 rounded-2xl border bg-background/50 p-3">
-          <h2 className="text-sm font-medium">Caption (optional)</h2>
+        <div className="relative mt-4">
           <textarea
             value={caption}
             onChange={(e) => {
@@ -468,12 +467,12 @@ export default function LogDrinkPage() {
               setError(null)
               setSuccess(null)
             }}
-            placeholder="Who are you with? What are you doing?"
-            className="mt-3 h-24 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+            placeholder="Add a caption (optional)"
+            className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
             maxLength={200}
           />
-          <div className="mt-2 text-right text-xs opacity-60">{caption.length}/200</div>
-        </section>
+          <div className="absolute bottom-4 right-4 text-xs opacity-60">{caption.length}/200</div>
+        </div>
 
         <button
           type="button"
