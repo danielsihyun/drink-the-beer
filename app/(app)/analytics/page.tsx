@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Calendar, GlassWater, TrendingUp, TrendingDown, Trophy, Star, Flame, CalendarDays, Clock, Sun, Moon, Sunrise, Sunset, Zap, Heart, Users, Award, Target } from "lucide-react"
+import { ArrowLeft, Calendar, GlassWater, TrendingUp, TrendingDown, Trophy, Star, Flame, CalendarDays, Clock, Sun, Moon, Sunrise, Sunset, Zap, Users, Award, Target } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -21,6 +21,82 @@ import {
   BarChart,
   Bar,
 } from "recharts"
+
+// Custom clinking wine glasses icon
+interface CheersIconProps {
+  filled?: boolean
+  className?: string
+}
+
+function CheersIcon({ filled = false, className }: CheersIconProps) {
+  return (
+    <svg
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Right wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Clink sparkles - only show when filled */}
+      {filled && (
+        <g stroke="#fbbf24">
+          {/* Center line - vertical */}
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          {/* Left line - mirrored from right */}
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          {/* Right line - angled +45° (going up-right) */}
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  )
+}
 
 type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
 
@@ -759,7 +835,7 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
       <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dayData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+          <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
             <XAxis 
               dataKey="day" 
               axisLine={false} 
@@ -870,7 +946,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
   return (
     <Card className="bg-card border-border p-4 shadow-none">
       <div className="flex items-center gap-2 -mb-2">
-        <Heart className="h-4 w-4 text-pink-500" />
+        <CheersIcon filled className="h-5 w-5" />
         <h3 className="text-sm font-medium text-muted-foreground">Cheers Stats</h3>
       </div>
 
@@ -928,7 +1004,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
                   <p className="text-sm font-medium truncate">{user.displayName}</p>
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
-                  <Heart className="h-3 w-3" />
+                  <CheersIcon filled className="h-4 w-4" />
                   <span className="text-sm">{user.count}</span>
                 </div>
               </Link>
@@ -960,7 +1036,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
                   <p className="text-sm font-medium truncate">{user.displayName}</p>
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
-                  <Heart className="h-3 w-3" />
+                  <CheersIcon filled className="h-4 w-4" />
                   <span className="text-sm">{user.count}</span>
                 </div>
               </Link>
@@ -1018,7 +1094,7 @@ function SocialActivityCard({ stats }: { stats: CheersStats }) {
                     <p className="text-sm font-medium truncate">{user.displayName}</p>
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground">
-                    <Heart className="h-3 w-3" />
+                    <CheersIcon filled className="h-4 w-4" />
                     <span className="text-sm">{user.count}</span>
                   </div>
                 </Link>
@@ -1050,7 +1126,7 @@ function SocialActivityCard({ stats }: { stats: CheersStats }) {
                     <p className="text-sm font-medium truncate">{user.displayName}</p>
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground">
-                    <Heart className="h-3 w-3" />
+                    <CheersIcon filled className="h-4 w-4" />
                     <span className="text-sm">{user.count}</span>
                   </div>
                 </Link>
