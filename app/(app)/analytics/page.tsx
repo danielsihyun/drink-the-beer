@@ -348,23 +348,26 @@ function KpiCards({
     {
       label: "Total Drinks",
       value: data.totalDrinks.toString(),
+      suffix: data.mostInADay === 1 ? "drink" : "drinks",
       icon: GlassWater,
       color: "text-chart-1",
     },
     {
       label: "Avg per Day",
       value: data.avgPerDay.toFixed(2),
+      suffix: "drinks",
       icon: TrendingUp,
       color: "text-chart-2",
     },
     {
-      label: "Most in a Day",
+      label: "Best Day",
       value: data.mostInADay.toString(),
+      suffix: data.mostInADay === 1 ? "drink" : "drinks",
       icon: Trophy,
       color: "text-chart-3",
     },
     {
-      label: "Most Common",
+      label: "Favorite",
       value: data.mostCommon,
       icon: Star,
       color: "text-chart-4",
