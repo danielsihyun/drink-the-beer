@@ -753,21 +753,13 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
   }, [data])
 
   const maxDrinks = Math.max(...dayData.map((d) => d.drinks), 1)
-  const busiestDay = dayData.reduce((max, d) => d.drinks > max.drinks ? d : max, dayData[0])
 
   return (
-    <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-muted-foreground">By Day of Week</h3>
-        {busiestDay.drinks > 0 && (
-          <span className="text-xs text-muted-foreground">
-            Busiest: <span className="font-medium text-foreground">{busiestDay.day}</span>
-          </span>
-        )}
-      </div>
+    <Card className="bg-card border-border px-4 pt-4 pb-2 shadow-none">
+      <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dayData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <BarChart data={dayData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
             <XAxis 
               dataKey="day" 
               axisLine={false} 
@@ -776,6 +768,8 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
             />
             <YAxis hide domain={[0, maxDrinks]} />
             <Tooltip
+              position={{ y: -36 }}
+              wrapperStyle={{ pointerEvents: 'none' }}
               cursor={{ fill: 'rgba(255,255,255,0.05)' }}
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
@@ -875,7 +869,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 -mb-2">
         <Heart className="h-4 w-4 text-pink-500" />
         <h3 className="text-sm font-medium text-muted-foreground">Cheers Stats</h3>
       </div>
@@ -912,8 +906,8 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
       </div>
 
       {expandedSection === "received" && stats.topCheerersToMe.length > 0 && (
-        <div className="border-t mt-4 pt-3">
-          <p className="text-xs text-muted-foreground mb-2">Cheered you most</p>
+        <div className="border-t -mt-2 pt-3">
+          <p className="text-xs text-muted-foreground mb-2">Top fans (cheered you most)</p>
           <div className="space-y-2">
             {stats.topCheerersToMe.slice(0, 3).map((user) => (
               <Link
@@ -944,7 +938,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
       )}
 
       {expandedSection === "given" && stats.topCheeredByMe.length > 0 && (
-        <div className="border-t mt-4 pt-3">
+        <div className="border-t -mt-2 pt-3">
           <p className="text-xs text-muted-foreground mb-2">You cheered most</p>
           <div className="space-y-2">
             {stats.topCheeredByMe.slice(0, 3).map((user) => (
