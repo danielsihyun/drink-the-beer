@@ -4,7 +4,7 @@ import { Medal, BarChart3 } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpDown, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronDown, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -104,6 +104,77 @@ const DEFAULT_PROFILE: UiProfile = {
   avatarUrl: null,
   avatarPath: null,
   showcaseAchievements: [],
+}
+
+function EditDrinkTypeDropdown({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: DrinkType
+  onChange: (value: DrinkType) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative mt-5" ref={ref}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+        className={cn(
+          "flex w-full items-center justify-between rounded-2xl border bg-background/50 px-4 py-4 text-sm transition-all",
+          "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
+          open ? "border-black/30 ring-2 ring-black/20" : "",
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        )}
+      >
+        <span>{value}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 transition-transform duration-200",
+            open ? "rotate-180" : ""
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-lg">
+          {DRINK_TYPES.map((t, index) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                onChange(t)
+                setOpen(false)
+              }}
+              className={cn(
+                "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
+                "hover:bg-black/5 active:bg-black/10",
+                t === value ? "bg-black/5 font-medium" : "",
+                index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : ""
+              )}
+            >
+              <span>{t}</span>
+              {t === value && <Check className="h-4 w-4" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function CheersListModal({
@@ -797,10 +868,14 @@ function OverlayPage({
   title,
   children,
   onClose,
+  onSave,
+  saving,
 }: {
   title: string
   children: React.ReactNode
   onClose: () => void
+  onSave?: () => void
+  saving?: boolean
 }) {
   // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
@@ -831,17 +906,32 @@ function OverlayPage({
       }}
     >
       <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b px-5 py-3">
           <div className="text-base font-semibold">{title}</div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-            aria-label="Close"
-            title="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+              aria-label="Cancel"
+              title="Cancel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {onSave && (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+                aria-label="Save"
+                title="Save"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
@@ -1445,6 +1535,8 @@ export default function ProfilePage() {
             setActivePost(null)
             setPostError(null)
           }}
+          onSave={savePostEdits}
+          saving={postBusy}
         >
           {postError ? (
             <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -1464,67 +1556,22 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border bg-background/50 p-3">
-            <div className="text-sm font-medium">Drink type</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {DRINK_TYPES.map((t) => {
-                const selected = t === postDrinkType
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setPostDrinkType(t)}
-                    className={[
-                      "rounded-full border px-4 py-2 text-sm",
-                      "active:scale-[0.99]",
-                      selected ? "border-black bg-black text-white" : "bg-transparent hover:bg-foreground/5",
-                    ].join(" ")}
-                    aria-pressed={selected}
-                  >
-                    {t}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <EditDrinkTypeDropdown
+            value={postDrinkType}
+            onChange={setPostDrinkType}
+            disabled={postBusy}
+          />
 
-          <div className="mt-4 rounded-2xl border bg-background/50 p-3">
-            <div className="text-sm font-medium">Caption</div>
+          <div className="relative mt-4">
             <textarea
               value={postCaption}
               onChange={(e) => setPostCaption(e.target.value)}
-              placeholder="Update your caption…"
-              className="mt-3 h-28 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+              placeholder="Add a caption (optional)"
+              className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
               maxLength={200}
               disabled={postBusy}
             />
-            <div className="mt-2 text-right text-xs opacity-60">{postCaption.length}/200</div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (postBusy) return
-                setEditPostOpen(false)
-                setActivePost(null)
-                setPostError(null)
-              }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-              disabled={postBusy}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={savePostEdits}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border bg-black px-4 py-2.5 text-sm font-medium text-white"
-              disabled={postBusy}
-            >
-              {postBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </button>
+            <div className="absolute bottom-4 right-4 text-xs opacity-60">{postCaption.length}/200</div>
           </div>
         </OverlayPage>
       ) : null}
