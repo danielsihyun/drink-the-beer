@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star, Flame, CalendarDays } from "lucide-react"
+import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star, Flame, CalendarDays, GripVertical } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -147,6 +147,17 @@ const STACKED_COLORS: Record<string, string> = {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+// Card IDs for reordering
+type CardId = "drinkChart" | "cheersStats" | "dayOfWeek" | "breakdown" | "typeTrend"
+const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
+
+// Helper to validate card order from database
+function isValidCardOrder(order: unknown): order is CardId[] {
+  if (!Array.isArray(order)) return false
+  if (order.length !== DEFAULT_CARD_ORDER.length) return false
+  return DEFAULT_CARD_ORDER.every(id => order.includes(id))
+}
+
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -249,6 +260,93 @@ function getDateRangeForTimeRange(timeRange: TimeRange, now: Date): { start: Dat
   startDate.setHours(0, 0, 0, 0)
 
   return { start: startDate, end: now }
+}
+
+// Drag and Drop Context
+interface DragContextValue {
+  draggedId: CardId | null
+  handleDragStart: (id: CardId, e: React.DragEvent) => void
+  handleDragEnd: () => void
+  handleDragOver: (id: CardId, e: React.DragEvent) => void
+  positionMapRef: React.MutableRefObject<Map<CardId, DOMRect>>
+  capturePositions: () => void
+}
+
+const DragContext = React.createContext<DragContextValue | null>(null)
+
+function useDragContext() {
+  const context = React.useContext(DragContext)
+  if (!context) throw new Error("useDragContext must be used within DragProvider")
+  return context
+}
+
+// Draggable Card Wrapper with FLIP animation
+function DraggableCard({
+  id,
+  children,
+}: {
+  id: CardId
+  children: React.ReactNode
+}) {
+  const { draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions } = useDragContext()
+  const isDragging = draggedId === id
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  // FLIP animation after DOM reorder
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    const prevRect = positionMapRef.current.get(id)
+    
+    if (el && prevRect) {
+      const newRect = el.getBoundingClientRect()
+      const deltaY = prevRect.top - newRect.top
+      
+      if (Math.abs(deltaY) > 1) {
+        // Invert: instantly move to old position
+        el.style.transform = `translateY(${deltaY}px)`
+        el.style.transition = 'none'
+        
+        // Force reflow
+        el.offsetHeight
+        
+        // Play: animate to new position
+        el.style.transition = 'transform 200ms ease-out'
+        el.style.transform = ''
+      }
+      
+      // Clear the stored position
+      positionMapRef.current.delete(id)
+    }
+  })
+
+  const handleDragOverWithCapture = (e: React.DragEvent) => {
+    capturePositions()
+    handleDragOver(id, e)
+  }
+
+  return (
+    <div
+      ref={ref}
+      data-card-id={id}
+      draggable
+      onDragStart={(e) => handleDragStart(id, e)}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOverWithCapture}
+      className={cn(
+        "relative",
+        isDragging && "opacity-50 scale-[0.98]"
+      )}
+    >
+      {/* Drag Handle */}
+      <div
+        className="absolute top-3 right-3 z-10 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
+      {children}
+    </div>
+  )
 }
 
 function TimeRangeSelector({
@@ -439,7 +537,7 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="mb-6">
+      <div className="mb-6 pr-8">
         <p className="text-4xl font-bold text-foreground">
           {totalDrinks}
           <span className="text-lg font-normal text-muted-foreground ml-2">
@@ -699,7 +797,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
   if (chartData.length === 0 || allTypes.length === 0) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
-        <h3 className="text-sm font-medium text-muted-foreground mb-4">Type Trend</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-4 pr-8">Type Trend</h3>
         <p className="text-muted-foreground text-center py-8">No data available</p>
       </Card>
     )
@@ -707,7 +805,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <h3 className="text-sm font-medium text-muted-foreground -mb-1">Type Trend Over Time</h3>
+      <h3 className="text-sm font-medium text-muted-foreground -mb-1 pr-8">Type Trend Over Time</h3>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: -15, right: 10, left: 10, bottom: 0 }}>
@@ -785,7 +883,7 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
 
   return (
     <Card className="bg-card border-border px-4 pt-4 pb-2 shadow-none">
-      <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
+      <h3 className="text-sm font-medium text-muted-foreground mb-4 pr-8">By Day of Week</h3>
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
@@ -838,7 +936,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center gap-2 -mb-2">
+      <div className="flex items-center gap-2 -mb-2 pr-8">
         <CheersIcon filled className="h-5 w-5" />
         <h3 className="text-sm font-medium text-muted-foreground">Cheers</h3>
       </div>
@@ -1044,6 +1142,74 @@ export default function AnalyticsPage() {
     topCheeredByMe: [],
   })
 
+  // Card ordering state
+  const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
+  const [draggedId, setDraggedId] = React.useState<CardId | null>(null)
+  const positionMapRef = React.useRef<Map<CardId, DOMRect>>(new Map())
+
+  // Save card order to Supabase
+  const saveCardOrderToDb = React.useCallback(async (order: CardId[]) => {
+    if (!userId) return
+    
+    try {
+      await supabase
+        .from("profiles")
+        .update({ analytics_card_order: order })
+        .eq("id", userId)
+    } catch (e) {
+      console.error("Failed to save card order:", e)
+    }
+  }, [userId, supabase])
+
+  // Capture all card positions before reorder
+  const capturePositions = React.useCallback(() => {
+    const cards = document.querySelectorAll('[data-card-id]')
+    cards.forEach((card) => {
+      const el = card as HTMLElement
+      const cardId = el.dataset.cardId as CardId
+      if (cardId) {
+        positionMapRef.current.set(cardId, el.getBoundingClientRect())
+      }
+    })
+  }, [])
+
+  // Drag handlers
+  const handleDragStart = React.useCallback((id: CardId, e: React.DragEvent) => {
+    setDraggedId(id)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", id)
+  }, [])
+
+  const handleDragEnd = React.useCallback(() => {
+    if (draggedId) {
+      // Save the final order to Supabase
+      saveCardOrderToDb(cardOrder)
+    }
+    setDraggedId(null)
+  }, [draggedId, cardOrder, saveCardOrderToDb])
+
+  const handleDragOver = React.useCallback((targetId: CardId, e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    
+    if (!draggedId || draggedId === targetId) return
+
+    setCardOrder(prev => {
+      const draggedIndex = prev.indexOf(draggedId)
+      const targetIndex = prev.indexOf(targetId)
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev
+      if (draggedIndex === targetIndex) return prev
+      
+      // Create new order by moving dragged item to target position
+      const newOrder = [...prev]
+      newOrder.splice(draggedIndex, 1)
+      newOrder.splice(targetIndex, 0, draggedId)
+      
+      return newOrder
+    })
+  }, [draggedId])
+
   React.useEffect(() => {
     async function load() {
       setError(null)
@@ -1058,6 +1224,17 @@ export default function AnalyticsPage() {
         }
 
         setUserId(userRes.user.id)
+
+        // Load user's card order preference from Supabase
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("analytics_card_order")
+          .eq("id", userRes.user.id)
+          .single()
+
+        if (profileData?.analytics_card_order && isValidCardOrder(profileData.analytics_card_order)) {
+          setCardOrder(profileData.analytics_card_order)
+        }
 
         const { data: logs, error: logsErr } = await supabase
           .from("drink_logs")
@@ -1308,6 +1485,15 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
+  // Map of card IDs to their components
+  const cardComponents: Record<CardId, React.ReactNode> = {
+    drinkChart: <DrinkChart data={filteredData} />,
+    cheersStats: <CheersStatsCard stats={cheersStats} />,
+    dayOfWeek: <DayOfWeekChart data={filteredData} />,
+    breakdown: <DrinkBreakdown data={breakdownData} />,
+    typeTrend: <TypeTrendChart data={filteredData} timeRange={timeRange} />,
+  }
+
   if (loading) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
@@ -1367,30 +1553,33 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex items-center justify-center rounded-full border p-2"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="text-2xl font-bold">Analytics</h2>
+    <DragContext.Provider value={{ draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions }}>
+      <div className="container max-w-2xl px-3 py-1.5 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded-full border p-2"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-2xl font-bold">Analytics</h2>
+          </div>
+          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
-        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-      </div>
 
-      <div className="space-y-4">
-        <KpiCards data={{ ...kpiData, ...streakData }} />
-        <DrinkChart data={filteredData} />
-        <CheersStatsCard stats={cheersStats} />
-        <DayOfWeekChart data={filteredData} />
-        <DrinkBreakdown data={breakdownData} />
-        <TypeTrendChart data={filteredData} timeRange={timeRange} />
+        <div className="space-y-4">
+          <KpiCards data={{ ...kpiData, ...streakData }} />
+          
+          {cardOrder.map((cardId) => (
+            <DraggableCard key={cardId} id={cardId}>
+              {cardComponents[cardId]}
+            </DraggableCard>
+          ))}
+        </div>
       </div>
-    </div>
+    </DragContext.Provider>
   )
 }

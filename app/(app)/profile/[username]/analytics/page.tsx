@@ -20,6 +20,82 @@ import {
   Bar,
 } from "recharts"
 
+// Custom clinking wine glasses icon
+interface CheersIconProps {
+  filled?: boolean
+  className?: string
+}
+
+function CheersIcon({ filled = false, className }: CheersIconProps) {
+  return (
+    <svg
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Right wine glass - rotated when filled, straight when not */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
+        {/* Liquid FIRST (behind glass) - taller fill */}
+        {filled && (
+          <path
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        {/* Glass outline SECOND (on top) */}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {/* Clink sparkles - only show when filled */}
+      {filled && (
+        <g stroke="#fbbf24">
+          {/* Center line - vertical */}
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          {/* Left line - mirrored from right */}
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          {/* Right line - angled +45° (going up-right) */}
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
 type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
 
 type DrinkLogRow = {
@@ -36,6 +112,12 @@ type DrinkEntry = {
   hours: number[]
   drinkIds: string[]
   captions: (string | null)[]
+}
+
+type CheersStats = {
+  totalReceived: number
+  totalGiven: number
+  avgPerPost: number
 }
 
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
@@ -59,6 +141,17 @@ const STACKED_COLORS: Record<string, string> = {
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+// Card IDs for ordering
+type CardId = "drinkChart" | "cheersStats" | "dayOfWeek" | "breakdown" | "typeTrend"
+const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
+
+// Helper to validate card order from database
+function isValidCardOrder(order: unknown): order is CardId[] {
+  if (!Array.isArray(order)) return false
+  if (order.length !== DEFAULT_CARD_ORDER.length) return false
+  return DEFAULT_CARD_ORDER.every(id => order.includes(id))
+}
 
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear()
@@ -800,6 +893,32 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
   )
 }
 
+function CheersStatsCard({ stats }: { stats: CheersStats }) {
+  return (
+    <Card className="bg-card border-border p-4 shadow-none">
+      <div className="flex items-center gap-2 -mb-2">
+        <CheersIcon filled className="h-5 w-5" />
+        <h3 className="text-sm font-medium text-muted-foreground">Cheers</h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="text-center py-2">
+          <p className="text-2xl font-bold">{stats.totalReceived}</p>
+          <p className="text-xs text-muted-foreground">Received</p>
+        </div>
+        <div className="text-center py-2">
+          <p className="text-2xl font-bold">{stats.totalGiven}</p>
+          <p className="text-xs text-muted-foreground">Given</p>
+        </div>
+        <div className="text-center py-2">
+          <p className="text-2xl font-bold">{stats.avgPerPost.toFixed(1)}</p>
+          <p className="text-xs text-muted-foreground">Avg/Post</p>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
   const total = React.useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
 
@@ -893,7 +1012,14 @@ export default function FriendAnalyticsPage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [allData, setAllData] = React.useState<DrinkEntry[]>([])
+  const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
+  const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
+  const [cheersStats, setCheersStats] = React.useState<CheersStats>({
+    totalReceived: 0,
+    totalGiven: 0,
+    avgPerPost: 0,
+  })
 
   React.useEffect(() => {
     async function load() {
@@ -910,22 +1036,34 @@ export default function FriendAnalyticsPage() {
 
         const viewerId = userRes.user.id
 
-        const { data: profileData, error: profileErr } = await supabase
+        // Get basic profile info from the public stats view
+        const { data: publicData, error: publicErr } = await supabase
           .from("profile_public_stats")
           .select("id, display_name")
           .eq("username", username)
           .single()
 
-        if (profileErr) {
-          if (profileErr.code === "PGRST116") {
+        if (publicErr) {
+          if (publicErr.code === "PGRST116") {
             setError("User not found")
             setLoading(false)
             return
           }
-          throw profileErr
+          throw publicErr
         }
 
-        const profileUserId = profileData.id
+        const profileUserId = publicData.id
+
+        // Load the profile owner's card order preference from profiles table
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("analytics_card_order")
+          .eq("id", profileUserId)
+          .single()
+
+        if (profileData?.analytics_card_order && isValidCardOrder(profileData.analytics_card_order)) {
+          setCardOrder(profileData.analytics_card_order)
+        }
 
         if (profileUserId === viewerId) {
           router.replace("/analytics")
@@ -958,12 +1096,49 @@ export default function FriendAnalyticsPage() {
         if (logsErr) throw logsErr
 
         const typedLogs = (logs ?? []) as DrinkLogRow[]
+        setAllLogs(typedLogs)
         const transformed = transformDrinkLogs(typedLogs)
         setAllData(transformed)
+
+        // Load cheers stats for the friend
+        await loadCheersStats(profileUserId, typedLogs)
       } catch (e: any) {
         setError(e?.message ?? "Could not load analytics.")
       } finally {
         setLoading(false)
+      }
+    }
+
+    async function loadCheersStats(friendUserId: string, logs: DrinkLogRow[]) {
+      try {
+        const friendDrinkIds = logs.map(l => l.id)
+        
+        // Get cheers received by the friend
+        const { data: receivedData } = await supabase
+          .from("drink_cheers")
+          .select("drink_log_id, user_id")
+          .in("drink_log_id", friendDrinkIds.length > 0 ? friendDrinkIds : [""])
+
+        // Get cheers given by the friend
+        const { data: givenData } = await supabase
+          .from("drink_cheers")
+          .select("drink_log_id, user_id")
+          .eq("user_id", friendUserId)
+
+        const receivedList = receivedData ?? []
+        const givenList = givenData ?? []
+
+        const totalReceived = receivedList.length
+        const totalGiven = givenList.length
+        const avgPerPost = friendDrinkIds.length > 0 ? totalReceived / friendDrinkIds.length : 0
+
+        setCheersStats({
+          totalReceived,
+          totalGiven,
+          avgPerPost,
+        })
+      } catch (e) {
+        console.error("Failed to load cheers stats:", e)
       }
     }
 
@@ -1070,6 +1245,15 @@ export default function FriendAnalyticsPage() {
       .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
+  // Map of card IDs to their components
+  const cardComponents: Record<CardId, React.ReactNode> = {
+    drinkChart: <DrinkChart data={filteredData} />,
+    cheersStats: <CheersStatsCard stats={cheersStats} />,
+    dayOfWeek: <DayOfWeekChart data={filteredData} />,
+    breakdown: <DrinkBreakdown data={breakdownData} />,
+    typeTrend: <TypeTrendChart data={filteredData} timeRange={timeRange} />,
+  }
+
   const titleText = `${username}'s Analytics`
 
   if (loading) {
@@ -1149,10 +1333,12 @@ export default function FriendAnalyticsPage() {
 
       <div className="space-y-4">
         <KpiCards data={{ ...kpiData, ...streakData }} />
-        <DrinkChart data={filteredData} />
-        <DayOfWeekChart data={filteredData} />
-        <DrinkBreakdown data={breakdownData} />
-        <TypeTrendChart data={filteredData} timeRange={timeRange} />
+        
+        {cardOrder.map((cardId) => (
+          <div key={cardId}>
+            {cardComponents[cardId]}
+          </div>
+        ))}
       </div>
     </div>
   )
