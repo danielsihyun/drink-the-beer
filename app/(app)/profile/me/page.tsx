@@ -908,7 +908,7 @@ function OverlayPage({
       <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b px-5 py-3">
           <div className="text-base font-semibold">{title}</div>
-          <div className="flex items-center gap-0">
+          <div className="flex items-center gap-0 -mr-2">
             <button
               type="button"
               onClick={onClose}

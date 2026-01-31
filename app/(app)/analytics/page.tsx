@@ -992,7 +992,7 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="w-full md:w-1/2 space-y-3 mb-1">
+        <div className="w-full md:w-1/2 space-y-3 mb-1 max-h-[140px] overflow-y-auto">
           {data.map((item, index) => {
             const percentage = ((item.value / total) * 100).toFixed(1)
             return (
