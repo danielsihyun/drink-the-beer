@@ -870,12 +870,16 @@ function OverlayPage({
   onClose,
   onSave,
   saving,
+  saveIcon,
+  saveIconClassName,
 }: {
   title: string
   children: React.ReactNode
   onClose: () => void
   onSave?: () => void
   saving?: boolean
+  saveIcon?: React.ReactNode
+  saveIconClassName?: string
 }) {
   // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
@@ -906,9 +910,9 @@ function OverlayPage({
       }}
     >
       <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="text-base font-semibold">{title}</div>
-          <div className="flex items-center gap-0 -mr-2">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onClose}
@@ -924,11 +928,14 @@ function OverlayPage({
                 type="button"
                 onClick={onSave}
                 disabled={saving}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-                aria-label="Save"
-                title="Save"
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10",
+                  saveIconClassName
+                )}
+                aria-label="Confirm"
+                title="Confirm"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : (saveIcon || <Check className="h-4 w-4" />)}
               </button>
             )}
           </div>
@@ -1586,6 +1593,10 @@ export default function ProfilePage() {
             setActivePost(null)
             setPostError(null)
           }}
+          onSave={deletePostConfirmed}
+          saving={postBusy}
+          saveIcon={<Trash2 className="h-4 w-4" />}
+          saveIconClassName="text-red-400"
         >
           {postError ? (
             <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -1593,7 +1604,7 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border bg-background/50 p-3">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-400">
                 <Trash2 className="h-5 w-5" />
@@ -1605,7 +1616,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-5 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
+          <div className="mt-4 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
             <div className="relative aspect-square w-full">
               <Image
                 src={activePost.photoUrl || "/placeholder.svg"}
@@ -1615,32 +1626,6 @@ export default function ProfilePage() {
                 unoptimized
               />
             </div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (postBusy) return
-                setDeletePostOpen(false)
-                setActivePost(null)
-                setPostError(null)
-              }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
-              disabled={postBusy}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={deletePostConfirmed}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-400"
-              disabled={postBusy}
-            >
-              {postBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Delete
-            </button>
           </div>
         </OverlayPage>
       ) : null}
