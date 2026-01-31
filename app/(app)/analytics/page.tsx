@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Calendar, GlassWater, TrendingUp, TrendingDown, Trophy, Star, Flame, CalendarDays, Clock, Sun, Moon, Sunrise, Sunset, Zap, Users, Award, Target } from "lucide-react"
+import { ArrowLeft, Calendar, GlassWater, TrendingUp, Trophy, Star, Flame, CalendarDays } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -123,12 +123,6 @@ type CheersStats = {
   mostCheeredPost: { id: string; count: number; caption: string | null; date: string } | null
   topCheerersToMe: { oderId: string; username: string; displayName: string; avatarUrl: string | null; count: number }[]
   topCheeredByMe: { oderId: string; username: string; displayName: string; avatarUrl: string | null; count: number }[]
-}
-
-type PersonalRecords = {
-  biggestDay: { date: string; count: number } | null
-  earliestDrink: { time: string; date: string } | null
-  latestDrink: { time: string; date: string } | null
 }
 
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
@@ -255,16 +249,6 @@ function getDateRangeForTimeRange(timeRange: TimeRange, now: Date): { start: Dat
   startDate.setHours(0, 0, 0, 0)
 
   return { start: startDate, end: now }
-}
-
-function getPreviousPeriodRange(timeRange: TimeRange, now: Date): { start: Date; end: Date } {
-  const currentRange = getDateRangeForTimeRange(timeRange, now)
-  const periodLength = currentRange.end.getTime() - currentRange.start.getTime()
-  
-  const prevEnd = new Date(currentRange.start.getTime() - 1)
-  const prevStart = new Date(prevEnd.getTime() - periodLength)
-  
-  return { start: prevStart, end: prevEnd }
 }
 
 function TimeRangeSelector({
@@ -402,7 +386,7 @@ function KpiCards({
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-4">
       {cards.map((card) => {
         const isMostCommon = card.label === "Most Common"
         const hasSuffix = 'suffix' in card && card.suffix
@@ -432,153 +416,6 @@ function KpiCards({
         )
       })}
     </div>
-  )
-}
-
-function PaceIndicatorCard({
-  currentTotal = 0,
-  previousTotalAtSamePoint = 0,
-  previousPeriodTotal = 0,
-  currentAvgPerDay = 0,
-  previousAvgPerDay = 0,
-  currentActiveDays = 0,
-  previousActiveDays = 0,
-  timeRange,
-  daysElapsed = 0,
-  totalDays = 0,
-}: {
-  currentTotal: number
-  previousTotalAtSamePoint: number
-  previousPeriodTotal: number
-  currentAvgPerDay: number
-  previousAvgPerDay: number
-  currentActiveDays: number
-  previousActiveDays: number
-  timeRange: TimeRange
-  daysElapsed: number
-  totalDays: number
-}) {
-  const diff = currentTotal - previousTotalAtSamePoint
-  const isAhead = diff > 0
-  const isBehind = diff < 0
-  const percentComplete = totalDays > 0 ? Math.round((daysElapsed / totalDays) * 100) : 0
-
-  const periodLabel = {
-    "1W": "last week",
-    "1M": "last month",
-    "3M": "last 3 months",
-    "6M": "last 6 months",
-    "1Y": "last year",
-    "YTD": "same time last year",
-  }[timeRange]
-
-  const periodNoun = {
-    "1W": "week",
-    "1M": "month",
-    "3M": "3 months",
-    "6M": "6 months",
-    "1Y": "year",
-    "YTD": "period",
-  }[timeRange]
-
-  // Comparison metrics
-  const totalDiff = currentTotal - previousPeriodTotal
-  const totalPercent = previousPeriodTotal > 0 
-    ? Math.round((totalDiff / previousPeriodTotal) * 100) 
-    : currentTotal > 0 ? 100 : 0
-  const avgDiff = (currentAvgPerDay || 0) - (previousAvgPerDay || 0)
-  const activeDiff = currentActiveDays - previousActiveDays
-
-  return (
-    <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center gap-2 mb-3">
-        <Target className="h-4 w-4 text-purple-500" />
-        <h3 className="text-sm font-medium text-muted-foreground">Pace Indicator</h3>
-      </div>
-      
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-3xl font-bold">{currentTotal}</p>
-          <p className="text-xs text-muted-foreground">drinks so far</p>
-        </div>
-        <div className="text-right">
-          <p className={cn(
-            "text-lg font-semibold flex items-center gap-1 justify-end",
-            isAhead && "text-red-400",
-            isBehind && "text-green-400",
-            !isAhead && !isBehind && "text-muted-foreground"
-          )}>
-            {isAhead && <TrendingUp className="h-4 w-4" />}
-            {isBehind && <TrendingDown className="h-4 w-4" />}
-            {diff > 0 ? `+${diff}` : diff}
-          </p>
-          <p className="text-xs text-muted-foreground">vs this point {periodLabel}</p>
-        </div>
-      </div>
-
-      <div className="space-y-1 mb-4">
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Period progress</span>
-          <span>{percentComplete}%</span>
-        </div>
-        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-purple-500 rounded-full transition-all duration-500"
-            style={{ width: `${percentComplete}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Comparison to full previous period */}
-      <div className="border-t pt-3">
-        <p className="text-xs text-muted-foreground mb-2">vs Previous {periodNoun}</p>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Total</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{currentTotal}</span>
-              <span className={cn(
-                "text-xs",
-                totalDiff > 0 && "text-red-400",
-                totalDiff < 0 && "text-green-400",
-                totalDiff === 0 && "text-muted-foreground"
-              )}>
-                {totalDiff > 0 ? `+${totalDiff}` : totalDiff}
-                {totalPercent !== 0 && ` (${totalPercent > 0 ? "+" : ""}${totalPercent}%)`}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Avg/Day</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{(currentAvgPerDay || 0).toFixed(1)}</span>
-              <span className={cn(
-                "text-xs",
-                avgDiff > 0 && "text-red-400",
-                avgDiff < 0 && "text-green-400",
-                avgDiff === 0 && "text-muted-foreground"
-              )}>
-                {avgDiff >= 0 ? `+${avgDiff.toFixed(2)}` : avgDiff.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Active Days</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{currentActiveDays}</span>
-              <span className={cn(
-                "text-xs",
-                activeDiff > 0 && "text-red-400",
-                activeDiff < 0 && "text-green-400",
-                activeDiff === 0 && "text-muted-foreground"
-              )}>
-                {activeDiff > 0 ? `+${activeDiff}` : activeDiff}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Card>
   )
 }
 
@@ -718,11 +555,46 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     return buckets
   }, [data, timeRange])
 
+  // Sort types by total count descending (highest at bottom of stack)
   const allTypes = React.useMemo(() => {
-    const types = new Set<string>()
-    data.forEach((entry) => entry.types.forEach((t) => types.add(t)))
-    return Array.from(types)
+    const typeTotals: Record<string, number> = {}
+    data.forEach((entry) => entry.types.forEach((t) => {
+      typeTotals[t] = (typeTotals[t] || 0) + 1
+    }))
+    
+    return Object.entries(typeTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type]) => type)
   }, [data])
+
+  // Custom bar shape that rounds top corners only for the topmost segment
+  const RoundedTopBar = React.useCallback((props: any) => {
+    const { x, y, width, height, fill, dataKey, payload } = props
+    
+    if (!height || height <= 0) return null
+    
+    // Check if this is the topmost bar with a value
+    const typeIndex = allTypes.indexOf(dataKey)
+    const typesAbove = allTypes.slice(typeIndex + 1)
+    const isTopmost = typesAbove.every(type => !payload[type] || payload[type] === 0)
+    
+    if (isTopmost) {
+      const radius = 4
+      // Path with rounded top corners only
+      const path = `
+        M ${x},${y + height}
+        L ${x},${y + radius}
+        Q ${x},${y} ${x + radius},${y}
+        L ${x + width - radius},${y}
+        Q ${x + width},${y} ${x + width},${y + radius}
+        L ${x + width},${y + height}
+        Z
+      `
+      return <path d={path} fill={fill} />
+    }
+    
+    return <rect x={x} y={y} width={width} height={height} fill={fill} />
+  }, [allTypes])
 
   if (chartData.length === 0 || allTypes.length === 0) {
     return (
@@ -735,10 +607,10 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <h3 className="text-sm font-medium text-muted-foreground mb-4">Type Trend Over Time</h3>
+      <h3 className="text-sm font-medium text-muted-foreground -mb-1">Type Trend Over Time</h3>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <BarChart data={chartData} margin={{ top: -15, right: 10, left: 10, bottom: 0 }}>
             <XAxis
               dataKey="label"
               axisLine={false}
@@ -772,14 +644,14 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
                 dataKey={type}
                 stackId="1"
                 fill={STACKED_COLORS[type] || "#6b7280"}
-                radius={allTypes.indexOf(type) === allTypes.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                shape={RoundedTopBar}
               />
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
       
-      <div className="flex flex-wrap gap-3 mt-3">
+      <div className="flex flex-wrap gap-3 -mt-5">
         {allTypes.map((type) => (
           <div key={type} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STACKED_COLORS[type] || "#6b7280" }} />
@@ -816,7 +688,7 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
       <h3 className="text-sm font-medium text-muted-foreground mb-4">By Day of Week</h3>
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dayData} margin={{ top: 13, right: 0, left: 0, bottom: 0 }}>
+          <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
             <XAxis 
               dataKey="day" 
               axisLine={false} 
@@ -852,66 +724,6 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
             />
           </BarChart>
         </ResponsiveContainer>
-      </div>
-    </Card>
-  )
-}
-
-function HourOfDayChart({ data }: { data: DrinkEntry[] }) {
-  const hourData = React.useMemo(() => {
-    const periods = {
-      morning: { label: "Morning", range: "6am–12pm", count: 0, icon: Sunrise },
-      afternoon: { label: "Afternoon", range: "12pm–5pm", count: 0, icon: Sun },
-      evening: { label: "Evening", range: "5pm–9pm", count: 0, icon: Sunset },
-      night: { label: "Night", range: "9pm–6am", count: 0, icon: Moon },
-    }
-
-    data.forEach((entry) => {
-      entry.hours.forEach((hour) => {
-        if (hour >= 6 && hour < 12) periods.morning.count++
-        else if (hour >= 12 && hour < 17) periods.afternoon.count++
-        else if (hour >= 17 && hour < 21) periods.evening.count++
-        else periods.night.count++
-      })
-    })
-
-    return Object.values(periods)
-  }, [data])
-
-  const total = hourData.reduce((sum, p) => sum + p.count, 0)
-  const maxCount = Math.max(...hourData.map((p) => p.count), 1)
-
-  return (
-    <Card className="bg-card border-border p-4 shadow-none">
-      <h3 className="text-sm font-medium text-muted-foreground mb-4">By Time of Day</h3>
-      <div className="space-y-3">
-        {hourData.map((period) => {
-          const percent = total > 0 ? Math.round((period.count / total) * 100) : 0
-          const barWidth = maxCount > 0 ? (period.count / maxCount) * 100 : 0
-          const Icon = period.icon
-          
-          return (
-            <div key={period.label} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-foreground">{period.label}</span>
-                  <span className="text-xs text-muted-foreground">({period.range})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{period.count}</span>
-                  <span className="text-xs text-muted-foreground w-8 text-right">{percent}%</span>
-                </div>
-              </div>
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
-            </div>
-          )
-        })}
       </div>
     </Card>
   )
@@ -1029,172 +841,6 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
   )
 }
 
-function SocialActivityCard({ stats }: { stats: CheersStats }) {
-  const hasData = stats.topCheerersToMe.length > 0 || stats.topCheeredByMe.length > 0
-
-  if (!hasData) {
-    return (
-      <Card className="bg-card border-border p-4 shadow-none">
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-medium text-muted-foreground">Social Activity</h3>
-        </div>
-        <p className="text-muted-foreground text-center py-4 text-sm">No social activity yet</p>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center gap-2 mb-4">
-        <Users className="h-4 w-4 text-blue-500" />
-        <h3 className="text-sm font-medium text-muted-foreground">Social Activity</h3>
-      </div>
-
-      <div className="space-y-4">
-        {stats.topCheerersToMe.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Top fans (cheered you most)</p>
-            <div className="space-y-2">
-              {stats.topCheerersToMe.slice(0, 3).map((user) => (
-                <Link
-                  key={user.oderId}
-                  href={`/profile/${user.username}`}
-                  className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors"
-                >
-                  {user.avatarUrl ? (
-                    <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                      <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-xs font-semibold text-white">
-                      {user.username[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.displayName}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <CheersIcon filled className="h-4 w-4" />
-                    <span className="text-sm">{user.count}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {stats.topCheeredByMe.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">You cheered most</p>
-            <div className="space-y-2">
-              {stats.topCheeredByMe.slice(0, 3).map((user) => (
-                <Link
-                  key={user.oderId}
-                  href={`/profile/${user.username}`}
-                  className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors"
-                >
-                  {user.avatarUrl ? (
-                    <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                      <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
-                    </div>
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500 text-xs font-semibold text-white">
-                      {user.username[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.displayName}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <CheersIcon filled className="h-4 w-4" />
-                    <span className="text-sm">{user.count}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-function PersonalRecordsCard({ records, timeRange }: { records: PersonalRecords; timeRange: TimeRange }) {
-  const periodLabel = {
-    "1W": "this week",
-    "1M": "this month",
-    "3M": "these 3 months",
-    "6M": "these 6 months",
-    "1Y": "this year",
-    "YTD": "this year",
-  }[timeRange]
-
-  const hasRecords = records.biggestDay || records.earliestDrink || records.latestDrink
-
-  if (!hasRecords) {
-    return (
-      <Card className="bg-card border-border p-4 shadow-none">
-        <div className="flex items-center gap-2 mb-4">
-          <Award className="h-4 w-4 text-yellow-500" />
-          <h3 className="text-sm font-medium text-muted-foreground">Personal Records</h3>
-        </div>
-        <p className="text-muted-foreground text-center py-4 text-sm">No records yet for {periodLabel}</p>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="bg-card border-border p-4 shadow-none">
-      <div className="flex items-center gap-2 mb-4">
-        <Award className="h-4 w-4 text-yellow-500" />
-        <h3 className="text-sm font-medium text-muted-foreground">Personal Records</h3>
-      </div>
-
-      <div className="space-y-3">
-        {records.biggestDay && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <span className="text-sm">Biggest Day</span>
-            </div>
-            <div className="text-right">
-              <span className="font-semibold">{records.biggestDay.count} drinks</span>
-              <p className="text-xs text-muted-foreground">{formatShortDate(records.biggestDay.date)}</p>
-            </div>
-          </div>
-        )}
-
-        {records.earliestDrink && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sunrise className="h-4 w-4 text-orange-400" />
-              <span className="text-sm">Earliest Drink</span>
-            </div>
-            <div className="text-right">
-              <span className="font-semibold">{records.earliestDrink.time}</span>
-              <p className="text-xs text-muted-foreground">{formatShortDate(records.earliestDrink.date)}</p>
-            </div>
-          </div>
-        )}
-
-        {records.latestDrink && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Moon className="h-4 w-4 text-indigo-400" />
-              <span className="text-sm">Latest Drink</span>
-            </div>
-            <div className="text-right">
-              <span className="font-semibold">{records.latestDrink.time}</span>
-              <p className="text-xs text-muted-foreground">{formatShortDate(records.latestDrink.date)}</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
-  )
-}
-
 function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
   const total = React.useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
 
@@ -1246,7 +892,7 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="w-full md:w-1/2 space-y-3">
+        <div className="w-full md:w-1/2 space-y-3 mb-1">
           {data.map((item, index) => {
             const percentage = ((item.value / total) * 100).toFixed(1)
             return (
@@ -1491,35 +1137,6 @@ export default function AnalyticsPage() {
     return result
   }, [allData, timeRange])
 
-  const previousPeriodData = React.useMemo(() => {
-    const now = new Date()
-    const { start: prevStart, end: prevEnd } = getPreviousPeriodRange(timeRange, now)
-    const prevEndStr = getLocalDateString(prevEnd)
-
-    const dataByDate = new Map<string, DrinkEntry>()
-    for (const entry of allData) {
-      dataByDate.set(entry.date, entry)
-    }
-
-    const result: DrinkEntry[] = []
-    const current = new Date(prevStart)
-
-    while (getLocalDateString(current) <= prevEndStr) {
-      const dateStr = getLocalDateString(current)
-      const existing = dataByDate.get(dateStr)
-
-      if (existing) {
-        result.push(existing)
-      } else {
-        result.push({ date: dateStr, count: 0, types: [], hours: [], drinkIds: [], captions: [] })
-      }
-
-      current.setDate(current.getDate() + 1)
-    }
-
-    return result
-  }, [allData, timeRange])
-
   const kpiData = React.useMemo(() => {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
@@ -1578,71 +1195,6 @@ export default function AnalyticsPage() {
     }
   }, [filteredData])
 
-  const paceData = React.useMemo(() => {
-    const currentTotal = filteredData.reduce((sum, d) => sum + d.count, 0)
-    const daysElapsed = filteredData.length
-    const currentActiveDays = filteredData.filter(d => d.count > 0).length
-    const currentAvgPerDay = daysElapsed > 0 ? currentTotal / daysElapsed : 0
-
-    const prevDaysToCompare = Math.min(daysElapsed, previousPeriodData.length)
-    const previousTotalAtSamePoint = previousPeriodData
-      .slice(0, prevDaysToCompare)
-      .reduce((sum, d) => sum + d.count, 0)
-
-    const previousPeriodTotal = previousPeriodData.reduce((sum, d) => sum + d.count, 0)
-    const previousActiveDays = previousPeriodData.filter(d => d.count > 0).length
-    const previousAvgPerDay = previousPeriodData.length > 0 ? previousPeriodTotal / previousPeriodData.length : 0
-
-    return {
-      currentTotal,
-      previousTotalAtSamePoint,
-      previousPeriodTotal,
-      currentAvgPerDay,
-      previousAvgPerDay,
-      currentActiveDays,
-      previousActiveDays,
-      daysElapsed,
-      totalDays: filteredData.length,
-    }
-  }, [filteredData, previousPeriodData])
-
-  const personalRecords = React.useMemo((): PersonalRecords => {
-    let biggestDay: PersonalRecords["biggestDay"] = null
-    let earliestDrink: PersonalRecords["earliestDrink"] = null
-    let latestDrink: PersonalRecords["latestDrink"] = null
-
-    let maxCount = 0
-    let earliestHour = 24
-    let latestHour = -1
-
-    filteredData.forEach((entry) => {
-      if (entry.count > maxCount) {
-        maxCount = entry.count
-        biggestDay = { date: entry.date, count: entry.count }
-      }
-
-      entry.hours.forEach((hour) => {
-        if (hour < earliestHour) {
-          earliestHour = hour
-          earliestDrink = {
-            time: `${hour % 12 || 12}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
-            date: entry.date,
-          }
-        }
-
-        if (hour > latestHour) {
-          latestHour = hour
-          latestDrink = {
-            time: `${hour % 12 || 12}:00 ${hour >= 12 ? 'PM' : 'AM'}`,
-            date: entry.date,
-          }
-        }
-      })
-    })
-
-    return { biggestDay, earliestDrink, latestDrink }
-  }, [filteredData])
-
   const breakdownData = React.useMemo(() => {
     const typeCounts: Record<string, number> = {}
     filteredData.forEach((day) => {
@@ -1675,7 +1227,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse rounded-xl border bg-background/50 p-4">
                 <div className="h-3 w-16 rounded bg-foreground/10" />
