@@ -225,7 +225,6 @@ export function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRang
                 key={day.date}
                 className={cn(
                   "cursor-pointer transition-all",
-                  isToday && "ring-1 ring-foreground/30",
                   "hover:ring-1 hover:ring-foreground/50"
                 )}
                 style={{
@@ -321,7 +320,6 @@ export function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRang
                     key={day.date}
                     className={cn(
                       "cursor-pointer transition-all",
-                      isToday && "ring-1 ring-foreground/30",
                       "hover:ring-1 hover:ring-foreground/50"
                     )}
                     style={{
@@ -443,7 +441,6 @@ export function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRang
                       key={day.date}
                       className={cn(
                         "cursor-pointer transition-all",
-                        isToday && "ring-1 ring-foreground/30",
                         "hover:ring-1 hover:ring-foreground/50"
                       )}
                       style={{

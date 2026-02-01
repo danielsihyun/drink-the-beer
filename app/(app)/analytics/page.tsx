@@ -466,7 +466,7 @@ function KpiCards({
       color: "text-chart-3",
     },
     {
-      label: "Favorite",
+      label: "Favorite Drink",
       value: data.mostCommon,
       icon: Star,
       color: "text-chart-4",
@@ -1362,7 +1362,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                   key={day.date}
                   className={cn(
                     "cursor-pointer transition-all",
-                    isToday && "ring-1 ring-foreground/30",
                     "hover:ring-1 hover:ring-foreground/50"
                   )}
                   style={{
@@ -1390,7 +1389,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
             style={{
               left: tooltip.x,
               top: tooltip.y - 8,
@@ -1457,7 +1456,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                       key={day.date}
                       className={cn(
                         "cursor-pointer transition-all",
-                        isToday && "ring-1 ring-foreground/30",
                         "hover:ring-1 hover:ring-foreground/50"
                       )}
                       style={{
@@ -1487,7 +1485,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
             style={{
               left: tooltip.x,
               top: tooltip.y - 8,
@@ -1573,7 +1571,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                       key={day.date}
                       className={cn(
                         "cursor-pointer transition-all",
-                        isToday && "ring-1 ring-foreground/30",
                         "hover:ring-1 hover:ring-foreground/50"
                       )}
                       style={{
@@ -1604,7 +1601,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+          className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
           style={{
             left: tooltip.x,
             top: tooltip.y - 8,
