@@ -289,7 +289,7 @@ export function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRang
               className="text-xs text-muted-foreground text-center"
               style={{ width: cellConfig.size }}
             >
-              {timeRange === "1W" ? day.slice(0, 3) : day[0]}
+              {day[0]}
             </div>
           ))}
         </div>
