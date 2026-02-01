@@ -145,11 +145,12 @@ const STACKED_COLORS: Record<string, string> = {
   "Other": "#6b7280",
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 // Card IDs for reordering
-type CardId = "drinkChart" | "cheersStats" | "dayOfWeek" | "breakdown" | "typeTrend"
-const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
+type CardId = "drinkChart" | "cheersStats" | "activityGrid" | "dayOfWeek" | "breakdown" | "typeTrend"
+const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "activityGrid", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
 
 // Helper to validate card order from database
 function isValidCardOrder(order: unknown): order is CardId[] {
@@ -537,13 +538,9 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="mb-6 pr-8">
-        <p className="text-4xl font-bold text-foreground">
-          {totalDrinks}
-          <span className="text-lg font-normal text-muted-foreground ml-2">
-            {totalDrinks === 1 ? "drink" : "drinks"}
-          </span>
-        </p>
+      <div className="mb-6 pr-8 flex items-baseline gap-1.5">
+        <p className="text-2xl font-semibold text-foreground">{totalDrinks}</p>
+        <span className="text-xs text-muted-foreground">{totalDrinks === 1 ? "drink" : "drinks"}</span>
       </div>
 
       <div className="h-[200px]">
@@ -868,7 +865,8 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
     data.forEach((entry) => {
       if (entry.count > 0) {
         const date = parseLocalDateString(entry.date)
-        const dayOfWeek = date.getDay()
+        // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
+        const dayOfWeek = (date.getDay() + 6) % 7
         counts[dayOfWeek] += entry.count
       }
     })
@@ -1119,6 +1117,506 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
           })}
         </div>
       </div>
+    </Card>
+  )
+}
+
+function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: TimeRange }) {
+  const primaryColor = "#4ade80"
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [cellSize, setCellSize] = React.useState<number | null>(null)
+
+  // Build a map of date -> count for quick lookup
+  const dataByDate = React.useMemo(() => {
+    const map = new Map<string, number>()
+    for (const entry of data) {
+      map.set(entry.date, entry.count)
+    }
+    return map
+  }, [data])
+
+  // Calculate the grid data based on time range
+  const gridData = React.useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    let startDate: Date
+
+    switch (timeRange) {
+      case "1W":
+        startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
+        break
+      case "1M":
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+        break
+      case "3M":
+        startDate = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
+        break
+      case "6M":
+        startDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate())
+        break
+      case "1Y":
+        startDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
+        break
+      case "YTD":
+        startDate = new Date(today.getFullYear(), 0, 1)
+        break
+      default:
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+    }
+    startDate.setHours(0, 0, 0, 0)
+
+    // Align to the previous Monday (skip for 1W to keep exactly 7 days)
+    if (timeRange !== "1W") {
+      const jsDay = startDate.getDay()
+      const mondayOffset = (jsDay + 6) % 7 // Mon=0, Tue=1, ..., Sun=6
+      startDate.setDate(startDate.getDate() - mondayOffset)
+    }
+
+    // Generate all days from startDate to today
+    const days: { date: string; count: number; dayOfWeek: number; weekIndex: number }[] = []
+    const current = new Date(startDate)
+    let weekIndex = 0
+
+    while (current <= today) {
+      const dateStr = getLocalDateString(current)
+      const count = dataByDate.get(dateStr) ?? 0
+      // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
+      const mondayBasedDay = (current.getDay() + 6) % 7
+
+      days.push({
+        date: dateStr,
+        count,
+        dayOfWeek: mondayBasedDay,
+        weekIndex,
+      })
+
+      current.setDate(current.getDate() + 1)
+      // New week starts on Monday (getDay() === 1)
+      if (current.getDay() === 1) {
+        weekIndex++
+      }
+    }
+
+    return days
+  }, [dataByDate, timeRange])
+
+  // Group days into weeks
+  const weeks = React.useMemo(() => {
+    const weekMap = new Map<number, typeof gridData>()
+
+    for (const day of gridData) {
+      if (!weekMap.has(day.weekIndex)) {
+        weekMap.set(day.weekIndex, [])
+      }
+      weekMap.get(day.weekIndex)!.push(day)
+    }
+
+    return Array.from(weekMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, days]) => days)
+  }, [gridData])
+
+  // Calculate month labels and their positions (centered in each month)
+  const monthLabels = React.useMemo(() => {
+    // Group weeks by year-month to handle year boundaries
+    const monthWeeks = new Map<string, { month: number; weekIndices: number[] }>()
+    
+    for (const day of gridData) {
+      const date = parseLocalDateString(day.date)
+      const month = date.getMonth()
+      const year = date.getFullYear()
+      const key = `${year}-${month}`
+      
+      if (!monthWeeks.has(key)) {
+        monthWeeks.set(key, { month, weekIndices: [] })
+      }
+      const entry = monthWeeks.get(key)!
+      if (!entry.weekIndices.includes(day.weekIndex)) {
+        entry.weekIndices.push(day.weekIndex)
+      }
+    }
+    
+    // Create labels positioned at the middle week of each month
+    const labels: { month: string; weekIndex: number }[] = []
+    const sortedMonths = Array.from(monthWeeks.entries()).sort((a, b) => {
+      // Sort by the first week index to maintain chronological order
+      return (a[1].weekIndices[0] ?? 0) - (b[1].weekIndices[0] ?? 0)
+    })
+    
+    for (const [, { month, weekIndices }] of sortedMonths) {
+      if (weekIndices.length > 0) {
+        // Sort week indices and use the middle one
+        weekIndices.sort((a, b) => a - b)
+        const middleIdx = Math.floor(weekIndices.length / 2)
+        labels.push({
+          month: MONTH_LABELS[month],
+          weekIndex: weekIndices[middleIdx],
+        })
+      }
+    }
+
+    return labels
+  }, [gridData])
+
+  const activeDays = React.useMemo(() => {
+    return gridData.filter((d) => d.count > 0).length
+  }, [gridData])
+
+  const [tooltip, setTooltip] = React.useState<{
+    date: string
+    count: number
+    x: number
+    y: number
+  } | null>(null)
+
+  const formatActivityTooltipDate = (dateStr: string) => {
+    const date = parseLocalDateString(dateStr)
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
+  // Gap sizes - 1W and 1M use same sizing
+  const gap = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
+
+  // Calculate cell size based on container width
+  React.useEffect(() => {
+    const calculateSize = () => {
+      if (!containerRef.current) return
+
+      const containerWidth = containerRef.current.offsetWidth
+
+      if (timeRange === "1W" || timeRange === "1M") {
+        // 7 cells in a row, same sizing for both
+        const numCells = 7
+        const totalGap = (numCells - 1) * gap
+        const size = Math.floor((containerWidth - totalGap) / numCells)
+        setCellSize(size)
+      } else {
+        // 3M, 6M, 1Y, YTD - all use 3M's week count (~13 weeks) as reference for consistent sizing
+        const dayLabelWidth = 24
+        const referenceWeeks = 14 // ~3 months worth of weeks
+        const availableWidth = containerWidth - dayLabelWidth
+        const totalGap = (referenceWeeks - 1) * gap
+        const size = Math.floor((availableWidth - totalGap) / referenceWeeks)
+        setCellSize(Math.max(size, 8)) // minimum 8px
+      }
+    }
+
+    calculateSize()
+    window.addEventListener("resize", calculateSize)
+    return () => window.removeEventListener("resize", calculateSize)
+  }, [timeRange, weeks.length, gap])
+
+  const todayStr = getLocalDateString(new Date())
+  const rounded = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
+
+  // Don't render until we have the cell size
+  if (cellSize === null) {
+    return (
+      <Card className="bg-card border-border p-4 shadow-none">
+        <div className="mb-4 flex items-baseline gap-1.5">
+          <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
+          <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
+        </div>
+        <div ref={containerRef} className="h-10" />
+      </Card>
+    )
+  }
+
+  // Special layout for 1W - show days sequentially in a single row
+  if (timeRange === "1W") {
+    return (
+      <Card className="bg-card border-border p-4 shadow-none">
+        <div className="mb-4 flex items-baseline gap-1.5">
+          <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
+          <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
+        </div>
+
+        <div ref={containerRef}>
+          {/* Day labels header */}
+          <div className="flex mb-2" style={{ gap }}>
+            {gridData.map((day) => (
+              <div
+                key={`label-${day.date}`}
+                className="text-xs text-muted-foreground text-center"
+                style={{ width: cellSize }}
+              >
+                {DAY_NAMES[day.dayOfWeek][0]}
+              </div>
+            ))}
+          </div>
+
+          {/* Days in a single row */}
+          <div className="flex" style={{ gap }}>
+            {gridData.map((day) => {
+              const hasActivity = day.count > 0
+              const isToday = day.date === todayStr
+
+              return (
+                <div
+                  key={day.date}
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    isToday && "ring-1 ring-foreground/30",
+                    "hover:ring-1 hover:ring-foreground/50"
+                  )}
+                  style={{
+                    width: cellSize,
+                    height: cellSize,
+                    borderRadius: rounded,
+                    backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
+                  }}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setTooltip({
+                      date: day.date,
+                      count: day.count,
+                      x: rect.left + rect.width / 2,
+                      y: rect.top,
+                    })
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+            style={{
+              left: tooltip.x,
+              top: tooltip.y - 8,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <p className="text-sm font-medium text-foreground">
+              {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  // Horizontal layout for 1M
+  if (timeRange === "1M") {
+    return (
+      <Card className="bg-card border-border p-4 shadow-none">
+        <div className="mb-4 flex items-baseline gap-1.5">
+          <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
+          <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
+        </div>
+
+        <div ref={containerRef}>
+          {/* Day labels header */}
+          <div className="flex mb-2" style={{ gap }}>
+            {DAY_NAMES.map((day) => (
+              <div
+                key={day}
+                className="text-xs text-muted-foreground text-center"
+                style={{ width: cellSize }}
+              >
+                {day[0]}
+              </div>
+            ))}
+          </div>
+
+          {/* Weeks as rows */}
+          <div className="flex flex-col" style={{ gap }}>
+            {weeks.map((week, weekIdx) => (
+              <div key={weekIdx} className="flex" style={{ gap }}>
+                {Array.from({ length: 7 }).map((_, dayIdx) => {
+                  const day = week.find((d) => d.dayOfWeek === dayIdx)
+
+                  if (!day) {
+                    return (
+                      <div
+                        key={`empty-${weekIdx}-${dayIdx}`}
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                        }}
+                      />
+                    )
+                  }
+
+                  const hasActivity = day.count > 0
+                  const isToday = day.date === todayStr
+
+                  return (
+                    <div
+                      key={day.date}
+                      className={cn(
+                        "cursor-pointer transition-all",
+                        isToday && "ring-1 ring-foreground/30",
+                        "hover:ring-1 hover:ring-foreground/50"
+                      )}
+                      style={{
+                        width: cellSize,
+                        height: cellSize,
+                        borderRadius: rounded,
+                        backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
+                      }}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setTooltip({
+                          date: day.date,
+                          count: day.count,
+                          x: rect.left + rect.width / 2,
+                          y: rect.top,
+                        })
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+            style={{
+              left: tooltip.x,
+              top: tooltip.y - 8,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <p className="text-sm font-medium text-foreground">
+              {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  // Vertical layout for 3M, 6M, 1Y, YTD - all use same layout
+  const dayLabelWidth = 16
+  return (
+    <Card className="bg-card border-border p-4 shadow-none">
+      <div className="mb-4 flex items-baseline gap-1.5">
+        <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
+        <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
+      </div>
+
+      <div ref={containerRef} className="overflow-x-auto">
+        {/* Month labels */}
+        <div className="relative h-4 mb-1" style={{ marginLeft: dayLabelWidth + 8 }}>
+          {monthLabels.map((label, i) => (
+            <div
+              key={`${label.month}-${i}`}
+              className="text-xs text-muted-foreground absolute"
+              style={{
+                left: label.weekIndex * (cellSize + gap),
+              }}
+            >
+              {label.month}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex">
+          {/* Day labels */}
+          <div className="flex flex-col mr-2" style={{ gap, width: dayLabelWidth }}>
+            {DAY_NAMES.map((day, i) => (
+              <div
+                key={day}
+                className={cn(
+                  "text-xs text-muted-foreground flex items-center",
+                  i % 2 === 1 ? "opacity-0" : ""
+                )}
+                style={{ height: cellSize }}
+              >
+                {day[0]}
+              </div>
+            ))}
+          </div>
+
+          {/* Grid - weeks as columns, days as rows */}
+          <div className="flex" style={{ gap }}>
+            {weeks.map((week, weekIdx) => (
+              <div key={weekIdx} className="flex flex-col" style={{ gap }}>
+                {Array.from({ length: 7 }).map((_, dayIdx) => {
+                  const day = week.find((d) => d.dayOfWeek === dayIdx)
+
+                  if (!day) {
+                    return (
+                      <div
+                        key={`empty-${weekIdx}-${dayIdx}`}
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                        }}
+                      />
+                    )
+                  }
+
+                  const hasActivity = day.count > 0
+                  const isToday = day.date === todayStr
+
+                  return (
+                    <div
+                      key={day.date}
+                      className={cn(
+                        "cursor-pointer transition-all",
+                        isToday && "ring-1 ring-foreground/30",
+                        "hover:ring-1 hover:ring-foreground/50"
+                      )}
+                      style={{
+                        width: cellSize,
+                        height: cellSize,
+                        borderRadius: rounded,
+                        backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
+                      }}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setTooltip({
+                          date: day.date,
+                          count: day.count,
+                          x: rect.left + rect.width / 2,
+                          y: rect.top,
+                        })
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y - 8,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          <p className="text-sm font-medium text-foreground">
+            {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
+          </p>
+          <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
+        </div>
+      )}
     </Card>
   )
 }
@@ -1489,6 +1987,7 @@ export default function AnalyticsPage() {
   const cardComponents: Record<CardId, React.ReactNode> = {
     drinkChart: <DrinkChart data={filteredData} />,
     cheersStats: <CheersStatsCard stats={cheersStats} />,
+    activityGrid: <ActivityGrid data={filteredData} timeRange={timeRange} />,
     dayOfWeek: <DayOfWeekChart data={filteredData} />,
     breakdown: <DrinkBreakdown data={breakdownData} />,
     typeTrend: <TypeTrendChart data={filteredData} timeRange={timeRange} />,
@@ -1554,7 +2053,7 @@ export default function AnalyticsPage() {
 
   return (
     <DragContext.Provider value={{ draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions }}>
-      <div className="container max-w-2xl px-3 py-1.5 pb-0">
+      <div className="container max-w-2xl px-3 py-1.5 pb-20">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
