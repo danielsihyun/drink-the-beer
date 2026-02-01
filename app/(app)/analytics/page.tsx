@@ -150,7 +150,7 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 // Card IDs for reordering
 type CardId = "drinkChart" | "cheersStats" | "activityGrid" | "dayOfWeek" | "breakdown" | "typeTrend"
-const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "activityGrid", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
+const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "activityGrid", "dayOfWeek", "breakdown", "typeTrend"]
 
 // Helper to validate card order from database
 function isValidCardOrder(order: unknown): order is CardId[] {
@@ -949,7 +949,7 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
             expandedSection === "received" && "bg-foreground/5"
           )}
         >
-          <p className="text-2xl font-bold">{stats.totalReceived}</p>
+          <p className="text-2xl font-semibold">{stats.totalReceived}</p>
           <p className="text-xs text-muted-foreground">Received</p>
         </button>
         <button
@@ -961,11 +961,11 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
             expandedSection === "given" && "bg-foreground/5"
           )}
         >
-          <p className="text-2xl font-bold">{stats.totalGiven}</p>
+          <p className="text-2xl font-semibold">{stats.totalGiven}</p>
           <p className="text-xs text-muted-foreground">Given</p>
         </button>
         <div className="text-center py-2">
-          <p className="text-2xl font-bold">{stats.avgPerPost.toFixed(1)}</p>
+          <p className="text-2xl font-semibold">{stats.avgPerPost.toFixed(1)}</p>
           <p className="text-xs text-muted-foreground">Avg/Post</p>
         </div>
       </div>
@@ -1319,7 +1319,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   if (cellSize === null) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
-        <div className="mb-4 flex items-baseline gap-1.5">
+        <div className="-mb-2 flex items-baseline gap-1.5">
           <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
           <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
         </div>
@@ -1332,7 +1332,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   if (timeRange === "1W") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
-        <div className="mb-4 flex items-baseline gap-1.5">
+        <div className="-mb-2 flex items-baseline gap-1.5">
           <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
           <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
         </div>
@@ -1411,7 +1411,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   if (timeRange === "1M") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
-        <div className="mb-4 flex items-baseline gap-1.5">
+        <div className="-mb-2 flex items-baseline gap-1.5">
           <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
           <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
         </div>
@@ -1508,7 +1508,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   const dayLabelWidth = 16
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="mb-4 flex items-baseline gap-1.5">
+      <div className="-mb-2 flex items-baseline gap-1.5">
         <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
         <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
       </div>
