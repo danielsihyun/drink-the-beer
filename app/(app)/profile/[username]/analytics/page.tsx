@@ -504,13 +504,9 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
 
   return (
     <Card className="bg-card border-border p-4 shadow-none">
-      <div className="mb-6">
-        <p className="text-4xl font-bold text-foreground">
-          {totalDrinks}
-          <span className="text-lg font-normal text-muted-foreground ml-2">
-            {totalDrinks === 1 ? "drink" : "drinks"}
-          </span>
-        </p>
+      <div className="mb-6 flex items-baseline gap-1.5">
+        <p className="text-2xl font-semibold text-foreground">{totalDrinks}</p>
+        <span className="text-xs text-muted-foreground">{totalDrinks === 1 ? "drink" : "drinks"}</span>
       </div>
 
       <div className="h-[200px]">
