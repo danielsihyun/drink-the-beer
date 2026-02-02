@@ -459,7 +459,7 @@ export default function LogDrinkPage() {
               setSuccess(null)
             }}
             placeholder="Add a caption (optional)"
-            className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
+            className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-base outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
             maxLength={200}
           />
           <div className="absolute bottom-4 right-4 text-xs opacity-60">{caption.length}/200</div>
