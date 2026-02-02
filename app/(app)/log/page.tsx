@@ -104,12 +104,20 @@ export default function LogDrinkPage() {
   }, [])
 
   // ==========================================================================
-  // GEOLOCATION HANDLING
+  // GEOLOCATION HANDLING - with timeout to prevent hanging
   // ==========================================================================
 
   const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
+      // Add a timeout to prevent hanging forever
+      const timeoutId = setTimeout(() => {
+        console.log("Location request timed out")
+        setLocationStatus("unavailable")
+        resolve(null)
+      }, 5000) // 5 second timeout
+
       if (!navigator.geolocation) {
+        clearTimeout(timeoutId)
         setLocationStatus("unavailable")
         resolve(null)
         return
@@ -119,6 +127,7 @@ export default function LogDrinkPage() {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          clearTimeout(timeoutId)
           const loc = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -128,6 +137,7 @@ export default function LogDrinkPage() {
           resolve(loc)
         },
         (err) => {
+          clearTimeout(timeoutId)
           console.log("Geolocation error:", err.code, err.message)
           if (err.code === 1) {
             setLocationStatus("denied")
@@ -137,8 +147,8 @@ export default function LogDrinkPage() {
           resolve(null)
         },
         {
-          enableHighAccuracy: true,
-          timeout: 15000,
+          enableHighAccuracy: false, // Changed to false for faster response
+          timeout: 5000, // Reduced timeout
           maximumAge: 60000,
         }
       )
@@ -210,6 +220,8 @@ export default function LogDrinkPage() {
 
     setSubmitting(true)
     try {
+      console.log("1. Starting submit")
+
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr) throw userErr
       const user = userRes.user
@@ -217,11 +229,12 @@ export default function LogDrinkPage() {
         router.replace("/login?redirectTo=%2Flog")
         return
       }
+      console.log("2. Got user:", user.id)
 
+      // Skip location request during submit to avoid hanging
+      // Just use whatever location we already have (or null)
       let finalLocation = location
-      if (!finalLocation && locationStatus === "idle") {
-        finalLocation = await getLocation()
-      }
+      console.log("3. Using existing location:", finalLocation)
 
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
 
@@ -233,12 +246,16 @@ export default function LogDrinkPage() {
       const filename = `${uuid}.${ext}`
       const photoPath = `${user.id}/${filename}`
 
+      console.log("4. Starting upload to:", photoPath)
+
       const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
         cacheControl: "3600",
         upsert: false,
         contentType: file.type || "image/jpeg",
       })
       if (uploadErr) throw uploadErr
+
+      console.log("5. Upload complete")
 
       const nextCaption = caption.trim()
 
@@ -261,14 +278,22 @@ export default function LogDrinkPage() {
         insertData.longitude = finalLocation.longitude
       }
 
+      console.log("6. Starting insert:", insertData)
+
       const { error: insErr } = await supabase.from("drink_logs").insert(insertData)
       if (insErr) throw insErr
 
+      console.log("7. Insert complete")
+
+      console.log("8. Checking achievements")
       await checkAchievements()
+      console.log("9. Achievements checked")
 
       resetForm()
+      console.log("10. Redirecting to feed")
       router.replace("/feed?posted=1")
     } catch (e: unknown) {
+      console.error("Submit error:", e)
       const message = e instanceof Error ? e.message : "Something went wrong. Please try again."
       setError(message)
     } finally {
@@ -459,7 +484,7 @@ export default function LogDrinkPage() {
               setSuccess(null)
             }}
             placeholder="Add a caption (optional)"
-            className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-base outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
+            className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
             maxLength={200}
           />
           <div className="absolute bottom-4 right-4 text-xs opacity-60">{caption.length}/200</div>
