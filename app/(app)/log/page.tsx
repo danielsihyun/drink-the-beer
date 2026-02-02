@@ -7,7 +7,7 @@ import { Camera, Check, ChevronDown, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation } from '@capacitor/geolocation'
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
@@ -105,85 +105,54 @@ export default function LogDrinkPage() {
   }, [])
 
   // ==========================================================================
-  // GEOLOCATION HANDLING - with timeout to prevent hanging
+  // GEOLOCATION HANDLING - using Capacitor plugin
   // ==========================================================================
 
   const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise(async (resolve) => {
       try {
-        // Check/request permission first
-        const permission = await Geolocation.checkPermissions();
+        const permission = await Geolocation.checkPermissions()
         
         if (permission.location === 'denied') {
-          setLocationStatus("denied");
-          resolve(null);
-          return;
+          setLocationStatus("denied")
+          resolve(null)
+          return
         }
         
         if (permission.location === 'prompt') {
-          const requested = await Geolocation.requestPermissions();
+          const requested = await Geolocation.requestPermissions()
           if (requested.location === 'denied') {
-            setLocationStatus("denied");
-            resolve(null);
-            return;
+            setLocationStatus("denied")
+            resolve(null)
+            return
           }
         }
 
-        setLocationStatus("requesting");
+        setLocationStatus("requesting")
 
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: false,
           timeout: 5000,
-        });
+        })
 
         const loc = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        };
-        setLocation(loc);
-        setLocationStatus("granted");
-        resolve(loc);
+        }
+        setLocation(loc)
+        setLocationStatus("granted")
+        resolve(loc)
       } catch (err) {
-        console.log("Geolocation error:", err);
-        setLocationStatus("unavailable");
-        resolve(null);
+        console.log("Geolocation error:", err)
+        setLocationStatus("unavailable")
+        resolve(null)
       }
-    });
-  }, []);
+    })
+  }, [])
 
+  // Request location on mount
   React.useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationStatus("unavailable")
-      return
-    }
-
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions
-        .query({ name: "geolocation" })
-        .then((permissionStatus) => {
-          if (permissionStatus.state === "granted") {
-            getLocation()
-          } else if (permissionStatus.state === "denied") {
-            setLocationStatus("denied")
-          } else {
-            setLocationStatus("idle")
-          }
-
-          permissionStatus.addEventListener("change", () => {
-            if (permissionStatus.state === "granted") {
-              getLocation()
-            } else if (permissionStatus.state === "denied") {
-              setLocationStatus("denied")
-              setLocation(null)
-            }
-          })
-        })
-        .catch(() => {
-          setLocationStatus("idle")
-        })
-    } else {
-      setLocationStatus("idle")
-    }
+    getLocation()
   }, [getLocation])
 
   React.useEffect(() => {
@@ -227,10 +196,12 @@ export default function LogDrinkPage() {
       }
       console.log("2. Got user:", user.id)
 
-      // Skip location request during submit to avoid hanging
-      // Just use whatever location we already have (or null)
       let finalLocation = location
-      console.log("3. Using existing location:", finalLocation)
+      if (!finalLocation) {
+        console.log("3. Requesting location...")
+        finalLocation = await getLocation()
+      }
+      console.log("3. Final location:", finalLocation)
 
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
 
