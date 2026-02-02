@@ -7,6 +7,7 @@ import { Camera, Check, ChevronDown, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
+import { Geolocation } from '@capacitor/geolocation';
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
@@ -108,52 +109,47 @@ export default function LogDrinkPage() {
   // ==========================================================================
 
   const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
-    return new Promise((resolve) => {
-      // Add a timeout to prevent hanging forever
-      const timeoutId = setTimeout(() => {
-        console.log("Location request timed out")
-        setLocationStatus("unavailable")
-        resolve(null)
-      }, 5000) // 5 second timeout
-
-      if (!navigator.geolocation) {
-        clearTimeout(timeoutId)
-        setLocationStatus("unavailable")
-        resolve(null)
-        return
-      }
-
-      setLocationStatus("requesting")
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          clearTimeout(timeoutId)
-          const loc = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          }
-          setLocation(loc)
-          setLocationStatus("granted")
-          resolve(loc)
-        },
-        (err) => {
-          clearTimeout(timeoutId)
-          console.log("Geolocation error:", err.code, err.message)
-          if (err.code === 1) {
-            setLocationStatus("denied")
-          } else {
-            setLocationStatus("granted")
-          }
-          resolve(null)
-        },
-        {
-          enableHighAccuracy: false, // Changed to false for faster response
-          timeout: 5000, // Reduced timeout
-          maximumAge: 60000,
+    return new Promise(async (resolve) => {
+      try {
+        // Check/request permission first
+        const permission = await Geolocation.checkPermissions();
+        
+        if (permission.location === 'denied') {
+          setLocationStatus("denied");
+          resolve(null);
+          return;
         }
-      )
-    })
-  }, [])
+        
+        if (permission.location === 'prompt') {
+          const requested = await Geolocation.requestPermissions();
+          if (requested.location === 'denied') {
+            setLocationStatus("denied");
+            resolve(null);
+            return;
+          }
+        }
+
+        setLocationStatus("requesting");
+
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 5000,
+        });
+
+        const loc = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setLocation(loc);
+        setLocationStatus("granted");
+        resolve(loc);
+      } catch (err) {
+        console.log("Geolocation error:", err);
+        setLocationStatus("unavailable");
+        resolve(null);
+      }
+    });
+  }, []);
 
   React.useEffect(() => {
     if (!navigator.geolocation) {
