@@ -1045,7 +1045,7 @@ function FeedContent() {
               value={postCaption}
               onChange={(e) => setPostCaption(e.target.value)}
               placeholder="Add a caption (optional)"
-              className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
+              className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-base outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
               maxLength={200}
               disabled={postBusy}
             />
