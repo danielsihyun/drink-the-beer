@@ -1149,8 +1149,8 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
         break
       case "1M":
-        // 28 days back — after Monday alignment, always produces exactly 5 rows
-        startDate = new Date(today.getTime() - 28 * 24 * 60 * 60 * 1000)
+        // Exactly one calendar month back (e.g. Feb 2 → Jan 2)
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
         break
       case "3M":
         // Exactly 91 days back (13 weeks)
@@ -1170,8 +1170,8 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     }
     startDate.setHours(0, 0, 0, 0)
 
-    // Align to the previous Monday (skip for 1W to keep exactly 7 days)
-    if (timeRange !== "1W") {
+    // Align to the previous Monday (skip for 1W and 1M which use sequential layout)
+    if (timeRange !== "1W" && timeRange !== "1M") {
       const jsDay = startDate.getDay()
       const mondayOffset = (jsDay + 6) % 7
       startDate.setDate(startDate.getDate() - mondayOffset)
@@ -1391,6 +1391,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
+  // Horizontal layout for 1M
   if (timeRange === "1M") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1400,6 +1401,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
+          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {DAY_NAMES.map((day) => (
               <div
@@ -1412,6 +1414,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
+          {/* Weeks as rows */}
           <div className="flex flex-col" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex" style={{ gap }}>
@@ -1463,6 +1466,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
+        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
