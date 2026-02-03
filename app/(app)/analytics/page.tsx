@@ -39,9 +39,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
@@ -49,7 +47,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -60,9 +57,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
@@ -70,7 +65,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -81,16 +75,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - only show when filled */}
       {filled && (
         <g stroke="#fbbf24">
-          {/* Center line - vertical */}
           <path d="M16 -0.5v3" strokeWidth="1.5" />
-          {/* Left line - mirrored from right */}
           <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
             <path d="M19 3l2-2" strokeWidth="1.5" />
           </g>
-          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
       )}
@@ -152,7 +142,6 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 type CardId = "drinkChart" | "cheersStats" | "activityGrid" | "dayOfWeek" | "breakdown" | "typeTrend"
 const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "activityGrid", "dayOfWeek", "breakdown", "typeTrend"]
 
-// Helper to validate card order from database
 function isValidCardOrder(order: unknown): order is CardId[] {
   if (!Array.isArray(order)) return false
   if (order.length !== DEFAULT_CARD_ORDER.length) return false
@@ -281,7 +270,6 @@ function useDragContext() {
   return context
 }
 
-// Draggable Card Wrapper with FLIP animation
 function DraggableCard({
   id,
   children,
@@ -293,7 +281,6 @@ function DraggableCard({
   const isDragging = draggedId === id
   const ref = React.useRef<HTMLDivElement>(null)
 
-  // FLIP animation after DOM reorder
   React.useLayoutEffect(() => {
     const el = ref.current
     const prevRect = positionMapRef.current.get(id)
@@ -303,19 +290,13 @@ function DraggableCard({
       const deltaY = prevRect.top - newRect.top
       
       if (Math.abs(deltaY) > 1) {
-        // Invert: instantly move to old position
         el.style.transform = `translateY(${deltaY}px)`
         el.style.transition = 'none'
-        
-        // Force reflow
         el.offsetHeight
-        
-        // Play: animate to new position
         el.style.transition = 'transform 200ms ease-out'
         el.style.transform = ''
       }
       
-      // Clear the stored position
       positionMapRef.current.delete(id)
     }
   })
@@ -338,7 +319,6 @@ function DraggableCard({
         isDragging && "opacity-50 scale-[0.98]"
       )}
     >
-      {/* Drag Handle */}
       <div
         className="absolute top-3 right-3 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none"
         onMouseDown={(e) => e.stopPropagation()}
@@ -628,10 +608,8 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
   const [scrollDistance, setScrollDistance] = React.useState(0)
   const [scrollDuration, setScrollDuration] = React.useState(0)
 
-  // Pixels per second - adjust this to change scroll speed
   const SCROLL_SPEED = 40
 
-  // Check if content overflows
   React.useEffect(() => {
     const container = containerRef.current
     const content = contentRef.current
@@ -648,12 +626,10 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     }
 
     checkOverflow()
-    // Recheck on resize
     window.addEventListener('resize', checkOverflow)
     return () => window.removeEventListener('resize', checkOverflow)
   }, [children])
 
-  // Intersection Observer to detect when element is visible
   React.useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -672,7 +648,6 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     return () => observer.disconnect()
   }, [])
 
-  // Start scrolling after 2 seconds when visible
   React.useEffect(() => {
     if (!shouldScroll || !isVisible) return
 
@@ -683,14 +658,11 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     return () => clearTimeout(startTimer)
   }, [shouldScroll, isVisible])
 
-  // Reset and repeat cycle
   React.useEffect(() => {
     if (!isScrolling || !shouldScroll || !isVisible || scrollDuration === 0) return
 
-    // Reset after scroll completes + 1.5s pause
     const resetTimer = setTimeout(() => {
       setIsScrolling(false)
-      // Restart the cycle after reset
       setTimeout(() => {
         if (isVisible) setIsScrolling(true)
       }, 2000)
@@ -717,37 +689,73 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
 
 function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: TimeRange }) {
   const chartData = React.useMemo(() => {
-    const bucketSize = timeRange === "1W" ? 1 : timeRange === "1M" ? 7 : timeRange === "3M" ? 14 : 30
-    const buckets: { date: string; label: string; [key: string]: number | string }[] = []
-    
-    let currentBucket: { date: string; label: string; types: Record<string, number> } | null = null
-    let dayCount = 0
-    let bucketIndex = 0
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    for (const entry of data) {
-      if (!currentBucket || dayCount >= bucketSize) {
-        if (currentBucket) {
-          buckets.push({ date: currentBucket.date, label: currentBucket.label, ...currentBucket.types })
+    if (timeRange === "1W") {
+      // Daily buckets — last 7 days
+      return data.map((entry) => {
+        const types: Record<string, number> = {}
+        entry.types.forEach((t) => { types[t] = (types[t] || 0) + 1 })
+        const d = parseLocalDateString(entry.date)
+        const label = d.toLocaleDateString("en-US", { weekday: "short" })
+        return { date: entry.date, label, ...types }
+      })
+    }
+
+    if (timeRange === "1M" || timeRange === "3M") {
+      // Weekly buckets — 4 weeks for 1M, 12 weeks for 3M
+      const numWeeks = timeRange === "1M" ? 4 : 12
+      const todayEnd = new Date(today)
+      todayEnd.setHours(23, 59, 59, 999)
+
+      const weekBuckets = Array.from({ length: numWeeks }, (_, i) => {
+        const weekEnd = new Date(todayEnd.getTime() - (numWeeks - 1 - i) * 7 * 24 * 60 * 60 * 1000)
+        const weekStart = new Date(weekEnd.getTime() - 6 * 24 * 60 * 60 * 1000)
+        weekStart.setHours(0, 0, 0, 0)
+        return { start: weekStart, end: weekEnd, label: `W${i + 1}`, types: {} as Record<string, number> }
+      })
+
+      for (const entry of data) {
+        const entryDate = parseLocalDateString(entry.date)
+        for (const bucket of weekBuckets) {
+          if (entryDate >= bucket.start && entryDate <= bucket.end) {
+            entry.types.forEach((t) => { bucket.types[t] = (bucket.types[t] || 0) + 1 })
+            break
+          }
         }
-        bucketIndex++
-        const label = timeRange === "1W" 
-          ? formatShortDate(entry.date)
-          : `W${bucketIndex}`
-        currentBucket = { date: entry.date, label, types: {} }
-        dayCount = 0
       }
 
-      entry.types.forEach((type) => {
-        currentBucket!.types[type] = (currentBucket!.types[type] || 0) + 1
-      })
-      dayCount++
+      return weekBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
     }
 
-    if (currentBucket && Object.keys(currentBucket.types).length > 0) {
-      buckets.push({ date: currentBucket.date, label: currentBucket.label, ...currentBucket.types })
+    // 6M, 1Y, YTD — monthly buckets
+    let numMonths: number
+    if (timeRange === "6M") numMonths = 6
+    else if (timeRange === "1Y") numMonths = 12
+    else numMonths = today.getMonth() + 1 // YTD
+
+    const monthBuckets = Array.from({ length: numMonths }, (_, i) => {
+      const d = new Date(today.getFullYear(), today.getMonth() - (numMonths - 1 - i), 1)
+      return {
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: MONTH_LABELS[d.getMonth()],
+        types: {} as Record<string, number>,
+      }
+    })
+
+    for (const entry of data) {
+      const entryDate = parseLocalDateString(entry.date)
+      for (const bucket of monthBuckets) {
+        if (entryDate.getFullYear() === bucket.year && entryDate.getMonth() === bucket.month) {
+          entry.types.forEach((t) => { bucket.types[t] = (bucket.types[t] || 0) + 1 })
+          break
+        }
+      }
     }
 
-    return buckets
+    return monthBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
   }, [data, timeRange])
 
   // Sort types by total count descending (highest at bottom of stack)
@@ -762,20 +770,17 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
       .map(([type]) => type)
   }, [data])
 
-  // Custom bar shape that rounds top corners only for the topmost segment
   const RoundedTopBar = React.useCallback((props: any) => {
     const { x, y, width, height, fill, dataKey, payload } = props
     
     if (!height || height <= 0) return null
     
-    // Check if this is the topmost bar with a value
     const typeIndex = allTypes.indexOf(dataKey)
     const typesAbove = allTypes.slice(typeIndex + 1)
     const isTopmost = typesAbove.every(type => !payload[type] || payload[type] === 0)
     
     if (isTopmost) {
       const radius = 4
-      // Path with rounded top corners only
       const path = `
         M ${x},${y + height}
         L ${x},${y + radius}
@@ -865,7 +870,6 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
     data.forEach((entry) => {
       if (entry.count > 0) {
         const date = parseLocalDateString(entry.date)
-        // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
         const dayOfWeek = (date.getDay() + 6) % 7
         counts[dayOfWeek] += entry.count
       }
@@ -1126,7 +1130,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [cellSize, setCellSize] = React.useState<number | null>(null)
 
-  // Build a map of date -> count for quick lookup
   const dataByDate = React.useMemo(() => {
     const map = new Map<string, number>()
     for (const entry of data) {
@@ -1135,7 +1138,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     return map
   }, [data])
 
-  // Calculate the grid data based on time range
   const gridData = React.useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -1147,10 +1149,12 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
         break
       case "1M":
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+        // 28 days back — after Monday alignment, always produces exactly 5 rows
+        startDate = new Date(today.getTime() - 28 * 24 * 60 * 60 * 1000)
         break
       case "3M":
-        startDate = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
+        // Exactly 91 days back (13 weeks)
+        startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
         break
       case "6M":
         startDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate())
@@ -1162,18 +1166,17 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         startDate = new Date(today.getFullYear(), 0, 1)
         break
       default:
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+        startDate = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
     }
     startDate.setHours(0, 0, 0, 0)
 
     // Align to the previous Monday (skip for 1W to keep exactly 7 days)
     if (timeRange !== "1W") {
       const jsDay = startDate.getDay()
-      const mondayOffset = (jsDay + 6) % 7 // Mon=0, Tue=1, ..., Sun=6
+      const mondayOffset = (jsDay + 6) % 7
       startDate.setDate(startDate.getDate() - mondayOffset)
     }
 
-    // Generate all days from startDate to today
     const days: { date: string; count: number; dayOfWeek: number; weekIndex: number }[] = []
     const current = new Date(startDate)
     let weekIndex = 0
@@ -1181,7 +1184,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     while (current <= today) {
       const dateStr = getLocalDateString(current)
       const count = dataByDate.get(dateStr) ?? 0
-      // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
       const mondayBasedDay = (current.getDay() + 6) % 7
 
       days.push({
@@ -1192,7 +1194,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       })
 
       current.setDate(current.getDate() + 1)
-      // New week starts on Monday (getDay() === 1)
       if (current.getDay() === 1) {
         weekIndex++
       }
@@ -1201,7 +1202,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     return days
   }, [dataByDate, timeRange])
 
-  // Group days into weeks
   const weeks = React.useMemo(() => {
     const weekMap = new Map<number, typeof gridData>()
 
@@ -1217,9 +1217,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       .map(([, days]) => days)
   }, [gridData])
 
-  // Calculate month labels and their positions (centered in each month)
   const monthLabels = React.useMemo(() => {
-    // Group weeks by year-month to handle year boundaries
     const monthWeeks = new Map<string, { month: number; weekIndices: number[] }>()
     
     for (const day of gridData) {
@@ -1237,16 +1235,13 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       }
     }
     
-    // Create labels positioned at the middle week of each month
     const labels: { month: string; weekIndex: number }[] = []
     const sortedMonths = Array.from(monthWeeks.entries()).sort((a, b) => {
-      // Sort by the first week index to maintain chronological order
       return (a[1].weekIndices[0] ?? 0) - (b[1].weekIndices[0] ?? 0)
     })
     
     for (const [, { month, weekIndices }] of sortedMonths) {
       if (weekIndices.length > 0) {
-        // Sort week indices and use the middle one
         weekIndices.sort((a, b) => a - b)
         const middleIdx = Math.floor(weekIndices.length / 2)
         labels.push({
@@ -1280,10 +1275,8 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     })
   }
 
-  // Gap sizes - 1W and 1M use same sizing
   const gap = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
 
-  // Calculate cell size based on container width
   React.useEffect(() => {
     const calculateSize = () => {
       if (!containerRef.current) return
@@ -1291,19 +1284,17 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       const containerWidth = containerRef.current.offsetWidth
 
       if (timeRange === "1W" || timeRange === "1M") {
-        // 7 cells in a row, same sizing for both
         const numCells = 7
         const totalGap = (numCells - 1) * gap
         const size = Math.floor((containerWidth - totalGap) / numCells)
         setCellSize(size)
       } else {
-        // 3M, 6M, 1Y, YTD - all use 3M's week count (~13 weeks) as reference for consistent sizing
         const dayLabelWidth = 24
-        const referenceWeeks = 14 // ~3 months worth of weeks
+        const referenceWeeks = 14
         const availableWidth = containerWidth - dayLabelWidth
         const totalGap = (referenceWeeks - 1) * gap
         const size = Math.floor((availableWidth - totalGap) / referenceWeeks)
-        setCellSize(Math.max(size, 8)) // minimum 8px
+        setCellSize(Math.max(size, 8))
       }
     }
 
@@ -1315,7 +1306,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   const todayStr = getLocalDateString(new Date())
   const rounded = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
 
-  // Don't render until we have the cell size
   if (cellSize === null) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1328,7 +1318,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Special layout for 1W - show days sequentially in a single row
   if (timeRange === "1W") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1338,7 +1327,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
-          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {gridData.map((day) => (
               <div
@@ -1351,11 +1339,9 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Days in a single row */}
           <div className="flex" style={{ gap }}>
             {gridData.map((day) => {
               const hasActivity = day.count > 0
-              const isToday = day.date === todayStr
 
               return (
                 <div
@@ -1386,7 +1372,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
-        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1406,7 +1391,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Horizontal layout for 1M
   if (timeRange === "1M") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1416,7 +1400,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
-          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {DAY_NAMES.map((day) => (
               <div
@@ -1429,7 +1412,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Weeks as rows */}
           <div className="flex flex-col" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex" style={{ gap }}>
@@ -1449,7 +1431,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                   }
 
                   const hasActivity = day.count > 0
-                  const isToday = day.date === todayStr
 
                   return (
                     <div
@@ -1482,7 +1463,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
-        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1502,7 +1482,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Vertical layout for 3M, 6M, 1Y, YTD - all use same layout
+  // Vertical layout for 3M, 6M, 1Y, YTD
   const dayLabelWidth = 16
   return (
     <Card className="bg-card border-border p-4 shadow-none">
@@ -1512,7 +1492,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       </div>
 
       <div ref={containerRef} className="overflow-x-auto">
-        {/* Month labels */}
         <div className="relative h-4 mb-1" style={{ marginLeft: dayLabelWidth + 8 }}>
           {monthLabels.map((label, i) => (
             <div
@@ -1528,7 +1507,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div className="flex">
-          {/* Day labels */}
           <div className="flex flex-col mr-2" style={{ gap, width: dayLabelWidth }}>
             {DAY_NAMES.map((day, i) => (
               <div
@@ -1544,7 +1522,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Grid - weeks as columns, days as rows */}
           <div className="flex" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col" style={{ gap }}>
@@ -1564,7 +1541,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                   }
 
                   const hasActivity = day.count > 0
-                  const isToday = day.date === todayStr
 
                   return (
                     <div
@@ -1598,7 +1574,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
       </div>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1637,12 +1612,10 @@ export default function AnalyticsPage() {
     topCheeredByMe: [],
   })
 
-  // Card ordering state
   const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
   const [draggedId, setDraggedId] = React.useState<CardId | null>(null)
   const positionMapRef = React.useRef<Map<CardId, DOMRect>>(new Map())
 
-  // Save card order to Supabase
   const saveCardOrderToDb = React.useCallback(async (order: CardId[]) => {
     if (!userId) return
     
@@ -1656,7 +1629,6 @@ export default function AnalyticsPage() {
     }
   }, [userId, supabase])
 
-  // Capture all card positions before reorder
   const capturePositions = React.useCallback(() => {
     const cards = document.querySelectorAll('[data-card-id]')
     cards.forEach((card) => {
@@ -1668,7 +1640,6 @@ export default function AnalyticsPage() {
     })
   }, [])
 
-  // Drag handlers
   const handleDragStart = React.useCallback((id: CardId, e: React.DragEvent) => {
     setDraggedId(id)
     e.dataTransfer.effectAllowed = "move"
@@ -1677,7 +1648,6 @@ export default function AnalyticsPage() {
 
   const handleDragEnd = React.useCallback(() => {
     if (draggedId) {
-      // Save the final order to Supabase
       saveCardOrderToDb(cardOrder)
     }
     setDraggedId(null)
@@ -1696,7 +1666,6 @@ export default function AnalyticsPage() {
       if (draggedIndex === -1 || targetIndex === -1) return prev
       if (draggedIndex === targetIndex) return prev
       
-      // Create new order by moving dragged item to target position
       const newOrder = [...prev]
       newOrder.splice(draggedIndex, 1)
       newOrder.splice(targetIndex, 0, draggedId)
@@ -1720,7 +1689,6 @@ export default function AnalyticsPage() {
 
         setUserId(userRes.user.id)
 
-        // Load user's card order preference from Supabase
         const { data: profileData } = await supabase
           .from("profiles")
           .select("analytics_card_order")
@@ -1934,7 +1902,6 @@ export default function AnalyticsPage() {
     let tempStreak = 0
     let daysSinceLastDrink = 0
 
-    // Calculate longest streak
     for (let i = 0; i < filteredData.length; i++) {
       const entry = filteredData[i]
       
@@ -1946,7 +1913,6 @@ export default function AnalyticsPage() {
       }
     }
 
-    // Calculate days since last drink
     let foundLastDrink = false
     for (let i = filteredData.length - 1; i >= 0; i--) {
       if (filteredData[i].count > 0) {
@@ -1956,7 +1922,6 @@ export default function AnalyticsPage() {
       daysSinceLastDrink++
     }
 
-    // If no drinks found in the filtered period, count all days
     if (!foundLastDrink) {
       daysSinceLastDrink = filteredData.length
     }
@@ -1980,7 +1945,6 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
-  // Map of card IDs to their components
   const cardComponents: Record<CardId, React.ReactNode> = {
     drinkChart: <DrinkChart data={filteredData} />,
     cheersStats: <CheersStatsCard stats={cheersStats} />,
