@@ -605,8 +605,8 @@ export default function FriendsPage() {
   // --- Skeleton Loading ---
   if (loading) {
     return (
-      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 space-y-5">
-        <div className="flex items-center justify-between px-2">
+      <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
+        <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
           <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
             <ArrowUpDown className="h-3.5 w-3.5" />
@@ -614,15 +614,13 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        <div className="px-2">
-          <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
-            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
-            <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
-          </div>
+        <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+          <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+          <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
         </div>
 
-        <div className="px-2 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Pending requests</div>
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
           <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
             <div className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -635,8 +633,8 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        <div className="px-2 space-y-3 pb-24">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Your friends</div>
+        <div className="space-y-3 pb-24">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Your friends</div>
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
               <div className="flex items-center gap-3">
@@ -662,9 +660,9 @@ export default function FriendsPage() {
 
   return (
     <>
-      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 pb-24">
+      <div className="container max-w-md mx-auto px-0 py-4 pb-24">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between px-2">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
 
           <div ref={sortMenuRef} className="relative">
@@ -732,7 +730,7 @@ export default function FriendsPage() {
         )}
 
         {/* Search Bar */}
-        <div className="mb-6 px-2">
+        <div className="mb-6">
           <div className={cn(
             "flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
             "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
@@ -750,8 +748,8 @@ export default function FriendsPage() {
 
         {/* Search Results */}
         {query.trim().length > 0 && (
-          <div className="mb-6 px-2 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Search results</div>
+          <div className="mb-6 space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Search results</div>
 
             {searchResults.length === 0 && !searching ? (
               <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
@@ -794,8 +792,8 @@ export default function FriendsPage() {
         )}
 
         {/* Pending Requests */}
-        <div className="px-2 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Pending requests</div>
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
 
           {pending.length === 0 ? (
             <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
@@ -846,8 +844,8 @@ export default function FriendsPage() {
         </div>
 
         {/* Friends List */}
-        <div className="mt-6 px-2 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">
+        <div className="mt-6 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
             Your friends{friendsSorted.length > 0 && ` (${friendsSorted.length})`}
           </div>
 
