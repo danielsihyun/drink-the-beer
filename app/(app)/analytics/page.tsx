@@ -693,7 +693,6 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     today.setHours(0, 0, 0, 0)
 
     if (timeRange === "1W") {
-      // Daily buckets — last 7 days
       return data.map((entry) => {
         const types: Record<string, number> = {}
         entry.types.forEach((t) => { types[t] = (types[t] || 0) + 1 })
@@ -704,7 +703,6 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     }
 
     if (timeRange === "1M" || timeRange === "3M") {
-      // Weekly buckets — 4 weeks for 1M, 12 weeks for 3M
       const numWeeks = timeRange === "1M" ? 4 : 12
       const todayEnd = new Date(today)
       todayEnd.setHours(23, 59, 59, 999)
@@ -729,11 +727,10 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
       return weekBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
     }
 
-    // 6M, 1Y, YTD — monthly buckets
     let numMonths: number
     if (timeRange === "6M") numMonths = 6
     else if (timeRange === "1Y") numMonths = 12
-    else numMonths = today.getMonth() + 1 // YTD
+    else numMonths = today.getMonth() + 1
 
     const monthBuckets = Array.from({ length: numMonths }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - (numMonths - 1 - i), 1)
@@ -758,7 +755,6 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     return monthBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
   }, [data, timeRange])
 
-  // Sort types by total count descending (highest at bottom of stack)
   const allTypes = React.useMemo(() => {
     const typeTotals: Record<string, number> = {}
     data.forEach((entry) => entry.types.forEach((t) => {
@@ -796,7 +792,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     return <rect x={x} y={y} width={width} height={height} fill={fill} />
   }, [allTypes])
 
-  if (chartData.length === 0 || allTypes.length === 0) {
+  if (chartData.length === 0) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
         <h3 className="text-sm font-medium text-muted-foreground mb-4 pr-8">Type Trend</h3>
@@ -1149,11 +1145,9 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
         break
       case "1M":
-        // Exactly one calendar month back (e.g. Feb 2 → Jan 2)
         startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
         break
       case "3M":
-        // Exactly 91 days back (13 weeks)
         startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
         break
       case "6M":
@@ -1170,7 +1164,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     }
     startDate.setHours(0, 0, 0, 0)
 
-    // Align to the previous Monday (skip for 1W and 1M which use sequential layout)
     if (timeRange !== "1W" && timeRange !== "1M") {
       const jsDay = startDate.getDay()
       const mondayOffset = (jsDay + 6) % 7
@@ -1391,7 +1384,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Horizontal layout for 1M
   if (timeRange === "1M") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1401,7 +1393,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
-          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {DAY_NAMES.map((day) => (
               <div
@@ -1414,7 +1405,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Weeks as rows */}
           <div className="flex flex-col" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex" style={{ gap }}>
@@ -1466,7 +1456,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
-        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1486,7 +1475,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Vertical layout for 3M, 6M, 1Y, YTD
   const dayLabelWidth = 16
   return (
     <Card className="bg-card border-border p-4 shadow-none">
@@ -1607,14 +1595,12 @@ export default function AnalyticsPage() {
   const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [userId, setUserId] = React.useState<string | null>(null)
-  const [cheersStats, setCheersStats] = React.useState<CheersStats>({
-    totalReceived: 0,
-    totalGiven: 0,
-    avgPerPost: 0,
-    mostCheeredPost: null,
-    topCheerersToMe: [],
-    topCheeredByMe: [],
-  })
+
+  // Raw cheers data — fetched once, filtered reactively by time range
+  const [rawReceivedCheers, setRawReceivedCheers] = React.useState<{ drink_log_id: string; user_id: string }[]>([])
+  const [rawGivenCheers, setRawGivenCheers] = React.useState<{ drink_log_id: string; user_id: string; created_at: string }[]>([])
+  const [cheeredPostOwners, setCheeredPostOwners] = React.useState<Record<string, string>>({})
+  const [cheersProfiles, setCheersProfiles] = React.useState<Record<string, { username: string; displayName: string; avatarUrl: string | null }>>({})
 
   const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
   const [draggedId, setDraggedId] = React.useState<CardId | null>(null)
@@ -1691,12 +1677,13 @@ export default function AnalyticsPage() {
           return
         }
 
-        setUserId(userRes.user.id)
+        const currentUserId = userRes.user.id
+        setUserId(currentUserId)
 
         const { data: profileData } = await supabase
           .from("profiles")
           .select("analytics_card_order")
-          .eq("id", userRes.user.id)
+          .eq("id", currentUserId)
           .single()
 
         if (profileData?.analytics_card_order && isValidCardOrder(profileData.analytics_card_order)) {
@@ -1706,7 +1693,7 @@ export default function AnalyticsPage() {
         const { data: logs, error: logsErr } = await supabase
           .from("drink_logs")
           .select("id, drink_type, created_at, caption")
-          .eq("user_id", userRes.user.id)
+          .eq("user_id", currentUserId)
           .order("created_at", { ascending: true })
 
         if (logsErr) throw logsErr
@@ -1716,7 +1703,8 @@ export default function AnalyticsPage() {
         const transformed = transformDrinkLogs(typedLogs)
         setAllData(transformed)
 
-        await loadCheersStats(userRes.user.id, typedLogs)
+        // Fetch all cheers data once (filtered reactively via useMemo)
+        await loadCheersData(currentUserId, typedLogs)
       } catch (e: any) {
         setError(e?.message ?? "Could not load analytics.")
       } finally {
@@ -1724,67 +1712,54 @@ export default function AnalyticsPage() {
       }
     }
 
-    async function loadCheersStats(currentUserId: string, logs: DrinkLogRow[]) {
+    async function loadCheersData(currentUserId: string, logs: DrinkLogRow[]) {
       try {
         const myDrinkIds = logs.map(l => l.id)
-        
+
+        // Fetch all cheers received on my posts
         const { data: receivedData } = await supabase
           .from("drink_cheers")
           .select("drink_log_id, user_id")
           .in("drink_log_id", myDrinkIds.length > 0 ? myDrinkIds : [""])
 
+        // Fetch all cheers I gave (with created_at for time-range filtering)
         const { data: givenData } = await supabase
           .from("drink_cheers")
-          .select("drink_log_id, user_id")
+          .select("drink_log_id, user_id, created_at")
           .eq("user_id", currentUserId)
 
-        const receivedList = receivedData ?? []
-        const givenList = givenData ?? []
+        const receivedList = (receivedData ?? []) as { drink_log_id: string; user_id: string }[]
+        const givenList = (givenData ?? []) as { drink_log_id: string; user_id: string; created_at: string }[]
 
-        const cheersPerPost: Record<string, number> = {}
-        receivedList.forEach((c: any) => {
-          cheersPerPost[c.drink_log_id] = (cheersPerPost[c.drink_log_id] || 0) + 1
-        })
+        setRawReceivedCheers(receivedList)
+        setRawGivenCheers(givenList)
 
-        let mostCheeredPost: CheersStats["mostCheeredPost"] = null
-        let maxCheers = 0
-        Object.entries(cheersPerPost).forEach(([postId, count]) => {
-          if (count > maxCheers) {
-            maxCheers = count
-            const log = logs.find(l => l.id === postId)
-            mostCheeredPost = {
-              id: postId,
-              count,
-              caption: log?.caption ?? null,
-              date: log ? getLocalDateString(new Date(log.created_at)) : "",
-            }
-          }
-        })
-
-        const cheererCounts: Record<string, number> = {}
-        receivedList.forEach((c: any) => {
-          if (c.user_id !== currentUserId) {
-            cheererCounts[c.user_id] = (cheererCounts[c.user_id] || 0) + 1
-          }
-        })
-
-        const cheeredByMeCounts: Record<string, number> = {}
+        // Look up owners of posts I cheered (for "top cheered by me")
+        const postOwnerMap: Record<string, string> = {}
         if (givenList.length > 0) {
-          const cheeredPostIds = givenList.map((c: any) => c.drink_log_id)
+          const cheeredPostIds = givenList.map((c) => c.drink_log_id)
           const { data: cheeredPosts } = await supabase
             .from("drink_logs")
             .select("id, user_id")
             .in("id", cheeredPostIds)
 
           cheeredPosts?.forEach((post: any) => {
-            if (post.user_id !== currentUserId) {
-              cheeredByMeCounts[post.user_id] = (cheeredByMeCounts[post.user_id] || 0) + 1
-            }
+            postOwnerMap[post.id] = post.user_id
           })
         }
+        setCheeredPostOwners(postOwnerMap)
 
-        const allUserIds = [...new Set([...Object.keys(cheererCounts), ...Object.keys(cheeredByMeCounts)])]
-        let userProfiles: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {}
+        // Collect all unique user IDs we need profiles for
+        const profileUserIds = new Set<string>()
+        receivedList.forEach((c) => {
+          if (c.user_id !== currentUserId) profileUserIds.add(c.user_id)
+        })
+        Object.values(postOwnerMap).forEach((ownerId) => {
+          if (ownerId !== currentUserId) profileUserIds.add(ownerId)
+        })
+
+        const allUserIds = Array.from(profileUserIds)
+        const profileMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {}
 
         if (allUserIds.length > 0) {
           const { data: profiles } = await supabase
@@ -1801,7 +1776,7 @@ export default function AnalyticsPage() {
                   .createSignedUrl(p.avatar_path, 60 * 60)
                 avatarUrl = urlData?.signedUrl ?? null
               }
-              userProfiles[p.id] = {
+              profileMap[p.id] = {
                 username: p.username,
                 displayName: p.display_name || p.username,
                 avatarUrl,
@@ -1809,43 +1784,9 @@ export default function AnalyticsPage() {
             }
           }
         }
-
-        const topCheerersToMe = Object.entries(cheererCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([oderId, count]) => ({
-            oderId,
-            username: userProfiles[oderId]?.username ?? "Unknown",
-            displayName: userProfiles[oderId]?.displayName ?? "Unknown",
-            avatarUrl: userProfiles[oderId]?.avatarUrl ?? null,
-            count,
-          }))
-
-        const topCheeredByMe = Object.entries(cheeredByMeCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([oderId, count]) => ({
-            oderId,
-            username: userProfiles[oderId]?.username ?? "Unknown",
-            displayName: userProfiles[oderId]?.displayName ?? "Unknown",
-            avatarUrl: userProfiles[oderId]?.avatarUrl ?? null,
-            count,
-          }))
-
-        const totalReceived = receivedList.length
-        const totalGiven = givenList.length
-        const avgPerPost = myDrinkIds.length > 0 ? totalReceived / myDrinkIds.length : 0
-
-        setCheersStats({
-          totalReceived,
-          totalGiven,
-          avgPerPost,
-          mostCheeredPost,
-          topCheerersToMe,
-          topCheeredByMe,
-        })
+        setCheersProfiles(profileMap)
       } catch (e) {
-        console.error("Failed to load cheers stats:", e)
+        console.error("Failed to load cheers data:", e)
       }
     }
 
@@ -1880,6 +1821,95 @@ export default function AnalyticsPage() {
 
     return result
   }, [allData, timeRange])
+
+  // Cheers stats — computed reactively from raw data + current time range
+  const cheersStats = React.useMemo<CheersStats>(() => {
+    const now = new Date()
+    const { start: rangeStart } = getDateRangeForTimeRange(timeRange, now)
+
+    // Drink IDs that fall within the selected time range
+    const filteredDrinkIds = new Set(filteredData.flatMap((d) => d.drinkIds))
+
+    // Filter received cheers to only those on posts in the time range
+    const received = rawReceivedCheers.filter((c) => filteredDrinkIds.has(c.drink_log_id))
+
+    // Filter given cheers to those made during the time range (by cheer timestamp)
+    const given = rawGivenCheers.filter((c) => new Date(c.created_at) >= rangeStart)
+
+    // Cheers per post (for most-cheered calculation)
+    const cheersPerPost: Record<string, number> = {}
+    received.forEach((c) => {
+      cheersPerPost[c.drink_log_id] = (cheersPerPost[c.drink_log_id] || 0) + 1
+    })
+
+    let mostCheeredPost: CheersStats["mostCheeredPost"] = null
+    let maxCheers = 0
+    Object.entries(cheersPerPost).forEach(([postId, count]) => {
+      if (count > maxCheers) {
+        maxCheers = count
+        const log = allLogs.find((l) => l.id === postId)
+        mostCheeredPost = {
+          id: postId,
+          count,
+          caption: log?.caption ?? null,
+          date: log ? getLocalDateString(new Date(log.created_at)) : "",
+        }
+      }
+    })
+
+    // Who cheered me most (within time range)
+    const cheererCounts: Record<string, number> = {}
+    received.forEach((c) => {
+      if (c.user_id !== userId) {
+        cheererCounts[c.user_id] = (cheererCounts[c.user_id] || 0) + 1
+      }
+    })
+
+    // Who I cheered most (within time range)
+    const cheeredByMeCounts: Record<string, number> = {}
+    given.forEach((c) => {
+      const postOwner = cheeredPostOwners[c.drink_log_id]
+      if (postOwner && postOwner !== userId) {
+        cheeredByMeCounts[postOwner] = (cheeredByMeCounts[postOwner] || 0) + 1
+      }
+    })
+
+    const topCheerersToMe = Object.entries(cheererCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, count]) => ({
+        oderId: id,
+        username: cheersProfiles[id]?.username ?? "Unknown",
+        displayName: cheersProfiles[id]?.displayName ?? "Unknown",
+        avatarUrl: cheersProfiles[id]?.avatarUrl ?? null,
+        count,
+      }))
+
+    const topCheeredByMe = Object.entries(cheeredByMeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, count]) => ({
+        oderId: id,
+        username: cheersProfiles[id]?.username ?? "Unknown",
+        displayName: cheersProfiles[id]?.displayName ?? "Unknown",
+        avatarUrl: cheersProfiles[id]?.avatarUrl ?? null,
+        count,
+      }))
+
+    const totalReceived = received.length
+    const totalGiven = given.length
+    const postsInRange = filteredDrinkIds.size
+    const avgPerPost = postsInRange > 0 ? totalReceived / postsInRange : 0
+
+    return {
+      totalReceived,
+      totalGiven,
+      avgPerPost,
+      mostCheeredPost,
+      topCheerersToMe,
+      topCheeredByMe,
+    }
+  }, [filteredData, rawReceivedCheers, rawGivenCheers, cheeredPostOwners, cheersProfiles, timeRange, userId, allLogs])
 
   const kpiData = React.useMemo(() => {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
