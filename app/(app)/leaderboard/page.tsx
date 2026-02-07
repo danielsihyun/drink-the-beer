@@ -559,7 +559,7 @@ export default function LeaderboardPage() {
         <div className={cn(GLASS_CARD, "overflow-hidden")}>
           {/* Podium */}
           {podiumEntries.length > 0 && (
-            <div className="px-6 pt-6">
+            <div className="px-6 pt-12">
               <Podium entries={podiumEntries} />
             </div>
           )}
