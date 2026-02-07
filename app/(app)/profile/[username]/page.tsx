@@ -385,7 +385,7 @@ function CheersListModal({
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 px-0 sm:px-0">
+    <div className="space-y-4">
       {/* Profile card skeleton */}
       <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
         <div className="flex items-center gap-4">
@@ -1220,7 +1220,7 @@ export default function UserProfilePage() {
   return (
     <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
       {/* Page Header */}
-      <div className="mb-4 flex items-center gap-3 px-0 sm:px-0">
+      <div className="mb-4 flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}
@@ -1233,7 +1233,7 @@ export default function UserProfilePage() {
       </div>
 
       {error && (
-        <div className="mx-4 sm:mx-0 mb-4 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
@@ -1310,7 +1310,7 @@ export default function UserProfilePage() {
           )}
 
           {/* Timeline */}
-          <div className="px-0 sm:px-0">
+          <div>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.username}&apos;s Timeline</h3>
 
