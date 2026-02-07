@@ -256,8 +256,8 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
               </p>
             </div>
             <div className="mt-2 w-full">
-              <div className="flex h-20 w-full items-end justify-center rounded-t-xl bg-neutral-200/60 dark:bg-white/[0.06]">
-                <div className="pb-3 text-center">
+              <div className="flex h-24 w-full items-start justify-center rounded-t-xl bg-neutral-200/60 dark:bg-white/[0.06]">
+                <div className="pt-4 text-center">
                   <p className="text-lg font-bold text-neutral-900 dark:text-white">{second.drink_count}</p>
                   <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
                 </div>
@@ -265,14 +265,14 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
             </div>
           </>
         ) : (
-          <div className="h-20" />
+          <div className="h-24" />
         )}
       </div>
 
       {/* 1st Place */}
       <div className="flex flex-col items-center flex-1">
         <div className="relative">
-          <Trophy className="absolute -top-5 left-1/2 -translate-x-1/2 h-6 w-6 text-amber-400" />
+          <Trophy className="absolute -top-9 left-1/2 -translate-x-1/2 h-6 w-6 text-amber-400" />
           <PodiumAvatar entry={first} size="lg" />
         </div>
         <div className="mt-2 text-center w-full px-1">
@@ -284,8 +284,8 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
           </p>
         </div>
         <div className="mt-2 w-full">
-          <div className="flex h-28 w-full items-end justify-center rounded-t-xl bg-amber-400/20 dark:bg-amber-400/10">
-            <div className="pb-3 text-center">
+          <div className="flex h-32 w-full items-start justify-center rounded-t-xl bg-amber-400/20 dark:bg-amber-400/10">
+            <div className="pt-4 text-center">
               <p className="text-xl font-bold text-neutral-900 dark:text-white">{first.drink_count}</p>
               <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
             </div>
@@ -307,8 +307,8 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
               </p>
             </div>
             <div className="mt-2 w-full">
-              <div className="flex h-16 w-full items-end justify-center rounded-t-xl bg-amber-600/15 dark:bg-amber-600/10">
-                <div className="pb-3 text-center">
+              <div className="flex h-20 w-full items-start justify-center rounded-t-xl bg-amber-600/15 dark:bg-amber-600/10">
+                <div className="pt-4 text-center">
                   <p className="text-lg font-bold text-neutral-900 dark:text-white">{third.drink_count}</p>
                   <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
                 </div>
@@ -316,7 +316,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
             </div>
           </>
         ) : (
-          <div className="h-16" />
+          <div className="h-20" />
         )}
       </div>
     </div>
