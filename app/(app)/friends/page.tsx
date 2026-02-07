@@ -116,7 +116,7 @@ function PersonCard({
   actions?: React.ReactNode
 }) {
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-4">
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-4">
       <div className="flex items-center gap-3">
         <Link href={`/profile/${username}`} className="flex items-center gap-3 flex-1 min-w-0 group/profile">
           {avatarUrl ? (
@@ -614,14 +614,14 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+        <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
           <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
           <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
         </div>
 
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
-          <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
+          <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
             <div className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               <div className="flex-1 min-w-0 space-y-2">
@@ -636,7 +636,7 @@ export default function FriendsPage() {
         <div className="space-y-3 pb-24">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Your friends</div>
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
+            <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                 <div className="flex-1 min-w-0 space-y-2">
@@ -717,14 +717,14 @@ export default function FriendsPage() {
 
         {/* Toast */}
         {toastMsg && (
-          <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500 rounded-2xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500 rounded-[2rem] border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
             {toastMsg}
           </div>
         )}
 
         {/* Error */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <div className="mb-6 rounded-[2rem] border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
@@ -732,7 +732,7 @@ export default function FriendsPage() {
         {/* Search Bar */}
         <div className="mb-6">
           <div className={cn(
-            "flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
+            "flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
             "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
           )}>
             <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
@@ -752,7 +752,7 @@ export default function FriendsPage() {
             <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Search results</div>
 
             {searchResults.length === 0 && !searching ? (
-              <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+              <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
                 No matches found.
               </div>
             ) : (
@@ -796,7 +796,7 @@ export default function FriendsPage() {
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
 
           {pending.length === 0 ? (
-            <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
               No pending requests.
             </div>
           ) : (
