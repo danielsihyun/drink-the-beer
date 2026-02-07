@@ -3,9 +3,10 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, ArrowUpDown, Plus, Check, X } from "lucide-react"
+import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type FriendSort = "name_asc" | "name_desc" | "since_new" | "since_old"
 
@@ -68,31 +69,95 @@ function OverlayPage({
   children: React.ReactNode
   onClose: () => void
 }) {
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 py-6"
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300"
       role="dialog"
       aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="container max-w-2xl px-4">
-        <div className="mx-auto w-[50%] min-w-[320px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="text-base font-semibold">{title}</div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full"
-              aria-label="Close"
-              title="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="max-h-[80vh] overflow-y-auto px-4 py-4">{children}</div>
+      <div className="w-full max-w-[400px] overflow-hidden rounded-[2rem] border border-white/20 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-2xl animate-in slide-in-from-bottom-12 zoom-in-95 duration-300">
+        <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02] px-5 py-4 backdrop-blur-md">
+          <div className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-colors hover:bg-neutral-200 dark:hover:bg-white/15"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
+
+        <div className="max-h-[80vh] overflow-y-auto px-5 py-6">{children}</div>
       </div>
     </div>
+  )
+}
+
+function PersonCard({
+  avatarUrl,
+  username,
+  displayName,
+  friendCount,
+  drinkCount,
+  actions,
+}: {
+  avatarUrl: string | null
+  username: string
+  displayName: string
+  friendCount: number
+  drinkCount: number
+  actions?: React.ReactNode
+}) {
+  return (
+    <article className="group relative overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-4">
+      <div className="flex items-center gap-3">
+        <Link href={`/profile/${username}`} className="flex items-center gap-3 flex-1 min-w-0 group/profile">
+          {avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image
+                src={avatarUrl}
+                alt="Profile"
+                fill
+                className="object-cover transition-transform duration-500 group-hover/profile:scale-110"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-neutral-400 dark:text-white/30">
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+              </svg>
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</div>
+            <div className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{username}</div>
+
+            <div className="mt-1.5 flex gap-4 text-[13px]">
+              <div>
+                <span className="font-semibold text-neutral-900 dark:text-white">{friendCount}</span>{" "}
+                <span className="text-neutral-500 dark:text-white/40">friends</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-900 dark:text-white">{drinkCount}</span>{" "}
+                <span className="text-neutral-500 dark:text-white/40">drinks</span>
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        {actions && <div className="shrink-0 flex items-center gap-1.5">{actions}</div>}
+      </div>
+    </article>
   )
 }
 
@@ -116,7 +181,6 @@ export default function FriendsPage() {
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
 
-  // ✅ click-outside-to-close for sort menu
   const sortMenuRef = React.useRef<HTMLDivElement>(null)
 
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
@@ -151,7 +215,6 @@ export default function FriendsPage() {
 
       setMeId(user.id)
 
-      // Get accepted friendships
       const { data: friendships, error: fErr } = await supabase
         .from("friendships")
         .select("id, requester_id, addressee_id, created_at")
@@ -161,7 +224,6 @@ export default function FriendsPage() {
 
       if (fErr) throw fErr
 
-      // Extract friend IDs and map to friendship created_at
       const friendIds = (friendships ?? []).map((f: any) =>
         f.requester_id === user.id ? f.addressee_id : f.requester_id
       )
@@ -176,7 +238,6 @@ export default function FriendsPage() {
       if (friendIds.length === 0) {
         setFriends([])
       } else {
-        // Get friend profiles with stats
         const { data: profiles, error: pErr } = await supabase
           .from("profile_public_stats")
           .select("id, username, display_name, avatar_path, friend_count, drink_count")
@@ -184,7 +245,6 @@ export default function FriendsPage() {
 
         if (pErr) throw pErr
 
-        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
         const avatarPaths = (profiles ?? []).map((p: any) => p.avatar_path)
         const avatarUrls = await Promise.all(
           avatarPaths.map((path: string | null) =>
@@ -221,8 +281,7 @@ export default function FriendsPage() {
       if (!pendingRes.ok) throw new Error(pendingJson?.error ?? "Could not load pending requests.")
 
       const pendingRows = (pendingJson?.items ?? []) as PendingIncomingRow[]
-      
-      // ✅ OPTIMIZED: Batch fetch pending avatar URLs in parallel
+
       const pendingAvatarUrls = await Promise.all(
         pendingRows.map((p) =>
           p.avatar_path
@@ -269,7 +328,6 @@ export default function FriendsPage() {
     })
   }, [friends])
 
-  // ✅ click anywhere outside to close sort menu
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -286,7 +344,6 @@ export default function FriendsPage() {
     }
   }, [showSortMenu])
 
-  // ✅ Realtime subscription for friendships changes
   React.useEffect(() => {
     if (!meId) return
 
@@ -385,7 +442,6 @@ export default function FriendsPage() {
 
         const filtered = base.filter((p) => p.id !== meId && !friendIdSet.has(p.id))
 
-        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
         const avatarUrls = await Promise.all(
           filtered.map((p) =>
             p.avatar_path
@@ -546,65 +602,54 @@ export default function FriendsPage() {
     }
   }
 
+  // --- Skeleton Loading ---
   if (loading) {
     return (
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Friends</h2>
-  
-          <div className="relative">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-            >
-              <ArrowUpDown className="h-4 w-4" />
-              {sortLabel(sort)}
-            </button>
+      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 space-y-5">
+        <div className="flex items-center justify-between px-2">
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+          <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortLabel(sort)}
           </div>
         </div>
-  
-        <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
-          <Search className="h-4 w-4 opacity-60" />
-          <input
-            placeholder="Search people by username or name…"
-            className="w-full bg-transparent text-sm outline-none"
-            disabled
-          />
+
+        <div className="px-2">
+          <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+            <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
+          </div>
         </div>
-  
-        <div className="mt-6 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
-  
-          {/* Match loaded card spacing: rounded-2xl border bg-background/50 p-3 */}
-          <div className="animate-pulse rounded-2xl border bg-background/50 p-3">
+
+        <div className="px-2 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Pending requests</div>
+          <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-foreground/10" />
+              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               <div className="flex-1 min-w-0 space-y-2">
-                <div className="h-3 w-32 rounded bg-foreground/10" />
-                <div className="h-2 w-24 rounded bg-foreground/10" />
+                <div className="h-3.5 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               </div>
-              <div className="h-9 w-20 rounded-full bg-foreground/10" />
+              <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
             </div>
           </div>
         </div>
-  
-        <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
-  
-          {/* Match loaded list item spacing: rounded-2xl border bg-background/50 p-3 */}
+
+        <div className="px-2 space-y-3 pb-24">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Your friends</div>
           {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
+            <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-foreground/10" />
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                 <div className="flex-1 min-w-0 space-y-2">
-                  <div className="h-3 w-36 rounded bg-foreground/10" />
-                  <div className="h-2 w-24 rounded bg-foreground/10" />
-                  <div className="mt-2 flex gap-4">
-                    <div className="h-3 w-20 rounded bg-foreground/10" />
-                    <div className="h-3 w-20 rounded bg-foreground/10" />
+                  <div className="h-3.5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="flex gap-4 pt-1">
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                   </div>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-foreground/10" />
+                <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               </div>
             </div>
           ))}
@@ -612,185 +657,167 @@ export default function FriendsPage() {
       </div>
     )
   }
-  
 
   const friendsSorted = sortedFriends(friends)
 
   return (
     <>
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Friends</h2>
+      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 pb-24">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between px-2">
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
 
           <div ref={sortMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setShowSortMenu(!showSortMenu)}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
+                showSortMenu
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-sm"
+                  : "bg-black/[0.04] dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 hover:bg-black/[0.08] dark:hover:bg-white/[0.1]"
+              )}
             >
-              <ArrowUpDown className="h-4 w-4" />
+              <ArrowUpDown className="h-3.5 w-3.5" />
               {sortLabel(sort)}
             </button>
 
-            {showSortMenu ? (
-              <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
-                {(
-                  [
-                    { key: "name_asc", label: "Name (A → Z)" },
-                    { key: "name_desc", label: "Name (Z → A)" },
-                    { key: "since_new", label: "Friendship (Newest)" },
-                    { key: "since_old", label: "Friendship (Oldest)" },
-                  ] as { key: FriendSort; label: string }[]
-                ).map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => {
-                      setSort(opt.key)
-                      setShowSortMenu(false)
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                      sort === opt.key ? "font-semibold" : ""
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+            {showSortMenu && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06] animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-1">
+                  {(
+                    [
+                      { key: "name_asc", label: "Name (A → Z)" },
+                      { key: "name_desc", label: "Name (Z → A)" },
+                      { key: "since_new", label: "Friendship (Newest)" },
+                      { key: "since_old", label: "Friendship (Oldest)" },
+                    ] as { key: FriendSort; label: string }[]
+                  ).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => {
+                        setSort(opt.key)
+                        setShowSortMenu(false)
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                        sort === opt.key
+                          ? "bg-black/5 dark:bg-white/[0.08] font-semibold text-black dark:text-white"
+                          : "text-neutral-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-black dark:hover:text-white"
+                      )}
+                    >
+                      <span>{opt.label}</span>
+                      {sort === opt.key && <Check className="h-4 w-4 text-black dark:text-white" />}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
 
-        {toastMsg ? (
-          <div className="mb-4 rounded-2xl border border-black/20 bg-black/90 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
+        {/* Toast */}
+        {toastMsg && (
+          <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500 rounded-2xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
             {toastMsg}
           </div>
-        ) : null}
+        )}
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        {/* Error */}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
-        ) : null}
+        )}
 
-        <div className="flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
-          <Search className="h-4 w-4 opacity-60" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search people by username or name…"
-            className="w-full bg-transparent text-sm outline-none"
-          />
-          {searching ? <Loader2 className="h-4 w-4 animate-spin opacity-70" /> : null}
+        {/* Search Bar */}
+        <div className="mb-6 px-2">
+          <div className={cn(
+            "flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
+            "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
+          )}>
+            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search people by username or name…"
+              className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
+            />
+            {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30" />}
+          </div>
         </div>
 
-        {query.trim().length ? (
-          <div className="mt-4 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Search results</div>
+        {/* Search Results */}
+        {query.trim().length > 0 && (
+          <div className="mb-6 px-2 space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Search results</div>
 
             {searchResults.length === 0 && !searching ? (
-              <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No matches.</div>
-            ) : null}
-
-            {searchResults.map((p) => (
-              <article key={p.id} className="rounded-2xl border bg-background/50 p-3">
-                <div className="flex items-center gap-3">
-                  <Link href={`/profile/${p.username}`} className="flex items-center gap-3 flex-1 min-w-0">
-                    {p.avatarUrl ? (
-                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                        <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                      </div>
+              <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+                No matches found.
+              </div>
+            ) : (
+              searchResults.map((p) => (
+                <PersonCard
+                  key={p.id}
+                  avatarUrl={p.avatarUrl}
+                  username={p.username}
+                  displayName={p.displayName}
+                  friendCount={p.friendCount}
+                  drinkCount={p.drinkCount}
+                  actions={
+                    p.outgoingPending ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-neutral-400 dark:text-white/30"
+                        aria-label="Request pending"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
                     ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                        {p.username[0]?.toUpperCase() ?? "U"}
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold hover:underline">{p.displayName}</div>
-                      <div className="text-xs opacity-60">@{p.username}</div>
-
-                      <div className="mt-2 flex gap-4 text-sm">
-                        <div>
-                          <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
-                        </div>
-                        <div>
-                          <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-
-                  {p.outgoingPending ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white opacity-70 shrink-0"
-                      aria-label="Request pending"
-                      title="Request pending"
-                    >
-                      <Check className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => addFriend(p.id)}
-                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white shrink-0"
-                      aria-label="Add friend"
-                      title="Add friend"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
+                      <button
+                        type="button"
+                        onClick={() => addFriend(p.id)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
+                        aria-label="Add friend"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )
+                  }
+                />
+              ))
+            )}
           </div>
-        ) : null}
+        )}
 
-        <div className="mt-6 space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Pending requests</div>
+        {/* Pending Requests */}
+        <div className="px-2 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">Pending requests</div>
 
           {pending.length === 0 ? (
-            <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">No pending requests.</div>
+            <div className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+              No pending requests.
+            </div>
           ) : (
             pending.map((p) => (
-              <article key={p.friendshipId} className="rounded-2xl border bg-background/50 p-3">
-                <div className="flex items-center gap-3">
-                  <Link href={`/profile/${p.username}`} className="flex items-center gap-3 flex-1 min-w-0">
-                    {p.avatarUrl ? (
-                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                        <Image src={p.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                      </div>
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                        {p.username[0]?.toUpperCase() ?? "U"}
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold hover:underline">{p.displayName}</div>
-                      <div className="text-xs opacity-60">@{p.username}</div>
-
-                      <div className="mt-2 flex gap-4 text-sm">
-                        <div>
-                          <span className="font-bold">{p.friendCount}</span> <span className="opacity-60">Friends</span>
-                        </div>
-                        <div>
-                          <span className="font-bold">{p.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center gap-2 shrink-0">
+              <PersonCard
+                key={p.friendshipId}
+                avatarUrl={p.avatarUrl}
+                username={p.username}
+                displayName={p.displayName}
+                friendCount={p.friendCount}
+                drinkCount={p.drinkCount}
+                actions={
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => respondToRequest(p.friendshipId, "accepted")}
                       disabled={pendingBusyId === p.friendshipId}
-                      className="inline-flex items-center justify-center rounded-full border bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-50"
                       aria-label="Accept"
-                      title="Accept"
                     >
                       {pendingBusyId === p.friendshipId ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -798,14 +825,12 @@ export default function FriendsPage() {
                         <Check className="h-4 w-4" />
                       )}
                     </button>
-
                     <button
                       type="button"
                       onClick={() => respondToRequest(p.friendshipId, "rejected")}
                       disabled={pendingBusyId === p.friendshipId}
-                      className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-all active:scale-95 hover:bg-neutral-200 dark:hover:bg-white/15 disabled:opacity-50"
                       aria-label="Reject"
-                      title="Reject"
                     >
                       {pendingBusyId === p.friendshipId ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -814,69 +839,57 @@ export default function FriendsPage() {
                       )}
                     </button>
                   </div>
-                </div>
-              </article>
+                }
+              />
             ))
           )}
         </div>
 
-        <div className="mt-6 space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-60">Your friends</div>
+        {/* Friends List */}
+        <div className="mt-6 px-2 space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30 px-1">
+            Your friends{friendsSorted.length > 0 && ` (${friendsSorted.length})`}
+          </div>
 
           {friendsSorted.length === 0 ? (
-            <div className="rounded-2xl border bg-background/50 p-4 text-sm opacity-70">
-              No friends yet. Search someone above and hit the + to add them.
+            <div className="mt-8 flex flex-col items-center text-center">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04] text-neutral-400 dark:text-white/25">
+                <Plus className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No friends yet</h3>
+              <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-white/45 leading-relaxed">
+                Search for people above and hit + to add them as a friend.
+              </p>
             </div>
           ) : (
             friendsSorted.map((f) => (
-              <article key={f.id} className="rounded-2xl border bg-background/50 p-3">
-                <div className="flex items-center gap-3">
-                  <Link href={`/profile/${f.username}`} className="flex items-center gap-3 flex-1 min-w-0">
-                    {f.avatarUrl ? (
-                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                        <Image src={f.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                      </div>
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold">
-                        {f.username[0]?.toUpperCase() ?? "U"}
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold hover:underline">{f.displayName}</div>
-                      <div className="text-xs opacity-60">@{f.username}</div>
-
-                      <div className="mt-2 flex gap-4 text-sm">
-                        <div>
-                          <span className="font-bold">{f.friendCount}</span> <span className="opacity-60">Friends</span>
-                        </div>
-                        <div>
-                          <span className="font-bold">{f.drinkCount}</span> <span className="opacity-60">Drinks</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-
+              <PersonCard
+                key={f.id}
+                avatarUrl={f.avatarUrl}
+                username={f.username}
+                displayName={f.displayName}
+                friendCount={f.friendCount}
+                drinkCount={f.drinkCount}
+                actions={
                   <button
                     type="button"
                     onClick={() => openRemove(f)}
-                    className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99] shrink-0"
-                    style={{ width: "30px", height: "30px" }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
                     aria-label="Remove friend"
-                    title="Remove friend"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-[18px] w-[18px]" />
                   </button>
-                </div>
-              </article>
+                }
+              />
             ))
           )}
         </div>
       </div>
 
-      {removeOpen && removeTarget ? (
+      {/* Remove Friend Modal */}
+      {removeOpen && removeTarget && (
         <OverlayPage
-          title="Remove friend"
+          title="Remove Friend"
           onClose={() => {
             if (removeBusy) return
             setRemoveOpen(false)
@@ -884,20 +897,17 @@ export default function FriendsPage() {
             setRemoveTarget(null)
           }}
         >
-          {removeError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {removeError && (
+            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">
               {removeError}
             </div>
-          ) : null}
+          )}
 
-          <div className="rounded-2xl border bg-background/50 p-4">
-            <div className="text-base font-semibold">Are you sure?</div>
-            <p className="mt-1 text-sm opacity-70">
-              This will remove <span className="font-semibold">@{removeTarget.username}</span> from your friends.
-            </p>
-          </div>
+          <p className="mb-6 text-neutral-600 dark:text-white/55">
+            Are you sure you want to remove <span className="font-semibold text-neutral-900 dark:text-white">@{removeTarget.username}</span> from your friends? You can always add them back later.
+          </p>
 
-          <div className="mt-5 flex gap-3">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={() => {
@@ -906,7 +916,7 @@ export default function FriendsPage() {
                 setRemoveError(null)
                 setRemoveTarget(null)
               }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neutral-100 dark:bg-white/10 px-4 py-3 text-sm font-medium text-neutral-900 dark:text-white transition-all active:scale-[0.98] hover:bg-neutral-200 dark:hover:bg-white/15"
               disabled={removeBusy}
             >
               Cancel
@@ -915,15 +925,15 @@ export default function FriendsPage() {
             <button
               type="button"
               onClick={confirmRemoveFriend}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all active:scale-[0.98] hover:bg-red-600"
               disabled={removeBusy}
             >
-              {removeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {removeBusy && <Loader2 className="h-4 w-4 animate-spin" />}
               Remove
             </button>
           </div>
         </OverlayPage>
-      ) : null}
+      )}
     </>
   )
 }

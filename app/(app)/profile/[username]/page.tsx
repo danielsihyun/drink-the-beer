@@ -388,7 +388,7 @@ function CheersListModal({
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 px-4 sm:px-0">
+    <div className="space-y-4 px-0 sm:px-0">
       {/* Profile card skeleton */}
       <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
         <div className="flex items-center gap-4">
@@ -1224,7 +1224,7 @@ export default function UserProfilePage() {
   return (
     <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
       {/* Page Header */}
-      <div className="mb-4 flex items-center gap-3 px-4 sm:px-0">
+      <div className="mb-4 flex items-center gap-3 px-0 sm:px-0">
         <button
           type="button"
           onClick={() => router.back()}
@@ -1247,7 +1247,7 @@ export default function UserProfilePage() {
       ) : profile ? (
         <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
           {/* PROFILE CARD */}
-          <div className="relative mx-4 sm:mx-0 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
+          <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
             {/* Showcase Medals — read-only */}
             <div className="absolute top-4 right-4">
               <ProfileShowcase
@@ -1295,7 +1295,7 @@ export default function UserProfilePage() {
 
           {/* Medals and Analytics buttons — only when friends */}
           {friendshipStatus === "friends" && (
-            <div className="flex gap-3 mx-4 sm:mx-0">
+            <div className="flex gap-3">
               <Link
                 href={`/profile/${profile.username}/awards`}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
@@ -1314,7 +1314,7 @@ export default function UserProfilePage() {
           )}
 
           {/* Timeline */}
-          <div className="px-4 sm:px-0">
+          <div className="px-0 sm:px-0">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.username}&apos;s Timeline</h3>
 
