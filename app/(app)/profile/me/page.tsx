@@ -625,7 +625,7 @@ function DrinkLogCard({
   return (
     <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
       {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+      <div className="flex items-center justify-between px-4 pt-4 pb-4">
         <div className="flex items-center gap-3">
           {profile.avatarUrl ? (
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
@@ -645,7 +645,7 @@ function DrinkLogCard({
           </div>
         </div>
 
-        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {log.drinkType}
         </span>
       </div>
@@ -664,7 +664,7 @@ function DrinkLogCard({
       </div>
 
       {/* Actions & Caption */}
-      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+      <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <button
@@ -776,7 +776,7 @@ function GroupedDrinkCard({
   return (
     <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
       {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+      <div className="flex items-center justify-between px-4 pt-4 pb-4">
         <div className="flex items-center gap-3">
           {profile.avatarUrl ? (
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
@@ -796,7 +796,7 @@ function GroupedDrinkCard({
           </div>
         </div>
 
-        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {currentDrink.drinkType}
         </span>
       </div>
@@ -849,7 +849,7 @@ function GroupedDrinkCard({
       </div>
 
       {/* Actions & Caption */}
-      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+      <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <button

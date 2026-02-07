@@ -46,7 +46,6 @@ interface CheersUser {
   username: string
   displayName: string
   avatarUrl: string | null
-  avatarColor: string
 }
 
 // --- Helpers ---
@@ -272,7 +271,6 @@ function CheersListModal({
             username: profile?.username ?? "Unknown",
             displayName: profile?.display_name ?? profile?.username ?? "Unknown",
             avatarUrl: avatarUrls[i],
-            avatarColor: "#4ECDC4",
           }
         })
         setUsers(cheersUsers)
@@ -321,8 +319,11 @@ function CheersListModal({
                       <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
                     </div>
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: user.avatarColor }}>
-                      {user.username[0]?.toUpperCase()}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10">
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-neutral-400 dark:text-white/30">
+                        <circle cx="12" cy="8" r="4" fill="currentColor" />
+                        <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+                      </svg>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -627,7 +628,7 @@ function FeedContent() {
                 className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
               >
                 {/* Card Header */}
-                <div className="flex items-start justify-between px-4 pt-4 pb-3">
+                <div className="flex items-center justify-between px-4 pt-4 pb-4">
                   <Link href={`/profile/${it.username}`} className="flex items-center gap-3 group/profile">
                     {it.avatarUrl ? (
                       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
@@ -640,8 +641,11 @@ function FeedContent() {
                         />
                       </div>
                     ) : (
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800" style={{ backgroundColor: "#4ECDC4" }}>
-                        {it.username[0]?.toUpperCase()}
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+                        <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-neutral-400 dark:text-white/30">
+                          <circle cx="12" cy="8" r="4" fill="currentColor" />
+                          <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+                        </svg>
                       </div>
                     )}
                     <div className="flex flex-col">
@@ -651,7 +655,7 @@ function FeedContent() {
                   </Link>
 
                   {/* Drink type pill — sentence case, softer Apple style */}
-                  <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
+                  <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
                     {it.drink_type}
                   </span>
                 </div>
@@ -674,7 +678,7 @@ function FeedContent() {
                 </div>
 
                 {/* Actions & Caption Area */}
-                <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+                <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
                   
                   {/* Action Buttons Row */}
                   <div className="flex items-center justify-between">
