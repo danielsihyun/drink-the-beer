@@ -37,9 +37,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
@@ -47,7 +45,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -58,9 +55,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - rotated when filled, straight when not */}
       <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
         {filled && (
           <path
             d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
@@ -68,7 +63,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -79,16 +73,12 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - only show when filled */}
       {filled && (
         <g stroke="#fbbf24">
-          {/* Center line - vertical */}
           <path d="M16 -0.5v3" strokeWidth="1.5" />
-          {/* Left line - mirrored from right */}
           <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
             <path d="M19 3l2-2" strokeWidth="1.5" />
           </g>
-          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
       )}
@@ -147,7 +137,6 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 type CardId = "drinkChart" | "cheersStats" | "activityGrid" | "dayOfWeek" | "breakdown" | "typeTrend"
 const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "activityGrid", "cheersStats", "dayOfWeek", "breakdown", "typeTrend"]
 
-// Helper to validate card order from database
 function isValidCardOrder(order: unknown): order is CardId[] {
   if (!Array.isArray(order)) return false
   if (order.length !== DEFAULT_CARD_ORDER.length) return false
@@ -594,10 +583,8 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
   const [scrollDistance, setScrollDistance] = React.useState(0)
   const [scrollDuration, setScrollDuration] = React.useState(0)
 
-  // Pixels per second - adjust this to change scroll speed
   const SCROLL_SPEED = 40
 
-  // Check if content overflows
   React.useEffect(() => {
     const container = containerRef.current
     const content = contentRef.current
@@ -614,12 +601,10 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     }
 
     checkOverflow()
-    // Recheck on resize
     window.addEventListener('resize', checkOverflow)
     return () => window.removeEventListener('resize', checkOverflow)
   }, [children])
 
-  // Intersection Observer to detect when element is visible
   React.useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -638,7 +623,6 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     return () => observer.disconnect()
   }, [])
 
-  // Start scrolling after 2 seconds when visible
   React.useEffect(() => {
     if (!shouldScroll || !isVisible) return
 
@@ -649,14 +633,11 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
     return () => clearTimeout(startTimer)
   }, [shouldScroll, isVisible])
 
-  // Reset and repeat cycle
   React.useEffect(() => {
     if (!isScrolling || !shouldScroll || !isVisible || scrollDuration === 0) return
 
-    // Reset after scroll completes + 1.5s pause
     const resetTimer = setTimeout(() => {
       setIsScrolling(false)
-      // Restart the cycle after reset
       setTimeout(() => {
         if (isVisible) setIsScrolling(true)
       }, 2000)
@@ -709,7 +690,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
       dayCount++
     }
 
-    if (currentBucket && Object.keys(currentBucket.types).length > 0) {
+    if (currentBucket) {
       buckets.push({ date: currentBucket.date, label: currentBucket.label, ...currentBucket.types })
     }
 
@@ -734,14 +715,12 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     
     if (!height || height <= 0) return null
     
-    // Check if this is the topmost bar with a value
     const typeIndex = allTypes.indexOf(dataKey)
     const typesAbove = allTypes.slice(typeIndex + 1)
     const isTopmost = typesAbove.every(type => !payload[type] || payload[type] === 0)
     
     if (isTopmost) {
       const radius = 4
-      // Path with rounded top corners only
       const path = `
         M ${x},${y + height}
         L ${x},${y + radius}
@@ -757,7 +736,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
     return <rect x={x} y={y} width={width} height={height} fill={fill} />
   }, [allTypes])
 
-  if (chartData.length === 0 || allTypes.length === 0) {
+  if (chartData.length === 0) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
         <h3 className="text-sm font-medium text-muted-foreground mb-4">Type Trend</h3>
@@ -831,7 +810,6 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
     data.forEach((entry) => {
       if (entry.count > 0) {
         const date = parseLocalDateString(entry.date)
-        // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
         const dayOfWeek = (date.getDay() + 6) % 7
         counts[dayOfWeek] += entry.count
       }
@@ -1006,7 +984,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [cellSize, setCellSize] = React.useState<number | null>(null)
 
-  // Build a map of date -> count for quick lookup
   const dataByDate = React.useMemo(() => {
     const map = new Map<string, number>()
     for (const entry of data) {
@@ -1015,7 +992,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     return map
   }, [data])
 
-  // Calculate the grid data based on time range
   const gridData = React.useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -1046,14 +1022,12 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     }
     startDate.setHours(0, 0, 0, 0)
 
-    // Align to the previous Monday (skip for 1W to keep exactly 7 days)
     if (timeRange !== "1W") {
       const jsDay = startDate.getDay()
-      const mondayOffset = (jsDay + 6) % 7 // Mon=0, Tue=1, ..., Sun=6
+      const mondayOffset = (jsDay + 6) % 7
       startDate.setDate(startDate.getDate() - mondayOffset)
     }
 
-    // Generate all days from startDate to today
     const days: { date: string; count: number; dayOfWeek: number; weekIndex: number }[] = []
     const current = new Date(startDate)
     let weekIndex = 0
@@ -1061,7 +1035,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     while (current <= today) {
       const dateStr = getLocalDateString(current)
       const count = dataByDate.get(dateStr) ?? 0
-      // Convert to Monday-based index: Mon=0, Tue=1, ..., Sun=6
       const mondayBasedDay = (current.getDay() + 6) % 7
 
       days.push({
@@ -1072,7 +1045,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       })
 
       current.setDate(current.getDate() + 1)
-      // New week starts on Monday (getDay() === 1)
       if (current.getDay() === 1) {
         weekIndex++
       }
@@ -1081,7 +1053,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     return days
   }, [dataByDate, timeRange])
 
-  // Group days into weeks
   const weeks = React.useMemo(() => {
     const weekMap = new Map<number, typeof gridData>()
 
@@ -1097,9 +1068,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       .map(([, days]) => days)
   }, [gridData])
 
-  // Calculate month labels and their positions (centered in each month)
   const monthLabels = React.useMemo(() => {
-    // Group weeks by year-month to handle year boundaries
     const monthWeeks = new Map<string, { month: number; weekIndices: number[] }>()
     
     for (const day of gridData) {
@@ -1117,16 +1086,13 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       }
     }
     
-    // Create labels positioned at the middle week of each month
     const labels: { month: string; weekIndex: number }[] = []
     const sortedMonths = Array.from(monthWeeks.entries()).sort((a, b) => {
-      // Sort by the first week index to maintain chronological order
       return (a[1].weekIndices[0] ?? 0) - (b[1].weekIndices[0] ?? 0)
     })
     
     for (const [, { month, weekIndices }] of sortedMonths) {
       if (weekIndices.length > 0) {
-        // Sort week indices and use the middle one
         weekIndices.sort((a, b) => a - b)
         const middleIdx = Math.floor(weekIndices.length / 2)
         labels.push({
@@ -1160,10 +1126,8 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     })
   }
 
-  // Gap sizes - 1W and 1M use same sizing
   const gap = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
 
-  // Calculate cell size based on container width
   React.useEffect(() => {
     const calculateSize = () => {
       if (!containerRef.current) return
@@ -1171,19 +1135,17 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       const containerWidth = containerRef.current.offsetWidth
 
       if (timeRange === "1W" || timeRange === "1M") {
-        // 7 cells in a row, same sizing for both
         const numCells = 7
         const totalGap = (numCells - 1) * gap
         const size = Math.floor((containerWidth - totalGap) / numCells)
         setCellSize(size)
       } else {
-        // 3M, 6M, 1Y, YTD - all use 3M's week count (~13 weeks) as reference for consistent sizing
         const dayLabelWidth = 24
-        const referenceWeeks = 14 // ~3 months worth of weeks
+        const referenceWeeks = 14
         const availableWidth = containerWidth - dayLabelWidth
         const totalGap = (referenceWeeks - 1) * gap
         const size = Math.floor((availableWidth - totalGap) / referenceWeeks)
-        setCellSize(Math.max(size, 8)) // minimum 8px
+        setCellSize(Math.max(size, 8))
       }
     }
 
@@ -1195,7 +1157,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
   const todayStr = getLocalDateString(new Date())
   const rounded = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
 
-  // Don't render until we have the cell size
   if (cellSize === null) {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1208,7 +1169,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Special layout for 1W - show days sequentially in a single row
   if (timeRange === "1W") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1218,7 +1178,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
-          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {gridData.map((day) => (
               <div
@@ -1231,11 +1190,9 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Days in a single row */}
           <div className="flex" style={{ gap }}>
             {gridData.map((day) => {
               const hasActivity = day.count > 0
-              const isToday = day.date === todayStr
 
               return (
                 <div
@@ -1266,7 +1223,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
-        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1286,7 +1242,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Horizontal layout for 1M
   if (timeRange === "1M") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1296,7 +1251,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div ref={containerRef}>
-          {/* Day labels header */}
           <div className="flex mb-2" style={{ gap }}>
             {DAY_NAMES.map((day) => (
               <div
@@ -1309,7 +1263,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Weeks as rows */}
           <div className="flex flex-col" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex" style={{ gap }}>
@@ -1329,7 +1282,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                   }
 
                   const hasActivity = day.count > 0
-                  const isToday = day.date === todayStr
 
                   return (
                     <div
@@ -1362,7 +1314,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           </div>
         </div>
 
-        {/* Tooltip */}
         {tooltip && (
           <div
             className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1382,7 +1333,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
-  // Vertical layout for 3M, 6M, 1Y, YTD - all use same layout
   const dayLabelWidth = 16
   return (
     <Card className="bg-card border-border p-4 shadow-none">
@@ -1392,7 +1342,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       </div>
 
       <div ref={containerRef} className="overflow-x-auto">
-        {/* Month labels */}
         <div className="relative h-4 mb-1" style={{ marginLeft: dayLabelWidth + 8 }}>
           {monthLabels.map((label, i) => (
             <div
@@ -1408,7 +1357,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
 
         <div className="flex">
-          {/* Day labels */}
           <div className="flex flex-col mr-2" style={{ gap, width: dayLabelWidth }}>
             {DAY_NAMES.map((day, i) => (
               <div
@@ -1424,7 +1372,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
             ))}
           </div>
 
-          {/* Grid - weeks as columns, days as rows */}
           <div className="flex" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col" style={{ gap }}>
@@ -1444,7 +1391,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
                   }
 
                   const hasActivity = day.count > 0
-                  const isToday = day.date === todayStr
 
                   return (
                     <div
@@ -1478,7 +1424,6 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         </div>
       </div>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
@@ -1510,11 +1455,11 @@ export default function FriendAnalyticsPage() {
   const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
-  const [cheersStats, setCheersStats] = React.useState<CheersStats>({
-    totalReceived: 0,
-    totalGiven: 0,
-    avgPerPost: 0,
-  })
+  const [friendUserId, setFriendUserId] = React.useState<string | null>(null)
+
+  // Raw cheers data — fetched once, filtered reactively by time range
+  const [rawReceivedCheers, setRawReceivedCheers] = React.useState<{ drink_log_id: string; user_id: string }[]>([])
+  const [rawGivenCheers, setRawGivenCheers] = React.useState<{ drink_log_id: string; user_id: string; created_at: string }[]>([])
 
   React.useEffect(() => {
     async function load() {
@@ -1531,7 +1476,6 @@ export default function FriendAnalyticsPage() {
 
         const viewerId = userRes.user.id
 
-        // Get basic profile info from the public stats view
         const { data: publicData, error: publicErr } = await supabase
           .from("profile_public_stats")
           .select("id, display_name")
@@ -1548,8 +1492,8 @@ export default function FriendAnalyticsPage() {
         }
 
         const profileUserId = publicData.id
+        setFriendUserId(profileUserId)
 
-        // Load the profile owner's card order preference from profiles table
         const { data: profileData } = await supabase
           .from("profiles")
           .select("analytics_card_order")
@@ -1595,8 +1539,8 @@ export default function FriendAnalyticsPage() {
         const transformed = transformDrinkLogs(typedLogs)
         setAllData(transformed)
 
-        // Load cheers stats for the friend
-        await loadCheersStats(profileUserId, typedLogs)
+        // Fetch all cheers data once (filtered reactively via useMemo)
+        await loadCheersData(profileUserId, typedLogs)
       } catch (e: any) {
         setError(e?.message ?? "Could not load analytics.")
       } finally {
@@ -1604,36 +1548,26 @@ export default function FriendAnalyticsPage() {
       }
     }
 
-    async function loadCheersStats(friendUserId: string, logs: DrinkLogRow[]) {
+    async function loadCheersData(targetUserId: string, logs: DrinkLogRow[]) {
       try {
         const friendDrinkIds = logs.map(l => l.id)
         
-        // Get cheers received by the friend
+        // Fetch all cheers received by the friend
         const { data: receivedData } = await supabase
           .from("drink_cheers")
           .select("drink_log_id, user_id")
           .in("drink_log_id", friendDrinkIds.length > 0 ? friendDrinkIds : [""])
 
-        // Get cheers given by the friend
+        // Fetch all cheers given by the friend (with created_at for time-range filtering)
         const { data: givenData } = await supabase
           .from("drink_cheers")
-          .select("drink_log_id, user_id")
-          .eq("user_id", friendUserId)
+          .select("drink_log_id, user_id, created_at")
+          .eq("user_id", targetUserId)
 
-        const receivedList = receivedData ?? []
-        const givenList = givenData ?? []
-
-        const totalReceived = receivedList.length
-        const totalGiven = givenList.length
-        const avgPerPost = friendDrinkIds.length > 0 ? totalReceived / friendDrinkIds.length : 0
-
-        setCheersStats({
-          totalReceived,
-          totalGiven,
-          avgPerPost,
-        })
+        setRawReceivedCheers((receivedData ?? []) as { drink_log_id: string; user_id: string }[])
+        setRawGivenCheers((givenData ?? []) as { drink_log_id: string; user_id: string; created_at: string }[])
       } catch (e) {
-        console.error("Failed to load cheers stats:", e)
+        console.error("Failed to load cheers data:", e)
       }
     }
 
@@ -1669,6 +1603,32 @@ export default function FriendAnalyticsPage() {
     return result
   }, [allData, timeRange])
 
+  // Cheers stats — computed reactively from raw data + current time range
+  const cheersStats = React.useMemo<CheersStats>(() => {
+    const now = new Date()
+    const { start: rangeStart } = getDateRangeForTimeRange(timeRange, now)
+
+    // Drink IDs that fall within the selected time range
+    const filteredDrinkIds = new Set(filteredData.flatMap((d) => d.drinkIds))
+
+    // Filter received cheers to only those on posts in the time range
+    const received = rawReceivedCheers.filter((c) => filteredDrinkIds.has(c.drink_log_id))
+
+    // Filter given cheers to those made during the time range (by cheer timestamp)
+    const given = rawGivenCheers.filter((c) => new Date(c.created_at) >= rangeStart)
+
+    const totalReceived = received.length
+    const totalGiven = given.length
+    const postsInRange = filteredDrinkIds.size
+    const avgPerPost = postsInRange > 0 ? totalReceived / postsInRange : 0
+
+    return {
+      totalReceived,
+      totalGiven,
+      avgPerPost,
+    }
+  }, [filteredData, rawReceivedCheers, rawGivenCheers, timeRange])
+
   const kpiData = React.useMemo(() => {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
@@ -1694,7 +1654,6 @@ export default function FriendAnalyticsPage() {
     let tempStreak = 0
     let daysSinceLastDrink = 0
 
-    // Calculate longest streak
     for (let i = 0; i < filteredData.length; i++) {
       const entry = filteredData[i]
       
@@ -1706,7 +1665,6 @@ export default function FriendAnalyticsPage() {
       }
     }
 
-    // Calculate days since last drink
     let foundLastDrink = false
     for (let i = filteredData.length - 1; i >= 0; i--) {
       if (filteredData[i].count > 0) {
@@ -1716,7 +1674,6 @@ export default function FriendAnalyticsPage() {
       daysSinceLastDrink++
     }
 
-    // If no drinks found in the filtered period, count all days
     if (!foundLastDrink) {
       daysSinceLastDrink = filteredData.length
     }
@@ -1740,7 +1697,6 @@ export default function FriendAnalyticsPage() {
       .sort((a, b) => b.value - a.value)
   }, [filteredData])
 
-  // Map of card IDs to their components
   const cardComponents: Record<CardId, React.ReactNode> = {
     drinkChart: <DrinkChart data={filteredData} />,
     cheersStats: <CheersStatsCard stats={cheersStats} />,
