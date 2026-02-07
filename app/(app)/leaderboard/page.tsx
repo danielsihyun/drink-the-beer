@@ -335,7 +335,7 @@ function LeaderboardRow({
   return (
     <div
       className={cn(
-        "flex items-center rounded-2xl pl-3 pr-6 py-3 transition-colors",
+        "flex items-center rounded-[2rem] pl-3 pr-6 py-3 transition-colors",
         isViewer
           ? "bg-amber-50/40 dark:bg-amber-500/[0.04] border border-amber-200/30 dark:border-amber-500/[0.08]"
           : "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]",
