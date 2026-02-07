@@ -335,16 +335,18 @@ function LeaderboardRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors",
+        "flex items-center rounded-2xl pl-3 pr-6 py-3 transition-colors",
         isViewer
           ? "bg-amber-50/40 dark:bg-amber-500/[0.04] border border-amber-200/30 dark:border-amber-500/[0.08]"
           : "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]",
         isPinned && "border-t border-neutral-200/60 dark:border-white/[0.08]"
       )}
     >
-      <RankBadge rank={entry.rank} />
+      <div className="w-7 shrink-0">
+        <RankBadge rank={entry.rank} />
+      </div>
 
-      <Link href={`/profile/${entry.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+      <Link href={`/profile/${entry.username}`} className="flex items-center gap-3 flex-1 min-w-0 ml-1">
         {entry.avatarUrl ? (
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
             <Image
@@ -367,13 +369,13 @@ function LeaderboardRow({
         <div className="flex-1 min-w-0 space-y-0.5">
           <p className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">
             {entry.display_name}
-            {isViewer && <span className="ml-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">(You)</span>}
+            {isViewer && <span className="ml-1.5 text-[15px] font-medium text-amber-600 dark:text-amber-400">(You)</span>}
           </p>
           <p className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{entry.username}</p>
         </div>
       </Link>
 
-      <div className="shrink-0 text-right">
+      <div className="shrink-0 text-right ml-0">
         <p className="text-lg font-bold text-neutral-900 dark:text-white">{entry.drink_count}</p>
         <p className="text-[11px] text-neutral-500 dark:text-white/40">drinks</p>
       </div>
