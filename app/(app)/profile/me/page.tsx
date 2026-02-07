@@ -106,6 +106,116 @@ const DEFAULT_PROFILE: UiProfile = {
   showcaseAchievements: [],
 }
 
+// --- Helpers ---
+
+function formatCardTimestamp(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+
+  const month = d.toLocaleString("en-US", { month: "short" })
+  const day = d.getDate()
+  const year2 = String(d.getFullYear()).slice(-2)
+
+  let hours = d.getHours()
+  const minutes = String(d.getMinutes()).padStart(2, "0")
+  const ampm = hours >= 12 ? "PM" : "AM"
+  hours = hours % 12
+  if (hours === 0) hours = 12
+
+  return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
+}
+
+function formatJoinDate(isoOrNull: string | null) {
+  if (!isoOrNull) return "—"
+  const d = new Date(isoOrNull)
+  if (Number.isNaN(d.getTime())) return "—"
+  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d)
+}
+
+function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink">) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+
+  if (granularity === "Day") {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(d)
+  }
+
+  if (granularity === "Month") {
+    return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d)
+  }
+
+  return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
+}
+
+// --- Icons ---
+
+function CheersIcon({ filled = false, className }: { filled?: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 -4 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
+        {filled && (
+          <path
+            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        <path
+          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
+        {filled && (
+          <path
+            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
+            fill="rgba(251, 191, 36, 0.9)"
+            stroke="none"
+          />
+        )}
+        <path
+          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
+          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
+          stroke={filled ? "#d97706" : "currentColor"}
+          strokeWidth="1.5"
+        />
+        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
+      </g>
+
+      {filled && (
+        <g stroke="#fbbf24">
+          <path d="M16 -0.5v3" strokeWidth="1.5" />
+          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
+            <path d="M19 3l2-2" strokeWidth="1.5" />
+          </g>
+          <path d="M19 3l2-2" strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
+// --- Shared Components ---
+
 function EditDrinkTypeDropdown({
   value,
   onChange,
@@ -135,23 +245,22 @@ function EditDrinkTypeDropdown({
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
         className={cn(
-          "flex w-full items-center justify-between rounded-2xl border bg-background/50 px-4 py-4 text-sm transition-all",
-          "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
-          open ? "border-black/30 ring-2 ring-black/20" : "",
+          "flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all duration-200",
+          open ? "ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "hover:bg-white dark:hover:bg-white/[0.08]",
           disabled ? "opacity-50 cursor-not-allowed" : ""
         )}
       >
-        <span>{value}</span>
+        <span className="text-neutral-900 dark:text-white">{value}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 transition-transform duration-200",
+            "h-4 w-4 text-neutral-400 dark:text-white/40 transition-transform duration-200",
             open ? "rotate-180" : ""
           )}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06] animate-in fade-in zoom-in-95 duration-200">
           {DRINK_TYPES.map((t, index) => (
             <button
               key={t}
@@ -162,9 +271,11 @@ function EditDrinkTypeDropdown({
               }}
               className={cn(
                 "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
-                "hover:bg-black/5 active:bg-black/10",
-                t === value ? "bg-black/5 font-medium" : "",
-                index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : ""
+                "hover:bg-black/5 dark:hover:bg-white/[0.08] active:bg-black/10 dark:active:bg-white/[0.12]",
+                t === value
+                  ? "bg-black/5 dark:bg-white/[0.08] font-semibold text-black dark:text-white"
+                  : "text-neutral-700 dark:text-white/70",
+                index !== DRINK_TYPES.length - 1 ? "border-b border-black/5 dark:border-white/[0.06]" : ""
               )}
             >
               <span>{t}</span>
@@ -191,7 +302,6 @@ function CheersListModal({
   const [users, setUsers] = React.useState<CheersUser[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
-  // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
     const scrollY = window.scrollY
     document.body.style.position = 'fixed'
@@ -280,52 +390,52 @@ function CheersListModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold">
+      <div className="w-full max-w-[360px] overflow-hidden rounded-3xl border border-white/20 dark:border-white/[0.08] bg-white/90 dark:bg-neutral-900/90 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-300">
+        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] px-5 py-4">
+          <div className="text-base font-semibold text-neutral-900 dark:text-white">
             Cheers {cheersCount > 0 && `(${cheersCount})`}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
+            className="rounded-full bg-black/5 dark:bg-white/10 p-1 transition-colors hover:bg-black/10 dark:hover:bg-white/15"
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4 text-neutral-500 dark:text-white/60" />
           </button>
         </div>
 
         <div className="max-h-[280px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin opacity-50" />
+              <Loader2 className="h-6 w-6 animate-spin text-neutral-400 dark:text-white/40" />
             </div>
           ) : error ? (
-            <div className="px-4 py-6 text-center text-sm text-red-400">
+            <div className="px-5 py-6 text-center text-sm text-red-400">
               {error}
             </div>
           ) : users.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm opacity-60">
+            <div className="px-5 py-6 text-center text-sm text-neutral-400 dark:text-white/40">
               No cheers yet
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {users.map((user) => (
                 <Link
                   key={user.id}
                   href={`/profile/${user.username}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/5"
+                  className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                   onClick={onClose}
                 >
                   {user.avatarUrl ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full">
+                    <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
                       <Image
                         src={user.avatarUrl}
                         alt={user.username}
@@ -343,8 +453,8 @@ function CheersListModal({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.displayName}</p>
-                    <p className="text-xs opacity-60 truncate">@{user.username}</p>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{user.displayName}</p>
+                    <p className="text-xs text-neutral-500 dark:text-white/40 truncate">@{user.username}</p>
                   </div>
                 </Link>
               ))}
@@ -356,148 +466,120 @@ function CheersListModal({
   )
 }
 
-function formatCardTimestamp(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
+function OverlayPage({
+  title,
+  children,
+  onClose,
+  onSave,
+  saving,
+}: {
+  title: string
+  children: React.ReactNode
+  onClose: () => void
+  onSave?: () => void
+  saving?: boolean
+}) {
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
 
-  const month = d.toLocaleString("en-US", { month: "short" })
-  const day = d.getDate()
-  const year2 = String(d.getFullYear()).slice(-2)
-
-  let hours = d.getHours()
-  const minutes = String(d.getMinutes()).padStart(2, "0")
-  const ampm = hours >= 12 ? "PM" : "AM"
-  hours = hours % 12
-  if (hours === 0) hours = 12
-
-  return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
-}
-
-function formatJoinDate(isoOrNull: string | null) {
-  if (!isoOrNull) return "—"
-  const d = new Date(isoOrNull)
-  if (Number.isNaN(d.getTime())) return "—"
-  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d)
-}
-
-function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink">) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-
-  if (granularity === "Day") {
-    return new Intl.DateTimeFormat(undefined, {
-      weekday: "short",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(d)
-  }
-
-  if (granularity === "Month") {
-    return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d)
-  }
-
-  return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
-}
-
-interface CheersIconProps {
-  filled?: boolean
-  className?: string
-}
-
-function CheersIcon({ filled = false, className }: CheersIconProps) {
   return (
-    <svg
-      viewBox="0 -4 32 32"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {filled && (
-          <path
-            d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
-            fill="rgba(251, 191, 36, 0.9)"
-            stroke="none"
-          />
-        )}
-        <path
-          d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
-          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
-          stroke={filled ? "#d97706" : "currentColor"}
-          strokeWidth="1.5"
-        />
-        <path d="M8 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
-        <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
-      </g>
+      <div className="w-full max-w-[400px] overflow-hidden rounded-[2rem] border border-white/20 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-2xl animate-in slide-in-from-bottom-12 zoom-in-95 duration-300">
+        <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02] px-5 py-4 backdrop-blur-md">
+          <div className="text-base font-semibold text-neutral-900 dark:text-white">{title}</div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-colors hover:bg-neutral-200 dark:hover:bg-white/15"
+              aria-label="Cancel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {onSave && (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                  saving ? "bg-neutral-100 dark:bg-white/10" : "bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100",
+                )}
+                aria-label="Save"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
+        </div>
 
-      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {filled && (
-          <path
-            d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
-            fill="rgba(251, 191, 36, 0.9)"
-            stroke="none"
-          />
-        )}
-        <path
-          d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
-          fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
-          stroke={filled ? "#d97706" : "currentColor"}
-          strokeWidth="1.5"
-        />
-        <path d="M24 16v4" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
-        <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
-      </g>
-
-      {filled && (
-        <g stroke="#fbbf24">
-          <path d="M16 -0.5v3" strokeWidth="1.5" />
-          <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
-            <path d="M19 3l2-2" strokeWidth="1.5" />
-          </g>
-          <path d="M19 3l2-2" strokeWidth="1.5" />
-        </g>
-      )}
-    </svg>
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-5">{children}</div>
+      </div>
+    </div>
   )
 }
+
+// --- Loading / Empty States ---
 
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
-        <div className="flex items-start gap-4">
-          <div className="h-20 w-20 rounded-full bg-foreground/10" />
+      {/* Profile card skeleton */}
+      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
+        <div className="flex items-center gap-4">
+          <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-3">
-            <div className="h-4 w-32 rounded bg-foreground/10" />
-            <div className="h-3 w-24 rounded bg-foreground/10" />
+            <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="h-3 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             <div className="flex gap-4">
-              <div className="h-3 w-20 rounded bg-foreground/10" />
-              <div className="h-3 w-20 rounded bg-foreground/10" />
+              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <div className="h-10 flex-1 animate-pulse rounded-full bg-foreground/10" />
-        <div className="h-10 flex-1 animate-pulse rounded-full bg-foreground/10" />
+      {/* Action buttons skeleton */}
+      <div className="flex gap-3">
+        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
+        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
       </div>
 
-      <div className="space-y-4">
+      {/* Card skeletons */}
+      <div className="space-y-5">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
+          <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-foreground/10" />
+              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               <div className="flex-1 space-y-2">
-                <div className="h-3 w-24 rounded bg-foreground/10" />
-                <div className="h-2 w-16 rounded bg-foreground/10" />
+                <div className="h-4 w-24 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               </div>
             </div>
-            <div className="mt-3 h-64 rounded-xl bg-foreground/10" />
+            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
         ))}
       </div>
@@ -510,18 +592,20 @@ function EmptyState() {
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
       <Link
         href="/log"
-        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed"
+        className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04] text-neutral-400 dark:text-white/25 transition-colors hover:border-neutral-400 dark:hover:border-white/25 hover:text-neutral-500 dark:hover:text-white/40"
         aria-label="Log a drink"
         title="Log a drink"
       >
-        <Plus className="h-8 w-8 opacity-50" />
+        <Plus className="h-8 w-8" />
       </Link>
 
-      <h3 className="mb-2 text-lg font-semibold">No logs yet</h3>
-      <p className="mb-6 max-w-sm text-sm opacity-70">Log your first drink and it'll show up here.</p>
+      <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">No logs yet</h3>
+      <p className="mb-6 max-w-sm text-sm text-neutral-500 dark:text-white/50">Log your first drink and it'll show up here.</p>
     </div>
   )
 }
+
+// --- Card Components ---
 
 function DrinkLogCard({
   log,
@@ -543,39 +627,36 @@ function DrinkLogCard({
   cheersAnimating: boolean
 }) {
   return (
-    <article className="rounded-2xl border bg-background/50 p-3">
-      <div className="flex items-center gap-2">
-        {profile.avatarUrl ? (
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3">
+          {profile.avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+            </div>
+          ) : (
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
+              style={{ backgroundColor: profile.avatarColor }}
+            >
+              {profile.username[0]?.toUpperCase() ?? "Y"}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{profile.username}</span>
+            <span className="text-[13px] text-neutral-500 dark:text-white/40 font-medium">{log.timestampLabel}</span>
           </div>
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: profile.avatarColor }}
-          >
-            {profile.username[0]?.toUpperCase() ?? "Y"}
-          </div>
-        )}
-
-        <div className="flex-1 pl-[2px]">
-          <p className="text-sm font-medium">{profile.username}</p>
-          <p className="text-xs opacity-60">{log.timestampLabel}</p>
         </div>
 
-        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {log.drinkType}
         </span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl border">
-        <div className="relative aspect-square w-full">
+      {/* Photo — full bleed */}
+      <div>
+        <div className="relative aspect-square w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.04]">
           <Image
             src={log.photoUrl || "/placeholder.svg"}
             alt={`${log.drinkType} drink`}
@@ -586,73 +667,60 @@ function DrinkLogCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-0">
-          <button
-            type="button"
-            onClick={() => onToggleCheers(log)}
-            disabled={cheersBusy}
-            className={cn(
-              "relative inline-flex items-center justify-center p-1",
-              "transition-all duration-200",
-              log.cheeredByMe ? "text-amber-500" : "text-foreground",
-              cheersBusy ? "opacity-70" : "",
-              cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-            )}
-            aria-pressed={log.cheeredByMe}
-            aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
-            title={log.cheeredByMe ? "Uncheer" : "Cheer"}
-          >
-            <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
-
-            {cheersAnimating && log.cheeredByMe && (
-              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-              </span>
-            )}
-          </button>
-
-          {log.cheersCount > 0 && (
+      {/* Actions & Caption */}
+      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onShowCheersList(log)}
-              className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
+              onClick={() => onToggleCheers(log)}
+              disabled={cheersBusy}
+              className={cn(
+                "relative flex items-center justify-center transition-all duration-300 active:scale-90",
+                cheersAnimating ? "scale-125" : "hover:scale-105"
+              )}
             >
-              {log.cheersCount}
+              {cheersAnimating && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+              )}
+              <CheersIcon filled={log.cheeredByMe} className={cn("h-8 w-8", log.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
             </button>
-          )}
+
+            {log.cheersCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onShowCheersList(log)}
+                className="text-[15px] font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-white/70 transition-colors"
+              >
+                {log.cheersCount} <span className="font-normal text-neutral-500 dark:text-white/40">cheers</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => onEdit(log)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60"
+              aria-label="Edit post"
+            >
+              <FilePenLine className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(log)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
+              aria-label="Delete post"
+            >
+              <Trash2 className="h-[18px] w-[18px]" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onEdit(log)}
-            className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-            style={{ width: "30px", height: "30px" }}
-            aria-label="Edit post"
-            title="Edit"
-          >
-            <FilePenLine className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onDelete(log)}
-            className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-            style={{ width: "30px", height: "30px" }}
-            aria-label="Delete post"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="-mt-1.5 mb-1 pl-2">
-        {log.caption ? (
-          <p className="text-sm leading-relaxed">{log.caption}</p>
-        ) : (
-          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        {log.caption && (
+          <div className="pl-1">
+            <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">{log.caption}</p>
+          </div>
         )}
       </div>
     </article>
@@ -710,235 +778,141 @@ function GroupedDrinkCard({
   if (!currentDrink) return null
 
   return (
-    <article className="rounded-2xl border bg-background/50 p-3">
-      <div className="flex items-center gap-2">
-        {profile.avatarUrl ? (
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3">
+          {profile.avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+            </div>
+          ) : (
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
+              style={{ backgroundColor: profile.avatarColor }}
+            >
+              {profile.username[0]?.toUpperCase() ?? "Y"}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{profile.username}</span>
+            <span className="text-[13px] text-neutral-500 dark:text-white/40 font-medium">{currentDrink.timestampLabel}</span>
           </div>
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: profile.avatarColor }}
-          >
-            {profile.username[0]?.toUpperCase() ?? "Y"}
-          </div>
-        )}
-
-        <div className="flex-1 pl-[2px]">
-          <p className="text-sm font-medium">{profile.username}</p>
-          <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
         </div>
 
-        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {currentDrink.drinkType}
         </span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl border">
-        <div className="relative">
-          <div 
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            style={{ 
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            {group.drinks.map((drink) => (
-              <div 
-                key={drink.id}
-                className="relative aspect-square w-full flex-shrink-0 snap-start snap-always"
-              >
-                <Image
-                  src={drink.photoUrl || "/placeholder.svg"}
-                  alt={`${drink.drinkType} drink`}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
+      {/* Photo carousel — full bleed */}
+      <div className="relative">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {group.drinks.map((drink) => (
+            <div 
+              key={drink.id}
+              className="relative aspect-square w-full flex-shrink-0 snap-start snap-always bg-neutral-100 dark:bg-white/[0.04]"
+            >
+              <Image
+                src={drink.photoUrl || "/placeholder.svg"}
+                alt={`${drink.drinkType} drink`}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ))}
+        </div>
+
+        {group.drinks.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {group.drinks.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  scrollToIndex(index)
+                }}
+                className={cn(
+                  "h-2 rounded-full transition-all duration-200",
+                  index === currentIndex
+                    ? "bg-white w-4"
+                    : "bg-white/50 hover:bg-white/70 w-2"
+                )}
+                aria-label={`Go to drink ${index + 1}`}
+              />
             ))}
           </div>
-
-          {group.drinks.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {group.drinks.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    scrollToIndex(index)
-                  }}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-200",
-                    index === currentIndex
-                      ? "bg-white w-4"
-                      : "bg-white/50 hover:bg-white/70 w-2"
-                  )}
-                  aria-label={`Go to drink ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-0">
-          <button
-            type="button"
-            onClick={() => onToggleCheers(currentDrink)}
-            disabled={cheersBusy[currentDrink.id]}
-            className={cn(
-              "relative inline-flex items-center justify-center p-1",
-              "transition-all duration-200",
-              currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
-              cheersBusy[currentDrink.id] ? "opacity-70" : "",
-              cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-            )}
-            aria-pressed={currentDrink.cheeredByMe}
-            aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-            title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-          >
-            <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
-
-            {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
-              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-              </span>
-            )}
-          </button>
-
-          {currentDrink.cheersCount > 0 && (
+      {/* Actions & Caption */}
+      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onShowCheersList(currentDrink)}
-              className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
+              onClick={() => onToggleCheers(currentDrink)}
+              disabled={cheersBusy[currentDrink.id]}
+              className={cn(
+                "relative flex items-center justify-center transition-all duration-300 active:scale-90",
+                cheersAnimating[currentDrink.id] ? "scale-125" : "hover:scale-105"
+              )}
             >
-              {currentDrink.cheersCount}
+              {cheersAnimating[currentDrink.id] && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+              )}
+              <CheersIcon filled={currentDrink.cheeredByMe} className={cn("h-8 w-8", currentDrink.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
             </button>
-          )}
+
+            {currentDrink.cheersCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onShowCheersList(currentDrink)}
+                className="text-[15px] font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-white/70 transition-colors"
+              >
+                {currentDrink.cheersCount} <span className="font-normal text-neutral-500 dark:text-white/40">cheers</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => onEdit(currentDrink)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60"
+              aria-label="Edit post"
+            >
+              <FilePenLine className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(currentDrink)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
+              aria-label="Delete post"
+            >
+              <Trash2 className="h-[18px] w-[18px]" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onEdit(currentDrink)}
-            className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-            style={{ width: "30px", height: "30px" }}
-            aria-label="Edit post"
-            title="Edit"
-          >
-            <FilePenLine className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onDelete(currentDrink)}
-            className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-            style={{ width: "30px", height: "30px" }}
-            aria-label="Delete post"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="-mt-1.5 mb-1 pl-2">
-        {currentDrink.caption ? (
-          <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
-        ) : (
-          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+        {currentDrink.caption && (
+          <div className="pl-1">
+            <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">{currentDrink.caption}</p>
+          </div>
         )}
       </div>
     </article>
   )
 }
 
-function OverlayPage({
-  title,
-  children,
-  onClose,
-  onSave,
-  saving,
-}: {
-  title: string
-  children: React.ReactNode
-  onClose: () => void
-  onSave?: () => void
-  saving?: boolean
-}) {
-  // Lock body scroll when modal is open (mobile-friendly)
-  React.useEffect(() => {
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.left = '0'
-    document.body.style.right = '0'
-    document.body.style.overflow = 'hidden'
-    
-    return () => {
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.left = ''
-      document.body.style.right = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
-    }
-  }, [])
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 py-6"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold">{title}</div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-              aria-label="Cancel"
-              title="Cancel"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {onSave && (
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={saving}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-                aria-label="Save"
-                title="Save"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
-      </div>
-    </div>
-  )
-}
+// --- Main Page ---
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -974,7 +948,6 @@ export default function ProfilePage() {
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
 
-  // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -1337,14 +1310,15 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Profile</h2>
+      <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
+        {/* Page Header */}
+        <div className="mb-4 flex items-center justify-between px-4 sm:px-0">
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Profile</h2>
 
           <div className="flex items-center gap-2">
             <Link
               href="/profile/edit"
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-2 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
             >
               <Edit2 className="h-4 w-4" />
               Edit Profile
@@ -1353,7 +1327,7 @@ export default function ProfilePage() {
               type="button"
               onClick={onLogout}
               disabled={loggingOut}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-2 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
             >
               {loggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               Log out
@@ -1361,20 +1335,22 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        {error && (
+          <div className="mx-4 sm:mx-0 mb-4 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
-        ) : null}
+        )}
 
         {loading ? (
-          <LoadingSkeleton />
+          <div className="px-4 sm:px-0">
+            <LoadingSkeleton />
+          </div>
         ) : (
           <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
             {/* PROFILE CARD */}
-            <div className="relative rounded-2xl border bg-background/50 p-3">
-              {/* Showcase Medals - top right corner */}
-              <div className="absolute top-3 right-3">
+            <div className="relative mx-4 sm:mx-0 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
+              {/* Showcase Medals */}
+              <div className="absolute top-4 right-4">
                 <ProfileShowcase
                   showcaseIds={profile.showcaseAchievements}
                   achievements={achievements}
@@ -1387,18 +1363,12 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {profile.avatarUrl ? (
-                    <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                      <Image
-                        src={profile.avatarUrl || "/placeholder.svg"}
-                        alt="Profile"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                    <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+                      <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                     </div>
                   ) : (
                     <div
-                      className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
+                      className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white ring-2 ring-white dark:ring-neutral-800 shadow-sm"
                       style={{ backgroundColor: profile.avatarColor }}
                     >
                       {profile.username[0]?.toUpperCase() ?? "Y"}
@@ -1407,57 +1377,59 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold">{profile.displayName}</h3>
-                  <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
-                  <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.displayName}</h3>
+                  <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
+                  <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
 
-                  <div className="mt-1 flex gap-4 text-sm">
+                  <div className="mt-1.5 flex gap-4 text-sm">
                     <div>
-                      <span className="font-bold">{profile.friendCount}</span>{" "}
-                      <span className="opacity-60">Friends</span>
+                      <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
+                      <span className="text-neutral-500 dark:text-white/40">Friends</span>
                     </div>
                     <div>
-                      <span className="font-bold">{profile.drinkCount}</span>{" "}
-                      <span className="opacity-60">Drinks</span>
+                      <span className="font-bold text-neutral-900 dark:text-white">{profile.drinkCount}</span>{" "}
+                      <span className="text-neutral-500 dark:text-white/40">Drinks</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            {/* Action Buttons */}
+            <div className="flex gap-3 mx-4 sm:mx-0">
               <Link
                 href="/awards"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
                 <Medal className="h-4 w-4" />
                 Medals
               </Link>
               <Link
                 href="/analytics"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
                 <BarChart3 className="h-4 w-4" />
                 Analytics
               </Link>
             </div>
 
-            <div>
+            {/* Timeline */}
+            <div className="px-4 sm:px-0">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold">My Timeline</h3>
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">My Timeline</h3>
 
                 <div className="relative" ref={sortMenuRef}>
                   <button
                     type="button"
                     onClick={() => setShowSortMenu(!showSortMenu)}
-                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
                   >
                     <ArrowUpDown className="h-4 w-4" />
                     {granularity}
                   </button>
 
                   {showSortMenu && (
-                    <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
+                    <div className="absolute right-0 top-full z-10 mt-2 w-32 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06]">
                       {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
                         <button
                           key={option}
@@ -1466,9 +1438,12 @@ export default function ProfilePage() {
                             setGranularity(option)
                             setShowSortMenu(false)
                           }}
-                          className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                            granularity === option ? "font-semibold" : ""
-                          }`}
+                          className={cn(
+                            "w-full px-4 py-3 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/[0.08]",
+                            granularity === option
+                              ? "font-semibold text-neutral-900 dark:text-white bg-black/5 dark:bg-white/[0.06]"
+                              : "text-neutral-600 dark:text-white/60"
+                          )}
                         >
                           {option}
                         </button>
@@ -1481,7 +1456,7 @@ export default function ProfilePage() {
               {logs.length === 0 ? (
                 <EmptyState />
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {granularity === "Drink"
                     ? logs.map((log) => (
                         <DrinkLogCard
@@ -1525,10 +1500,10 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Post edit popup */}
-      {editPostOpen && activePost ? (
+      {/* Edit Post Modal */}
+      {editPostOpen && activePost && (
         <OverlayPage
-          title="Edit post"
+          title="Edit Drink"
           onClose={() => {
             if (postBusy) return
             setEditPostOpen(false)
@@ -1538,21 +1513,17 @@ export default function ProfilePage() {
           onSave={savePostEdits}
           saving={postBusy}
         >
-          {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              {postError}
-            </div>
-          ) : null}
+          {postError && (
+            <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>
+          )}
 
-          <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
-            <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+          <div className="flex gap-4">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/[0.06]">
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{activePost.timestampLabel}</p>
+              <p className="text-xs text-neutral-500 dark:text-white/40 mt-0.5">Change type or caption below</p>
             </div>
           </div>
 
@@ -1567,19 +1538,19 @@ export default function ProfilePage() {
               value={postCaption}
               onChange={(e) => setPostCaption(e.target.value)}
               placeholder="Add a caption (optional)"
-              className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-base outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
+              className="h-28 w-full resize-none rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] p-4 text-base text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 focus:border-black/20 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/[0.06] focus:outline-none focus:ring-4 focus:ring-black/5 dark:focus:ring-white/10 transition-all"
               maxLength={200}
               disabled={postBusy}
             />
-            <div className="absolute bottom-4 right-4 text-xs opacity-60">{postCaption.length}/200</div>
+            <div className="absolute bottom-4 right-4 text-xs text-neutral-400 dark:text-white/30">{postCaption.length}/200</div>
           </div>
         </OverlayPage>
-      ) : null}
+      )}
 
-      {/* Post delete popup */}
-      {deletePostOpen && activePost ? (
+      {/* Delete Post Modal */}
+      {deletePostOpen && activePost && (
         <OverlayPage
-          title="Delete post"
+          title="Delete Drink"
           onClose={() => {
             if (postBusy) return
             setDeletePostOpen(false)
@@ -1589,37 +1560,29 @@ export default function ProfilePage() {
           onSave={deletePostConfirmed}
           saving={postBusy}
         >
-          {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              {postError}
-            </div>
-          ) : null}
+          {postError && (
+            <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>
+          )}
 
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
+          <div className="rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/50 dark:bg-red-500/10 p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-400">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">This action cannot be undone.</p>
+                <div className="text-base font-semibold text-neutral-900 dark:text-white">Are you sure?</div>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-white/50">This action cannot be undone.</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
+          <div className="mt-4 mx-auto w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
             <div className="relative aspect-square w-full">
-              <Image
-                src={activePost.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
             </div>
           </div>
         </OverlayPage>
-      ) : null}
+      )}
 
       {/* Medal Picker Modal */}
       {selectedMedalSlot !== null && (

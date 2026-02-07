@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { ProfileShowcase, MedalDetailModal } from "@/components/showcase-medals"
 
+// --- Types ---
+
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 type Granularity = "Drink" | "Day" | "Month" | "Year"
 type Difficulty = "bronze" | "silver" | "gold" | "diamond"
@@ -94,191 +96,7 @@ interface GroupedDrinks {
   count: number
 }
 
-function CheersListModal({
-  drinkLogId,
-  cheersCount,
-  onClose,
-}: {
-  drinkLogId: string
-  cheersCount: number
-  onClose: () => void
-}) {
-  const supabase = createClient()
-  const [loading, setLoading] = React.useState(true)
-  const [users, setUsers] = React.useState<CheersUser[]>([])
-  const [error, setError] = React.useState<string | null>(null)
-
-  // Lock body scroll when modal is open (mobile-friendly)
-  React.useEffect(() => {
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.left = '0'
-    document.body.style.right = '0'
-    document.body.style.overflow = 'hidden'
-    
-    return () => {
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.left = ''
-      document.body.style.right = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    async function fetchCheers() {
-      setLoading(true)
-      setError(null)
-      
-      try {
-        // Fetch cheers
-        const { data: cheersData, error: cheersErr } = await supabase
-          .from("drink_cheers")
-          .select("user_id, created_at")
-          .eq("drink_log_id", drinkLogId)
-          .order("created_at", { ascending: false })
-
-        if (cheersErr) throw cheersErr
-
-        if (!cheersData || cheersData.length === 0) {
-          setUsers([])
-          setLoading(false)
-          return
-        }
-
-        // Get unique user IDs
-        const userIds = [...new Set(cheersData.map((c) => c.user_id))]
-
-        // Fetch profiles for those users
-        const { data: profilesData, error: profilesErr } = await supabase
-          .from("profile_public_stats")
-          .select("id, username, display_name, avatar_path")
-          .in("id", userIds)
-
-        if (profilesErr) throw profilesErr
-
-        // Create a map of profiles by ID
-        const profilesMap = new Map(
-          (profilesData ?? []).map((p: any) => [p.id, p])
-        )
-
-        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
-        const avatarPaths = cheersData.map((cheer: any) => {
-          const profile = profilesMap.get(cheer.user_id)
-          return profile?.avatar_path ?? null
-        })
-
-        const avatarUrls = await Promise.all(
-          avatarPaths.map((path: string | null) =>
-            path
-              ? supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null)
-          )
-        )
-
-        // Build user list (no more awaits needed)
-        const cheersUsers: CheersUser[] = cheersData.map((cheer: any, i: number) => {
-          const profile = profilesMap.get(cheer.user_id)
-          return {
-            id: profile?.id ?? cheer.user_id,
-            username: profile?.username ?? "Unknown",
-            displayName: profile?.display_name ?? profile?.username ?? "Unknown",
-            avatarUrl: avatarUrls[i],
-            avatarColor: "#4ECDC4",
-          }
-        })
-
-        setUsers(cheersUsers)
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load cheers")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchCheers()
-  }, [drinkLogId, supabase])
-
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold">
-            Cheers {cheersCount > 0 && `(${cheersCount})`}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Scrollable list - shows ~5 users, rest are scrollable */}
-        <div className="max-h-[280px] overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin opacity-50" />
-            </div>
-          ) : error ? (
-            <div className="px-4 py-6 text-center text-sm text-red-400">
-              {error}
-            </div>
-          ) : users.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm opacity-60">
-              No cheers yet
-            </div>
-          ) : (
-            <div className="divide-y">
-              {users.map((user) => (
-                <Link
-                  key={user.id}
-                  href={`/profile/${user.username}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/5"
-                  onClick={onClose}
-                >
-                  {user.avatarUrl ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full">
-                      <Image
-                        src={user.avatarUrl}
-                        alt={user.username}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: user.avatarColor }}
-                    >
-                      {user.username[0]?.toUpperCase() ?? "U"}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.displayName}</p>
-                    <p className="text-xs opacity-60 truncate">@{user.username}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+// --- Helpers ---
 
 function formatCardTimestamp(iso: string) {
   const d = new Date(iso)
@@ -324,12 +142,9 @@ function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink"
   return new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(d)
 }
 
-interface CheersIconProps {
-  filled?: boolean
-  className?: string
-}
+// --- Icons ---
 
-function CheersIcon({ filled = false, className }: CheersIconProps) {
+function CheersIcon({ filled = false, className }: { filled?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 -4 32 32"
@@ -389,34 +204,218 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
   )
 }
 
+// --- Shared Components ---
+
+function CheersListModal({
+  drinkLogId,
+  cheersCount,
+  onClose,
+}: {
+  drinkLogId: string
+  cheersCount: number
+  onClose: () => void
+}) {
+  const supabase = createClient()
+  const [loading, setLoading] = React.useState(true)
+  const [users, setUsers] = React.useState<CheersUser[]>([])
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    async function fetchCheers() {
+      setLoading(true)
+      setError(null)
+      
+      try {
+        const { data: cheersData, error: cheersErr } = await supabase
+          .from("drink_cheers")
+          .select("user_id, created_at")
+          .eq("drink_log_id", drinkLogId)
+          .order("created_at", { ascending: false })
+
+        if (cheersErr) throw cheersErr
+
+        if (!cheersData || cheersData.length === 0) {
+          setUsers([])
+          setLoading(false)
+          return
+        }
+
+        const userIds = [...new Set(cheersData.map((c) => c.user_id))]
+
+        const { data: profilesData, error: profilesErr } = await supabase
+          .from("profile_public_stats")
+          .select("id, username, display_name, avatar_path")
+          .in("id", userIds)
+
+        if (profilesErr) throw profilesErr
+
+        const profilesMap = new Map(
+          (profilesData ?? []).map((p: any) => [p.id, p])
+        )
+
+        const avatarPaths = cheersData.map((cheer: any) => {
+          const profile = profilesMap.get(cheer.user_id)
+          return profile?.avatar_path ?? null
+        })
+
+        const avatarUrls = await Promise.all(
+          avatarPaths.map((path: string | null) =>
+            path
+              ? supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
+        )
+
+        const cheersUsers: CheersUser[] = cheersData.map((cheer: any, i: number) => {
+          const profile = profilesMap.get(cheer.user_id)
+          return {
+            id: profile?.id ?? cheer.user_id,
+            username: profile?.username ?? "Unknown",
+            displayName: profile?.display_name ?? profile?.username ?? "Unknown",
+            avatarUrl: avatarUrls[i],
+            avatarColor: "#4ECDC4",
+          }
+        })
+
+        setUsers(cheersUsers)
+      } catch (e: any) {
+        setError(e?.message ?? "Failed to load cheers")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCheers()
+  }, [drinkLogId, supabase])
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-[360px] overflow-hidden rounded-3xl border border-white/20 dark:border-white/[0.08] bg-white/90 dark:bg-neutral-900/90 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-300">
+        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] px-5 py-4">
+          <div className="text-base font-semibold text-neutral-900 dark:text-white">
+            Cheers {cheersCount > 0 && `(${cheersCount})`}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-black/5 dark:bg-white/10 p-1 transition-colors hover:bg-black/10 dark:hover:bg-white/15"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4 text-neutral-500 dark:text-white/60" />
+          </button>
+        </div>
+
+        <div className="max-h-[280px] overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-neutral-400 dark:text-white/40" />
+            </div>
+          ) : error ? (
+            <div className="px-5 py-6 text-center text-sm text-red-400">
+              {error}
+            </div>
+          ) : users.length === 0 ? (
+            <div className="px-5 py-6 text-center text-sm text-neutral-400 dark:text-white/40">
+              No cheers yet
+            </div>
+          ) : (
+            <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
+              {users.map((user) => (
+                <Link
+                  key={user.id}
+                  href={`/profile/${user.username}`}
+                  className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                  onClick={onClose}
+                >
+                  {user.avatarUrl ? (
+                    <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
+                      <Image
+                        src={user.avatarUrl}
+                        alt={user.username}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: user.avatarColor }}
+                    >
+                      {user.username[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{user.displayName}</p>
+                    <p className="text-xs text-neutral-500 dark:text-white/40 truncate">@{user.username}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Loading / Empty / Locked States ---
+
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="animate-pulse rounded-2xl border bg-background/50 p-4">
-        <div className="flex items-start gap-4">
-          <div className="h-20 w-20 rounded-full bg-foreground/10" />
+    <div className="space-y-4 px-4 sm:px-0">
+      {/* Profile card skeleton */}
+      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
+        <div className="flex items-center gap-4">
+          <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-3">
-            <div className="h-4 w-32 rounded bg-foreground/10" />
-            <div className="h-3 w-24 rounded bg-foreground/10" />
+            <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="h-3 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             <div className="flex gap-4">
-              <div className="h-3 w-20 rounded bg-foreground/10" />
-              <div className="h-3 w-20 rounded bg-foreground/10" />
+              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4">
+      {/* Card skeletons */}
+      <div className="space-y-5">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
+          <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-foreground/10" />
+              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               <div className="flex-1 space-y-2">
-                <div className="h-3 w-24 rounded bg-foreground/10" />
-                <div className="h-2 w-16 rounded bg-foreground/10" />
+                <div className="h-4 w-24 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               </div>
             </div>
-            <div className="mt-3 h-64 rounded-xl bg-foreground/10" />
+            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
         ))}
       </div>
@@ -427,8 +426,8 @@ function LoadingSkeleton() {
 function EmptyState() {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
-      <h3 className="mb-2 text-lg font-semibold">No logs yet</h3>
-      <p className="max-w-sm text-sm opacity-70">This user hasn't logged any drinks.</p>
+      <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">No logs yet</h3>
+      <p className="max-w-sm text-sm text-neutral-500 dark:text-white/50">This user hasn't logged any drinks.</p>
     </div>
   )
 }
@@ -446,11 +445,11 @@ function LockedState({
 }) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-foreground/30">
-        <Lock className="h-8 w-8 opacity-50" />
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04]">
+        <Lock className="h-8 w-8 text-neutral-400 dark:text-white/25" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold">This account is private</h3>
-      <p className="max-w-sm text-sm opacity-70">
+      <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">This account is private</h3>
+      <p className="max-w-sm text-sm text-neutral-500 dark:text-white/50">
         Send {username} a friend request to see their drinks.
       </p>
 
@@ -459,7 +458,7 @@ function LockedState({
           type="button"
           onClick={onSendRequest}
           disabled={requestBusy}
-          className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border bg-black px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+          className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-black dark:bg-white px-5 py-2.5 text-sm font-medium text-white dark:text-black shadow-sm transition-all hover:bg-neutral-800 dark:hover:bg-neutral-100 active:scale-95 disabled:opacity-60"
         >
           {requestBusy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -476,16 +475,18 @@ function LockedState({
 function PendingRequestState({ username }: { username: string }) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-foreground/30">
-        <Clock className="h-8 w-8 opacity-50" />
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04]">
+        <Clock className="h-8 w-8 text-neutral-400 dark:text-white/25" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold">Friend request sent</h3>
-      <p className="max-w-sm text-sm opacity-70">
+      <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">Friend request sent</h3>
+      <p className="max-w-sm text-sm text-neutral-500 dark:text-white/50">
         Waiting for {username} to accept your request.
       </p>
     </div>
   )
 }
+
+// --- Card Components ---
 
 function DrinkLogCard({
   log,
@@ -503,78 +504,79 @@ function DrinkLogCard({
   cheersAnimating: boolean
 }) {
   return (
-    <article className="rounded-2xl border bg-background/50 p-3">
-      <div className="flex items-center gap-2">
-        {profile.avatarUrl ? (
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3">
+          {profile.avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
+            </div>
+          ) : (
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
+              style={{ backgroundColor: profile.avatarColor }}
+            >
+              {profile.username[0]?.toUpperCase() ?? "U"}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{profile.username}</span>
+            <span className="text-[13px] text-neutral-500 dark:text-white/40 font-medium">{log.timestampLabel}</span>
           </div>
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: profile.avatarColor }}
-          >
-            {profile.username[0]?.toUpperCase() ?? "U"}
-          </div>
-        )}
-
-        <div className="flex-1 pl-[2px]">
-          <p className="text-sm font-medium">{profile.username}</p>
-          <p className="text-xs opacity-60">{log.timestampLabel}</p>
         </div>
 
-        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {log.drinkType}
         </span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl border">
-        <div className="relative aspect-square w-full">
-          <Image src={log.photoUrl} alt={`${log.drinkType} drink`} fill className="object-cover" unoptimized />
+      {/* Photo — full bleed */}
+      <div>
+        <div className="relative aspect-square w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.04]">
+          <Image
+            src={log.photoUrl || "/placeholder.svg"}
+            alt={`${log.drinkType} drink`}
+            fill
+            className="object-cover"
+            unoptimized
+          />
         </div>
       </div>
 
-      <div className="flex items-center gap-0">
-        <button
-          type="button"
-          onClick={() => onToggleCheers(log)}
-          disabled={cheersBusy}
-          className={cn(
-            "relative inline-flex items-center justify-center p-1",
-            "transition-all duration-200",
-            log.cheeredByMe ? "text-amber-500" : "text-foreground",
-            cheersBusy ? "opacity-70" : "",
-            cheersAnimating ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-          )}
-          aria-pressed={log.cheeredByMe}
-          aria-label={log.cheeredByMe ? "Uncheer" : "Cheer"}
-          title={log.cheeredByMe ? "Uncheer" : "Cheer"}
-        >
-          <CheersIcon filled={log.cheeredByMe} className="h-10 w-10" />
-
-          {cheersAnimating && log.cheeredByMe && (
-            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-            </span>
-          )}
-        </button>
-
-        {log.cheersCount > 0 && (
+      {/* Actions & Caption */}
+      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => onShowCheersList(log)}
-            className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
+            onClick={() => onToggleCheers(log)}
+            disabled={cheersBusy}
+            className={cn(
+              "relative flex items-center justify-center transition-all duration-300 active:scale-90",
+              cheersAnimating ? "scale-125" : "hover:scale-105"
+            )}
           >
-            {log.cheersCount}
+            {cheersAnimating && (
+              <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+            )}
+            <CheersIcon filled={log.cheeredByMe} className={cn("h-8 w-8", log.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
           </button>
-        )}
-      </div>
 
-      <div className="-mt-1.5 mb-1 pl-2">
-        {log.caption ? (
-          <p className="text-sm leading-relaxed">{log.caption}</p>
-        ) : (
-          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+          {log.cheersCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onShowCheersList(log)}
+              className="text-[15px] font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-white/70 transition-colors"
+            >
+              {log.cheersCount} <span className="font-normal text-neutral-500 dark:text-white/40">cheers</span>
+            </button>
+          )}
+        </div>
+
+        {log.caption && (
+          <div className="pl-1">
+            <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">{log.caption}</p>
+          </div>
         )}
       </div>
     </article>
@@ -601,7 +603,6 @@ function GroupedDrinkCard({
 
   const currentDrink = group.drinks[currentIndex]
 
-  // Handle scroll to update current index
   const handleScroll = React.useCallback(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -615,7 +616,6 @@ function GroupedDrinkCard({
     }
   }, [currentIndex, group.drinks.length])
 
-  // Scroll to specific index when dot is clicked
   const scrollToIndex = (index: number) => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -630,135 +630,120 @@ function GroupedDrinkCard({
   if (!currentDrink) return null
 
   return (
-    <article className="rounded-2xl border bg-background/50 p-3">
-      <div className="flex items-center gap-2">
-        {profile.avatarUrl ? (
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={profile.avatarUrl || "/placeholder.svg"}
-              alt="Profile"
-              fill
-              className="object-cover"
-              unoptimized
-            />
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3">
+          {profile.avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
+            </div>
+          ) : (
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
+              style={{ backgroundColor: profile.avatarColor }}
+            >
+              {profile.username[0]?.toUpperCase() ?? "U"}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{profile.username}</span>
+            <span className="text-[13px] text-neutral-500 dark:text-white/40 font-medium">{currentDrink.timestampLabel}</span>
           </div>
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: profile.avatarColor }}
-          >
-            {profile.username[0]?.toUpperCase() ?? "U"}
-          </div>
-        )}
-
-        <div className="flex-1 pl-[2px]">
-          <p className="text-sm font-medium">{profile.username}</p>
-          <p className="text-xs opacity-60">{currentDrink.timestampLabel}</p>
         </div>
 
-        <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+        <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
           {currentDrink.drinkType}
         </span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl border">
-        <div className="relative">
-          {/* Scrollable image container with native scroll-snap */}
-          <div 
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            style={{ 
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            {group.drinks.map((drink) => (
-              <div 
-                key={drink.id}
-                className="relative aspect-square w-full flex-shrink-0 snap-start snap-always"
-              >
-                <Image
-                  src={drink.photoUrl || "/placeholder.svg"}
-                  alt={`${drink.drinkType} drink`}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
+      {/* Photo carousel — full bleed */}
+      <div className="relative">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {group.drinks.map((drink) => (
+            <div 
+              key={drink.id}
+              className="relative aspect-square w-full flex-shrink-0 snap-start snap-always bg-neutral-100 dark:bg-white/[0.04]"
+            >
+              <Image
+                src={drink.photoUrl || "/placeholder.svg"}
+                alt={`${drink.drinkType} drink`}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ))}
+        </div>
+
+        {group.drinks.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {group.drinks.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  scrollToIndex(index)
+                }}
+                className={cn(
+                  "h-2 rounded-full transition-all duration-200",
+                  index === currentIndex
+                    ? "bg-white w-4"
+                    : "bg-white/50 hover:bg-white/70 w-2"
+                )}
+                aria-label={`Go to drink ${index + 1}`}
+              />
             ))}
           </div>
-
-          {/* Dots indicator */}
-          {group.drinks.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {group.drinks.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    scrollToIndex(index)
-                  }}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-200",
-                    index === currentIndex
-                      ? "bg-white w-4"
-                      : "bg-white/50 hover:bg-white/70 w-2"
-                  )}
-                  aria-label={`Go to drink ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-0">
-        <button
-          type="button"
-          onClick={() => onToggleCheers(currentDrink)}
-          disabled={cheersBusy[currentDrink.id]}
-          className={cn(
-            "relative inline-flex items-center justify-center p-1",
-            "transition-all duration-200",
-            currentDrink.cheeredByMe ? "text-amber-500" : "text-foreground",
-            cheersBusy[currentDrink.id] ? "opacity-70" : "",
-            cheersAnimating[currentDrink.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-          )}
-          aria-pressed={currentDrink.cheeredByMe}
-          aria-label={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-          title={currentDrink.cheeredByMe ? "Uncheer" : "Cheer"}
-        >
-          <CheersIcon filled={currentDrink.cheeredByMe} className="h-10 w-10" />
-
-          {cheersAnimating[currentDrink.id] && currentDrink.cheeredByMe && (
-            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-            </span>
-          )}
-        </button>
-
-        {currentDrink.cheersCount > 0 && (
-          <button
-            type="button"
-            onClick={() => onShowCheersList(currentDrink)}
-            className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
-          >
-            {currentDrink.cheersCount}
-          </button>
         )}
       </div>
 
-      <div className="-mt-1.5 mb-1 pl-2">
-        {currentDrink.caption ? (
-          <p className="text-sm leading-relaxed">{currentDrink.caption}</p>
-        ) : (
-          <p className="text-sm leading-relaxed opacity-50">No caption</p>
+      {/* Actions & Caption */}
+      <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onToggleCheers(currentDrink)}
+            disabled={cheersBusy[currentDrink.id]}
+            className={cn(
+              "relative flex items-center justify-center transition-all duration-300 active:scale-90",
+              cheersAnimating[currentDrink.id] ? "scale-125" : "hover:scale-105"
+            )}
+          >
+            {cheersAnimating[currentDrink.id] && (
+              <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+            )}
+            <CheersIcon filled={currentDrink.cheeredByMe} className={cn("h-8 w-8", currentDrink.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
+          </button>
+
+          {currentDrink.cheersCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onShowCheersList(currentDrink)}
+              className="text-[15px] font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-white/70 transition-colors"
+            >
+              {currentDrink.cheersCount} <span className="font-normal text-neutral-500 dark:text-white/40">cheers</span>
+            </button>
+          )}
+        </div>
+
+        {currentDrink.caption && (
+          <div className="pl-1">
+            <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">{currentDrink.caption}</p>
+          </div>
         )}
       </div>
     </article>
   )
 }
+
+// --- Main Page ---
 
 export default function UserProfilePage() {
   const supabase = createClient()
@@ -782,6 +767,12 @@ export default function UserProfilePage() {
   const [userAchievements, setUserAchievements] = React.useState<UserAchievement[]>([])
   const [selectedMedal, setSelectedMedal] = React.useState<Achievement | null>(null)
 
+  const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
+  const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
+  const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
+
+  const [requestBusy, setRequestBusy] = React.useState(false)
+
   // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -795,7 +786,7 @@ export default function UserProfilePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showSortMenu])
 
-  // Lock body scroll when medal detail modal is open (mobile-friendly)
+  // Lock body scroll when medal detail modal is open
   const scrollYRef = React.useRef(0)
   React.useEffect(() => {
     if (selectedMedal) {
@@ -823,12 +814,6 @@ export default function UserProfilePage() {
       document.body.style.overflow = ''
     }
   }, [selectedMedal])
-
-  const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
-  const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
-  const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
-
-  const [requestBusy, setRequestBusy] = React.useState(false)
 
   const loadCheersState = React.useCallback(
     async (postIds: string[], currentViewerId: string) => {
@@ -939,13 +924,12 @@ export default function UserProfilePage() {
         avatarSignedUrl = data?.signedUrl ?? null
       }
 
-      // Fetch all achievements for displaying showcase medals
+      // Fetch achievements for showcase
       const { data: achievementsData } = await supabase
         .from("achievements")
         .select("*")
       setAchievements((achievementsData ?? []) as Achievement[])
 
-      // Fetch user's achievements to get unlock dates
       const { data: userAchievementsData } = await supabase
         .from("user_achievements")
         .select("achievement_id, unlocked_at")
@@ -976,7 +960,6 @@ export default function UserProfilePage() {
 
         const base = (rows ?? []) as DrinkLogRow[]
 
-        // ✅ OPTIMIZED: Batch fetch all photo URLs in parallel
         const photoUrls = await Promise.all(
           base.map((r) =>
             supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60).then(res => res.data?.signedUrl ?? "")
@@ -1175,7 +1158,6 @@ export default function UserProfilePage() {
 
     return Object.entries(groups).map(([label, drinks]) => ({
       label,
-      // Reverse to show oldest first (chronological order within the group)
       drinks: [...drinks].reverse(),
       count: drinks.length,
     }))
@@ -1183,7 +1165,6 @@ export default function UserProfilePage() {
 
   const groupedDrinks = getGroupedDrinks()
 
-  // Get unlock date for a specific achievement
   const getUnlockDate = (achievementId: string): string | null => {
     const ua = userAchievements.find(u => u.achievement_id === achievementId)
     return ua?.unlocked_at ?? null
@@ -1210,7 +1191,7 @@ export default function UserProfilePage() {
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         {granularity === "Drink"
           ? logs.map((log) => (
               <DrinkLogCard
@@ -1241,32 +1222,34 @@ export default function UserProfilePage() {
   const showSortControls = friendshipStatus === "friends" && logs.length > 0
 
   return (
-    <div className="container max-w-2xl px-3 py-1.5">
-      <div className="mb-4 flex items-center gap-3">
+    <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
+      {/* Page Header */}
+      <div className="mb-4 flex items-center gap-3 px-4 sm:px-0">
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center justify-center rounded-full border p-2"
+          className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
           aria-label="Go back"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
         </button>
-        <h2 className="text-2xl font-bold">Profile</h2>
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Profile</h2>
       </div>
 
-      {error ? (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+      {error && (
+        <div className="mx-4 sm:mx-0 mb-4 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
-      ) : null}
+      )}
 
       {loading ? (
         <LoadingSkeleton />
       ) : profile ? (
         <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          <div className="relative rounded-2xl border bg-background/50 p-3">
-            {/* Showcase Medals - top right corner (read-only for other users) */}
-            <div className="absolute top-3 right-3">
+          {/* PROFILE CARD */}
+          <div className="relative mx-4 sm:mx-0 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
+            {/* Showcase Medals — read-only */}
+            <div className="absolute top-4 right-4">
               <ProfileShowcase
                 showcaseIds={profile.showcaseAchievements}
                 achievements={achievements}
@@ -1279,12 +1262,12 @@ export default function UserProfilePage() {
 
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
-                <div className="relative h-20 w-20 overflow-hidden rounded-full">
+                <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
                   <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                 </div>
               ) : (
                 <div
-                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
+                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white ring-2 ring-white dark:ring-neutral-800 shadow-sm"
                   style={{ backgroundColor: profile.avatarColor }}
                 >
                   {profile.username[0]?.toUpperCase() ?? "U"}
@@ -1292,37 +1275,37 @@ export default function UserProfilePage() {
               )}
 
               <div className="flex-1">
-                <h3 className="text-lg font-bold">{profile.displayName}</h3>
-                <p className="-mt-1 text-sm opacity-60">@{profile.username}</p>
-                <p className="mt-0.5 text-xs opacity-50">Joined {profile.joinDate}</p>
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.displayName}</h3>
+                <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
+                <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
 
-                <div className="mt-1 flex gap-4 text-sm">
+                <div className="mt-1.5 flex gap-4 text-sm">
                   <div>
-                    <span className="font-bold">{profile.friendCount}</span>{" "}
-                    <span className="opacity-60">Friends</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
+                    <span className="text-neutral-500 dark:text-white/40">Friends</span>
                   </div>
                   <div>
-                    <span className="font-bold">{profile.drinkCount}</span>{" "}
-                    <span className="opacity-60">Drinks</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">{profile.drinkCount}</span>{" "}
+                    <span className="text-neutral-500 dark:text-white/40">Drinks</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Medals and Analytics buttons - only show when friends */}
+          {/* Medals and Analytics buttons — only when friends */}
           {friendshipStatus === "friends" && (
-            <div className="flex gap-3">
+            <div className="flex gap-3 mx-4 sm:mx-0">
               <Link
                 href={`/profile/${profile.username}/awards`}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
                 <Medal className="h-4 w-4" />
                 Medals
               </Link>
               <Link
                 href={`/profile/${profile.username}/analytics`}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
                 <BarChart3 className="h-4 w-4" />
                 Analytics
@@ -1330,23 +1313,24 @@ export default function UserProfilePage() {
             </div>
           )}
 
-          <div>
+          {/* Timeline */}
+          <div className="px-4 sm:px-0">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold">{profile.username}'s Timeline</h3>
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.username}&apos;s Timeline</h3>
 
               {showSortControls && (
                 <div className="relative" ref={sortMenuRef}>
                   <button
                     type="button"
                     onClick={() => setShowSortMenu(!showSortMenu)}
-                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
                   >
                     <ArrowUpDown className="h-4 w-4" />
                     {granularity}
                   </button>
 
                   {showSortMenu && (
-                    <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-xl border bg-background shadow-lg">
+                    <div className="absolute right-0 top-full z-10 mt-2 w-32 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06]">
                       {(["Day", "Month", "Year", "Drink"] as Granularity[]).map((option) => (
                         <button
                           key={option}
@@ -1355,9 +1339,12 @@ export default function UserProfilePage() {
                             setGranularity(option)
                             setShowSortMenu(false)
                           }}
-                          className={`w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5 ${
-                            granularity === option ? "font-semibold" : ""
-                          }`}
+                          className={cn(
+                            "w-full px-4 py-3 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/[0.08]",
+                            granularity === option
+                              ? "font-semibold text-neutral-900 dark:text-white bg-black/5 dark:bg-white/[0.06]"
+                              : "text-neutral-600 dark:text-white/60"
+                          )}
                         >
                           {option}
                         </button>

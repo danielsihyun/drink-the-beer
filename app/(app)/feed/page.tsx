@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
+// --- Types ---
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
@@ -36,8 +37,6 @@ type FeedItem = {
   avatarUrl: string | null
   isMine: boolean
   timestampLabel: string
-
-  // ✅ Cheers state
   cheersCount: number
   cheeredByMe: boolean
 }
@@ -49,6 +48,8 @@ interface CheersUser {
   avatarUrl: string | null
   avatarColor: string
 }
+
+// --- Helpers ---
 
 function formatCardTimestamp(iso: string) {
   const d = new Date(iso)
@@ -67,13 +68,9 @@ function formatCardTimestamp(iso: string) {
   return `${month} ${day}, ${year2}' at ${hours}:${minutes}${ampm}`
 }
 
-// ✅ Custom clinking wine glasses icon
-interface CheersIconProps {
-  filled?: boolean
-  className?: string
-}
+// --- Icons ---
 
-function CheersIcon({ filled = false, className }: CheersIconProps) {
+function CheersIcon({ filled = false, className }: { filled?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 -4 32 32"
@@ -84,9 +81,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      {/* Left wine glass - rotated when filled, straight when not */}
-      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
+      <g transform={filled ? "rotate(15, 8, 16)" : "translate(2,0)"} className="transition-transform duration-500 ease-spring">
         {filled && (
           <path
             d="M5 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2L5 9z"
@@ -94,7 +89,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M4 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3L4 6z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -105,9 +99,7 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M5 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Right wine glass - rotated when filled, straight when not */}
-      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"}>
-        {/* Liquid FIRST (behind glass) - taller fill */}
+      <g transform={filled ? "rotate(-15, 24, 16)" : "translate(-2,0)"} className="transition-transform duration-500 ease-spring">
         {filled && (
           <path
             d="M21 9h6l-.8 4a2.5 2.5 0 0 1-2.2 2 2.5 2.5 0 0 1-2.2-2l-.8-4z"
@@ -115,7 +107,6 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
             stroke="none"
           />
         )}
-        {/* Glass outline SECOND (on top) */}
         <path
           d="M20 6h8l-1 7a3 3 0 0 1-3 3 3 3 0 0 1-3-3l-1-7z"
           fill={filled ? "rgba(251, 191, 36, 0.3)" : "none"}
@@ -126,22 +117,20 @@ function CheersIcon({ filled = false, className }: CheersIconProps) {
         <path d="M21 20h6" stroke={filled ? "#d97706" : "currentColor"} strokeWidth="1.5" />
       </g>
 
-      {/* Clink sparkles - only show when filled */}
       {filled && (
-        <g stroke="#fbbf24">
-          {/* Center line - vertical */}
+        <g stroke="#fbbf24" className="animate-pulse">
           <path d="M16 -0.5v3" strokeWidth="1.5" />
-          {/* Left line - mirrored from right */}
           <g transform="translate(16, 0) scale(-1, 1) translate(-16, 0)">
             <path d="M19 3l2-2" strokeWidth="1.5" />
           </g>
-          {/* Right line - angled +45° (going up-right) */}
           <path d="M19 3l2-2" strokeWidth="1.5" />
         </g>
       )}
     </svg>
   )
 }
+
+// --- Components ---
 
 function EditDrinkTypeDropdown({
   value,
@@ -172,42 +161,44 @@ function EditDrinkTypeDropdown({
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
         className={cn(
-          "flex w-full items-center justify-between rounded-2xl border bg-background/50 px-4 py-4 text-sm transition-all",
-          "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
-          open ? "border-black/30 ring-2 ring-black/20" : "",
+          "flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all duration-200",
+          "active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/10",
+          open ? "ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "hover:bg-white dark:hover:bg-white/[0.08]",
           disabled ? "opacity-50 cursor-not-allowed" : ""
         )}
       >
-        <span>{value}</span>
+        <span className="font-medium text-neutral-900 dark:text-white">{value}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 transition-transform duration-200",
+            "h-4 w-4 text-neutral-500 dark:text-white/40 transition-transform duration-300",
             open ? "rotate-180" : ""
           )}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-lg">
-          {DRINK_TYPES.map((t, index) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                onChange(t)
-                setOpen(false)
-              }}
-              className={cn(
-                "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
-                "hover:bg-black/5 active:bg-black/10",
-                t === value ? "bg-black/5 font-medium" : "",
-                index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : ""
-              )}
-            >
-              <span>{t}</span>
-              {t === value && <Check className="h-4 w-4" />}
-            </button>
-          ))}
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06] animate-in fade-in zoom-in-95 duration-200">
+          <div className="max-h-[240px] overflow-y-auto p-1">
+            {DRINK_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  onChange(t)
+                  setOpen(false)
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                  t === value
+                    ? "bg-black/5 dark:bg-white/[0.08] font-semibold text-black dark:text-white"
+                    : "text-neutral-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-black dark:hover:text-white"
+                )}
+              >
+                <span>{t}</span>
+                {t === value && <Check className="h-4 w-4 text-black dark:text-white" />}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -228,32 +219,16 @@ function CheersListModal({
   const [users, setUsers] = React.useState<CheersUser[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
-  // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.left = '0'
-    document.body.style.right = '0'
     document.body.style.overflow = 'hidden'
-    
-    return () => {
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.left = ''
-      document.body.style.right = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
-    }
+    return () => { document.body.style.overflow = '' }
   }, [])
 
   React.useEffect(() => {
     async function fetchCheers() {
       setLoading(true)
       setError(null)
-      
       try {
-        // Fetch cheers
         const { data: cheersData, error: cheersErr } = await supabase
           .from("drink_cheers")
           .select("user_id, created_at")
@@ -268,23 +243,15 @@ function CheersListModal({
           return
         }
 
-        // Get unique user IDs
         const userIds = [...new Set(cheersData.map((c) => c.user_id))]
-
-        // Fetch profiles for those users
         const { data: profilesData, error: profilesErr } = await supabase
           .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
           .in("id", userIds)
 
         if (profilesErr) throw profilesErr
+        const profilesMap = new Map((profilesData ?? []).map((p: any) => [p.id, p]))
 
-        // Create a map of profiles by ID
-        const profilesMap = new Map(
-          (profilesData ?? []).map((p: any) => [p.id, p])
-        )
-
-        // ✅ OPTIMIZED: Batch fetch all avatar URLs in parallel
         const avatarPaths = cheersData.map((cheer: any) => {
           const profile = profilesMap.get(cheer.user_id)
           return profile?.avatar_path ?? null
@@ -298,7 +265,6 @@ function CheersListModal({
           )
         )
 
-        // Build user list (no more awaits needed)
         const cheersUsers: CheersUser[] = cheersData.map((cheer: any, i: number) => {
           const profile = profilesMap.get(cheer.user_id)
           return {
@@ -309,7 +275,6 @@ function CheersListModal({
             avatarColor: "#4ECDC4",
           }
         })
-
         setUsers(cheersUsers)
       } catch (e: any) {
         setError(e?.message ?? "Failed to load cheers")
@@ -317,78 +282,52 @@ function CheersListModal({
         setLoading(false)
       }
     }
-
     fetchCheers()
   }, [drinkLogId, supabase])
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold">
-            Cheers {cheersCount > 0 && `(${cheersCount})`}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
+      <div className="w-full max-w-[360px] overflow-hidden rounded-3xl border border-white/20 dark:border-white/[0.08] bg-white/90 dark:bg-neutral-900/90 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-300">
+        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] px-5 py-4">
+          <div className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">Cheers ({cheersCount})</div>
+          <button onClick={onClose} className="rounded-full bg-black/5 dark:bg-white/10 p-1 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
+            <X className="h-4 w-4 text-neutral-500 dark:text-white/50" />
           </button>
         </div>
 
-        {/* Scrollable list - shows ~5 users, rest are scrollable */}
-        <div className="max-h-[280px] overflow-y-auto">
+        <div className="max-h-[300px] overflow-y-auto p-2">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin opacity-50" />
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-neutral-400 dark:text-white/30" />
             </div>
           ) : error ? (
-            <div className="px-4 py-6 text-center text-sm text-red-400">
-              {error}
-            </div>
+            <div className="py-8 text-center text-sm text-red-500 dark:text-red-400">{error}</div>
           ) : users.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm opacity-60">
-              No cheers yet
-            </div>
+            <div className="py-8 text-center text-sm text-neutral-400 dark:text-white/40">No cheers yet</div>
           ) : (
-            <div className="divide-y">
+            <div className="space-y-1">
               {users.map((user) => (
                 <Link
                   key={user.id}
                   href={`/profile/${user.username}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/5"
                   onClick={onClose}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]"
                 >
                   {user.avatarUrl ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full">
-                      <Image
-                        src={user.avatarUrl}
-                        alt={user.username}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                    <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
+                      <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
                     </div>
                   ) : (
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: user.avatarColor }}
-                    >
-                      {user.username[0]?.toUpperCase() ?? "U"}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: user.avatarColor }}>
+                      {user.username[0]?.toUpperCase()}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user.displayName}</p>
-                    <p className="text-xs opacity-60 truncate">@{user.username}</p>
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{user.displayName}</p>
+                    <p className="text-xs text-neutral-500 dark:text-white/40 truncate">@{user.username}</p>
                   </div>
                 </Link>
               ))}
@@ -417,71 +356,49 @@ function OverlayPage({
   saveIcon?: React.ReactNode
   saveIconClassName?: string
 }) {
-  // Lock body scroll when modal is open (mobile-friendly)
   React.useEffect(() => {
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.left = '0'
-    document.body.style.right = '0'
     document.body.style.overflow = 'hidden'
-    
-    return () => {
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.left = ''
-      document.body.style.right = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
-    }
+    return () => { document.body.style.overflow = '' }
   }, [])
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 py-6"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-[344px] overflow-hidden rounded-2xl border bg-background shadow-2xl">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold">{title}</div>
-          <div className="flex items-center gap-1">
+      <div className="w-full max-w-[400px] overflow-hidden rounded-[2rem] border border-white/20 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-2xl animate-in slide-in-from-bottom-12 zoom-in-95 duration-300">
+        <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02] px-5 py-4 backdrop-blur-md">
+          <div className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white">{title}</div>
+          <div className="flex items-center gap-2">
             <button
-              type="button"
               onClick={onClose}
               disabled={saving}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10"
-              aria-label="Cancel"
-              title="Cancel"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-colors hover:bg-neutral-200 dark:hover:bg-white/15"
             >
               <X className="h-4 w-4" />
             </button>
             {onSave && (
               <button
-                type="button"
                 onClick={onSave}
                 disabled={saving}
                 className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/10",
+                  "flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-95",
+                  saving ? "bg-neutral-100 dark:bg-white/10" : "bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100",
                   saveIconClassName
                 )}
-                aria-label="Confirm"
-                title="Confirm"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : (saveIcon || <Check className="h-4 w-4" />)}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30" /> : (saveIcon || <Check className="h-4 w-4" />)}
               </button>
             )}
           </div>
         </div>
-
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
+        <div className="max-h-[80vh] overflow-y-auto px-5 py-6">{children}</div>
       </div>
     </div>
   )
 }
+
+// --- Main Content ---
 
 function FeedContent() {
   const supabase = createClient()
@@ -491,10 +408,8 @@ function FeedContent() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<FeedItem[]>([])
-  const [refreshing, setRefreshing] = React.useState(false)
-
+  
   const [viewerId, setViewerId] = React.useState<string | null>(null)
-
   const [postedBanner, setPostedBanner] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
@@ -506,117 +421,65 @@ function FeedContent() {
   const [postBusy, setPostBusy] = React.useState(false)
   const [postError, setPostError] = React.useState<string | null>(null)
 
-  // Prevent double-tapping cheers while a request is in-flight for that post
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
-
-  // Track animation state for burst effect
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
-
-  // Cheers list modal state
   const [cheersListPost, setCheersListPost] = React.useState<FeedItem | null>(null)
 
   React.useEffect(() => {
-    const posted = searchParams.get("posted")
-    if (posted === "1") {
+    if (searchParams.get("posted") === "1") {
       setPostedBanner(true)
       router.replace("/feed")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, router])
 
   React.useEffect(() => {
-    if (!postedBanner) return
-    const t = window.setTimeout(() => setPostedBanner(false), 5000)
-    return () => window.clearTimeout(t)
+    if (postedBanner) {
+      const t = setTimeout(() => setPostedBanner(false), 4000)
+      return () => clearTimeout(t)
+    }
   }, [postedBanner])
 
-  const loadCheersState = React.useCallback(
-    async (postIds: string[], currentViewerId: string) => {
-      if (!postIds.length) return
+  const loadCheersState = React.useCallback(async (postIds: string[], currentViewerId: string) => {
+    if (!postIds.length) return
+    const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", { post_ids: postIds, viewer_id: currentViewerId })
+    if (rpcErr) throw rpcErr
 
-      // RPC returns: { drink_log_id, cheers_count, cheered }
-      const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", {
-        post_ids: postIds,
-        viewer_id: currentViewerId,
-      })
+    const byId = new Map<string, { count: number; cheered: boolean }>()
+    ;(data ?? []).forEach((r: any) => byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) }))
 
-      if (rpcErr) throw rpcErr
-
-      const rows = (data ?? []) as Array<{
-        drink_log_id: string
-        cheers_count: number
-        cheered: boolean
-      }>
-
-      const byId = new Map<string, { count: number; cheered: boolean }>()
-      for (const r of rows) {
-        byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) })
-      }
-
-      setItems((prev) =>
-        prev.map((it) => {
-          const s = byId.get(it.id)
-          if (!s) return it
-          return { ...it, cheersCount: s.count, cheeredByMe: s.cheered }
-        }),
-      )
-    },
-    [supabase],
-  )
+    setItems((prev) => prev.map((it) => {
+      const s = byId.get(it.id)
+      return s ? { ...it, cheersCount: s.count, cheeredByMe: s.cheered } : it
+    }))
+  }, [supabase])
 
   const load = React.useCallback(async () => {
     setError(null)
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
+      const { data: userRes } = await supabase.auth.getUser()
       const user = userRes.user
-
-      if (!user) {
-        router.replace("/login?redirectTo=%2Ffeed")
-        return
-      }
-
+      if (!user) { router.replace("/login?redirectTo=%2Ffeed"); return }
       setViewerId(user.id)
 
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
+      const { data: sessRes } = await supabase.auth.getSession()
       const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and back in.")
-
-      const res = await fetch("/api/feed", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
+      
+      const res = await fetch("/api/feed", { method: "GET", headers: { Authorization: `Bearer ${token}` } })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
 
-      const base = (json?.items ?? []) as FeedApiItem[]
-
-      const mapped: FeedItem[] = base.map((it) => ({
-        id: it.id,
-        user_id: it.user_id,
-        photo_path: it.photo_path,
-        drink_type: it.drink_type,
-        caption: it.caption,
-        created_at: it.created_at,
+      const mapped: FeedItem[] = (json?.items ?? []).map((it: FeedApiItem) => ({
+        ...it,
         photoUrl: it.photoUrl ?? null,
-        username: it.username,
         avatarUrl: it.avatarUrl ?? null,
         isMine: it.user_id === user.id,
         timestampLabel: formatCardTimestamp(it.created_at),
-
-        // ✅ default until we load from RPC
         cheersCount: 0,
         cheeredByMe: false,
-      }))
+      })).sort((a: FeedItem, b: FeedItem) => b.created_at.localeCompare(a.created_at))
 
-      mapped.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
       setItems(mapped)
-
-      // ✅ load cheers counts + whether viewer cheered
-      const ids = mapped.map((m) => m.id)
-      await loadCheersState(ids, user.id)
+      await loadCheersState(mapped.map(m => m.id), user.id)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
@@ -624,18 +487,7 @@ function FeedContent() {
     }
   }, [router, supabase, loadCheersState])
 
-  React.useEffect(() => {
-    load()
-  }, [load])
-
-  async function onRefresh() {
-    setRefreshing(true)
-    try {
-      await load()
-    } finally {
-      setRefreshing(false)
-    }
-  }
+  React.useEffect(() => { load() }, [load])
 
   function openEdit(it: FeedItem) {
     setActive(it)
@@ -652,341 +504,233 @@ function FeedContent() {
   }
 
   async function saveEdits() {
-    if (!active) return
-    if (!active.isMine) return
-
+    if (!active || !active.isMine) return
     setPostError(null)
     setPostBusy(true)
     try {
       const nextCaption = postCaption.trim()
-      const { error: updErr } = await supabase
-        .from("drink_logs")
-        .update({
-          drink_type: postDrinkType,
-          caption: nextCaption.length ? nextCaption : null,
-        })
-        .eq("id", active.id)
-        .eq("user_id", active.user_id)
-
+      const { error: updErr } = await supabase.from("drink_logs").update({ drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null }).eq("id", active.id).eq("user_id", active.user_id)
       if (updErr) throw updErr
 
-      setItems((prev) =>
-        prev.map((p) =>
-          p.id === active.id
-            ? {
-                ...p,
-                drink_type: postDrinkType,
-                caption: nextCaption.length ? nextCaption : null,
-              }
-            : p,
-        ),
-      )
-
+      setItems(prev => prev.map(p => p.id === active.id ? { ...p, drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null } : p))
       setEditOpen(false)
       setActive(null)
-    } catch (e: any) {
-      setPostError(e?.message ?? "Could not update post.")
-    } finally {
-      setPostBusy(false)
-    }
+    } catch (e: any) { setPostError(e?.message) } finally { setPostBusy(false) }
   }
 
   async function confirmDelete() {
-    if (!active) return
-    if (!active.isMine) return
-
+    if (!active || !active.isMine) return
     setPostError(null)
     setPostBusy(true)
     try {
-      const { error: delErr } = await supabase
-        .from("drink_logs")
-        .delete()
-        .eq("id", active.id)
-        .eq("user_id", active.user_id)
+      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", active.id).eq("user_id", active.user_id)
       if (delErr) throw delErr
-
-      if (active.photo_path) {
-        await supabase.storage.from("drink-photos").remove([active.photo_path])
-      }
-
-      setItems((prev) => prev.filter((p) => p.id !== active.id))
-
+      if (active.photo_path) await supabase.storage.from("drink-photos").remove([active.photo_path])
+      setItems(prev => prev.filter(p => p.id !== active.id))
       setDeleteOpen(false)
       setActive(null)
-    } catch (e: any) {
-      setPostError(e?.message ?? "Could not delete post.")
-    } finally {
-      setPostBusy(false)
-    }
+    } catch (e: any) { setPostError(e?.message) } finally { setPostBusy(false) }
   }
 
   async function toggleCheers(it: FeedItem) {
-    if (!viewerId) return
-    if (cheersBusy[it.id]) return
-
-    // Optimistic UI
+    if (!viewerId || cheersBusy[it.id]) return
     const nextCheered = !it.cheeredByMe
     const nextCount = Math.max(0, it.cheersCount + (nextCheered ? 1 : -1))
 
-    // Trigger animation only when cheering (not uncheering)
     if (nextCheered) {
-      setCheersAnimating((p) => ({ ...p, [it.id]: true }))
-      setTimeout(() => setCheersAnimating((p) => ({ ...p, [it.id]: false })), 600)
+      setCheersAnimating(p => ({ ...p, [it.id]: true }))
+      setTimeout(() => setCheersAnimating(p => ({ ...p, [it.id]: false })), 600)
     }
 
-    setCheersBusy((p) => ({ ...p, [it.id]: true }))
-    setItems((prev) =>
-      prev.map((p) =>
-        p.id === it.id
-          ? {
-              ...p,
-              cheeredByMe: nextCheered,
-              cheersCount: nextCount,
-            }
-          : p,
-      ),
-    )
+    setCheersBusy(p => ({ ...p, [it.id]: true }))
+    setItems(prev => prev.map(p => p.id === it.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p))
 
     try {
-      const { data, error: rpcErr } = await supabase.rpc("toggle_cheer", {
-        p_drink_log_id: it.id,
-        p_user_id: viewerId,
-      })
-      if (rpcErr) throw rpcErr
-
-      // RPC returns one row: { cheered, cheers_count }
+      const { data } = await supabase.rpc("toggle_cheer", { p_drink_log_id: it.id, p_user_id: viewerId })
       const row = Array.isArray(data) ? data[0] : data
-      const cheered = Boolean(row?.cheered)
-      const cheers_count = Number(row?.cheers_count ?? nextCount)
-
-      // Reconcile with server truth
-      setItems((prev) =>
-        prev.map((p) =>
-          p.id === it.id
-            ? {
-                ...p,
-                cheeredByMe: cheered,
-                cheersCount: cheers_count,
-              }
-            : p,
-        ),
-      )
+      setItems(prev => prev.map(p => p.id === it.id ? { ...p, cheeredByMe: Boolean(row?.cheered), cheersCount: Number(row?.cheers_count ?? nextCount) } : p))
     } catch {
-      // Roll back on failure
-      setItems((prev) =>
-        prev.map((p) =>
-          p.id === it.id
-            ? {
-                ...p,
-                cheeredByMe: it.cheeredByMe,
-                cheersCount: it.cheersCount,
-              }
-            : p,
-        ),
-      )
+      setItems(prev => prev.map(p => p.id === it.id ? { ...p, cheeredByMe: it.cheeredByMe, cheersCount: it.cheersCount } : p))
     } finally {
-      setCheersBusy((p) => ({ ...p, [it.id]: false }))
+      setCheersBusy(p => ({ ...p, [it.id]: false }))
     }
   }
 
+  // --- Skeletons ---
   if (loading) {
     return (
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Feed</h2>
-  
-          <Link
-            href="/log"
-            className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Log
-          </Link>
+      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 space-y-5">
+        <div className="flex items-center justify-between px-2">
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
         </div>
-  
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
-              <div className="h-4 w-40 rounded bg-foreground/10" />
-              <div className="mt-2 h-3 w-24 rounded bg-foreground/10" />
-              <div className="mt-4 h-64 rounded-xl bg-foreground/10" />
-              <div className="mt-3 h-7 w-20 rounded-full bg-foreground/10" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-3xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
+            <div className="flex gap-3">
+              <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-4 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              </div>
             </div>
-          ))}
-        </div>
+            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          </div>
+        ))}
       </div>
     )
   }
 
   return (
     <>
-      <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Feed</h2>
-
+      <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 pb-24">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between px-2">
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
           <Link
             href="/log"
-            className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
+            className="group flex h-10 items-center gap-2 rounded-full bg-black dark:bg-white px-4 text-sm font-medium text-white dark:text-black shadow-sm transition-all duration-200 active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 hover:shadow-md"
           >
             <Plus className="h-4 w-4" />
-            Log
+            <span>Log Drink</span>
           </Link>
         </div>
 
-        {postedBanner ? (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            Posted!
+        {postedBanner && (
+          <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500 rounded-2xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
+            Cheers! Your drink has been posted.
           </div>
-        ) : null}
+        )}
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
-        ) : null}
+        )}
 
         {items.length === 0 ? (
-          <div className="mt-10 flex flex-col items-center justify-center text-center">
+          <div className="mt-20 flex flex-col items-center text-center">
             <Link
               href="/friends"
-              className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed"
-              aria-label="Add friends"
-              title="Add friends"
+              className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04] text-neutral-400 dark:text-white/25 transition-colors hover:border-neutral-400 dark:hover:border-white/25 hover:text-neutral-500 dark:hover:text-white/40"
             >
-              <Plus className="h-7 w-7 opacity-50" />
+              <Plus className="h-8 w-8" />
             </Link>
-
-            <h3 className="text-lg font-semibold">No posts yet</h3>
-            <p className="mt-1 max-w-sm text-sm opacity-70">Add your friends to build out your feed!</p>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No posts yet</h3>
+            <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-white/45 leading-relaxed">
+              It's looking a bit empty here. Add your friends or log your first drink to get the party started!
+            </p>
           </div>
         ) : (
-          <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="space-y-5">
             {items.map((it) => (
-              <article key={it.id} className="rounded-2xl border bg-background/50 p-3">
-                <div className="flex items-center gap-2">
-                  <Link href={`/profile/${it.username}`} className="flex min-w-0 flex-1 items-center gap-2">
+              <article 
+                key={it.id} 
+                className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+              >
+                {/* Card Header */}
+                <div className="flex items-start justify-between px-4 pt-4 pb-3">
+                  <Link href={`/profile/${it.username}`} className="flex items-center gap-3 group/profile">
                     {it.avatarUrl ? (
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
                         <Image
-                          src={it.avatarUrl || "/placeholder.svg"}
+                          src={it.avatarUrl}
                           alt="Profile"
                           fill
-                          className="object-cover"
+                          className="object-cover transition-transform duration-500 group-hover/profile:scale-110"
                           unoptimized
                         />
                       </div>
                     ) : (
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                        style={{ backgroundColor: "#4ECDC4" }}
-                      >
-                        {it.username[0]?.toUpperCase() ?? "U"}
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800" style={{ backgroundColor: "#4ECDC4" }}>
+                        {it.username[0]?.toUpperCase()}
                       </div>
                     )}
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium hover:underline">{it.username}</p>
-                      <p className="text-xs opacity-60">{it.timestampLabel}</p>
+                    <div className="flex flex-col">
+                      <span className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{it.username}</span>
+                      <span className="text-[13px] text-neutral-500 dark:text-white/40 font-medium">{it.timestampLabel}</span>
                     </div>
                   </Link>
 
-                  <span className="inline-flex shrink-0 rounded-full border bg-black/5 px-3 py-1 text-xs font-medium">
+                  {/* Drink type pill — sentence case, softer Apple style */}
+                  <span className="mt-1.5 inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
                     {it.drink_type}
                   </span>
                 </div>
 
-                <div className="mt-3 overflow-hidden rounded-xl border">
-                  <div className="relative aspect-square w-full">
+                {/* Photo Area */}
+                <div>
+                  <div className="relative aspect-square w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.04]">
                     {it.photoUrl ? (
                       <Image
-                        src={it.photoUrl || "/placeholder.svg"}
+                        src={it.photoUrl}
                         alt={`${it.drink_type} drink`}
                         fill
                         className="object-cover"
                         unoptimized
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-foreground/5 text-sm opacity-70">
-                        Image unavailable
+                      <div className="absolute inset-0 flex items-center justify-center text-neutral-400 dark:text-white/20 text-sm">No Image</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions & Caption Area */}
+                <div className="flex flex-col gap-2 px-5 pt-4 pb-4">
+                  
+                  {/* Action Buttons Row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => toggleCheers(it)}
+                        disabled={!!cheersBusy[it.id]}
+                        className={cn(
+                          "relative flex items-center justify-center transition-all duration-300 active:scale-90",
+                          cheersAnimating[it.id] ? "scale-125" : "hover:scale-105"
+                        )}
+                      >
+                         {cheersAnimating[it.id] && (
+                           <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+                         )}
+                        <CheersIcon filled={it.cheeredByMe} className={cn("h-8 w-8", it.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
+                      </button>
+                      
+                      {it.cheersCount > 0 && (
+                        <button
+                          onClick={() => setCheersListPost(it)}
+                          className="text-[15px] font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-white/70 transition-colors"
+                        >
+                          {it.cheersCount} <span className="font-normal text-neutral-500 dark:text-white/40">cheers</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Edit/Delete Buttons — contained with hover backgrounds */}
+                    {it.isMine && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => openEdit(it)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60"
+                          aria-label="Edit post"
+                        >
+                          <FilePenLine className="h-[18px] w-[18px]" />
+                        </button>
+                        <button
+                          onClick={() => openDelete(it)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
+                          aria-label="Delete post"
+                        >
+                          <Trash2 className="h-[18px] w-[18px]" />
+                        </button>
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* ✅ Cheers button + edit/delete on same row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-0">
-                    <button
-                      type="button"
-                      onClick={() => toggleCheers(it)}
-                      disabled={!!cheersBusy[it.id]}
-                      className={cn(
-                        "relative inline-flex items-center justify-center p-1",
-                        "transition-all duration-200",
-                        it.cheeredByMe ? "text-amber-500" : "text-foreground",
-                        cheersBusy[it.id] ? "opacity-70" : "",
-                        cheersAnimating[it.id] ? "animate-bounce-beer" : "active:scale-95 hover:scale-110",
-                      )}
-                      aria-pressed={it.cheeredByMe}
-                      aria-label={it.cheeredByMe ? "Uncheer" : "Cheer"}
-                      title={it.cheeredByMe ? "Uncheer" : "Cheer"}
-                    >
-                      <CheersIcon filled={it.cheeredByMe} className="h-10 w-10" />
-
-                      {/* Burst effect on cheer */}
-                      {cheersAnimating[it.id] && it.cheeredByMe && (
-                        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="absolute h-8 w-8 animate-ping rounded-full bg-amber-400/30 translate-y-0.25 -translate-x-0.25" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Count outside the button - clickable to show who cheered */}
-                    {it.cheersCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setCheersListPost(it)}
-                        className="text-base font-semibold text-foreground/70 translate-y-0.25 hover:text-foreground hover:underline"
-                      >
-                        {it.cheersCount}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Edit/Delete buttons - only for own posts */}
-                  {it.isMine && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(it)}
-                        className="inline-flex items-center justify-center text-foreground/70 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                        style={{ width: "30px", height: "30px" }}
-                        aria-label="Edit post"
-                        title="Edit"
-                      >
-                        <FilePenLine className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => openDelete(it)}
-                        className="inline-flex items-center justify-center text-red-400 transition-transform hover:scale-[1.2] active:scale-[0.99]"
-                        style={{ width: "30px", height: "30px" }}
-                        aria-label="Delete post"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  {/* Caption (conditionally rendered) */}
+                  {it.caption && (
+                    <div className="pl-1">
+                      <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">
+                        {it.caption}
+                      </p>
                     </div>
-                  )}
-                </div>
-
-                {/* Caption - full width */}
-                <div className="-mt-1.5 mb-1 pl-2">
-                  {it.caption ? (
-                    <p className="text-sm leading-relaxed">{it.caption}</p>
-                  ) : (
-                    <p className="text-sm leading-relaxed opacity-50">No caption</p>
                   )}
                 </div>
               </article>
@@ -995,7 +739,7 @@ function FeedContent() {
         )}
       </div>
 
-      {/* Cheers List Modal */}
+      {/* Modals */}
       {cheersListPost && (
         <CheersListModal
           drinkLogId={cheersListPost.id}
@@ -1004,135 +748,58 @@ function FeedContent() {
         />
       )}
 
-      {editOpen && active ? (
+      {editOpen && active && (
         <OverlayPage
-          title="Edit post"
-          onClose={() => {
-            if (postBusy) return
-            setEditOpen(false)
-            setActive(null)
-            setPostError(null)
-          }}
+          title="Edit Drink"
+          onClose={() => { if (!postBusy) { setEditOpen(false); setActive(null) } }}
           onSave={saveEdits}
           saving={postBusy}
         >
-          {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {postError}
-            </div>
-          ) : null}
-
-          <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
-            <div className="relative aspect-square w-full">
-              <Image
-                src={active.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            </div>
+          {postError && <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>}
+          <div className="flex gap-4">
+             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/[0.06]">
+                <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
+             </div>
+             <div className="flex-1">
+               <EditDrinkTypeDropdown value={postDrinkType} onChange={setPostDrinkType} disabled={postBusy} />
+             </div>
           </div>
-
-          <EditDrinkTypeDropdown
-            value={postDrinkType}
-            onChange={setPostDrinkType}
-            disabled={postBusy}
-          />
-
-          <div className="relative mt-4">
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-medium text-neutral-500 dark:text-white/40">Caption</label>
             <textarea
               value={postCaption}
               onChange={(e) => setPostCaption(e.target.value)}
-              placeholder="Add a caption (optional)"
-              className="h-28 w-full resize-none rounded-2xl border bg-background/50 px-4 py-4 text-base outline-none focus:border-black/30 focus:ring-2 focus:ring-black/20"
+              className="w-full resize-none rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] p-4 text-base text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 focus:border-black/20 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/[0.06] focus:outline-none focus:ring-4 focus:ring-black/5 dark:focus:ring-white/10 transition-all"
+              rows={4}
               maxLength={200}
               disabled={postBusy}
             />
-            <div className="absolute bottom-4 right-4 text-xs opacity-60">{postCaption.length}/200</div>
           </div>
         </OverlayPage>
-      ) : null}
+      )}
 
-      {deleteOpen && active ? (
+      {deleteOpen && active && (
         <OverlayPage
-          title="Delete post"
-          onClose={() => {
-            if (postBusy) return
-            setDeleteOpen(false)
-            setActive(null)
-            setPostError(null)
-          }}
+          title="Delete Post?"
+          onClose={() => { if (!postBusy) { setDeleteOpen(false); setActive(null) } }}
           onSave={confirmDelete}
           saving={postBusy}
           saveIcon={<Trash2 className="h-4 w-4" />}
-          saveIconClassName="text-red-400"
+          saveIconClassName="bg-red-500 hover:bg-red-600 text-white"
         >
-          {postError ? (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {postError}
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
-                <Trash2 className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="text-base font-semibold">Are you sure?</div>
-                <p className="mt-1 text-sm opacity-70">This action cannot be undone.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-background/50">
-            <div className="relative aspect-square w-full">
-              <Image
-                src={active.photoUrl || "/placeholder.svg"}
-                alt="Post photo"
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            </div>
+          <p className="mb-6 text-neutral-600 dark:text-white/55">This action cannot be undone. The photo and cheers associated with this log will be removed permanently.</p>
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
+            <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
           </div>
         </OverlayPage>
-      ) : null}
+      )}
     </>
   )
 }
 
 export default function FeedPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="container max-w-2xl px-3 py-1.5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Feed</h2>
-
-            <Link
-              href="/log"
-              className="inline-flex items-center gap-2 rounded-full border bg-black px-3 py-2 text-sm font-medium text-white"
-            >
-              <Plus className="h-4 w-4" />
-              Log
-            </Link>
-          </div>
-
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse rounded-2xl border bg-background/50 p-3">
-                <div className="h-4 w-40 rounded bg-foreground/10" />
-                <div className="mt-2 h-3 w-24 rounded bg-foreground/10" />
-                <div className="mt-4 h-64 rounded-xl bg-foreground/10" />
-                <div className="mt-3 h-7 w-20 rounded-full bg-foreground/10" />
-              </div>
-            ))}
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="p-8 text-center text-neutral-400 dark:text-white/30">Loading feed...</div>}>
       <FeedContent />
     </Suspense>
   )
