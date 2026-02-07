@@ -61,7 +61,6 @@ type UiProfile = {
   joinDate: string
   friendCount: number
   drinkCount: number
-  avatarColor: string
   avatarUrl: string | null
   showcaseAchievements: string[]
 }
@@ -87,7 +86,6 @@ interface CheersUser {
   username: string
   displayName: string
   avatarUrl: string | null
-  avatarColor: string
 }
 
 interface GroupedDrinks {
@@ -291,7 +289,6 @@ function CheersListModal({
             username: profile?.username ?? "Unknown",
             displayName: profile?.display_name ?? profile?.username ?? "Unknown",
             avatarUrl: avatarUrls[i],
-            avatarColor: "#4ECDC4",
           }
         })
 
@@ -363,11 +360,11 @@ function CheersListModal({
                       />
                     </div>
                   ) : (
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                      style={{ backgroundColor: user.avatarColor }}
-                    >
-                      {user.username[0]?.toUpperCase() ?? "U"}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10">
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-neutral-400 dark:text-white/30">
+                        <circle cx="12" cy="8" r="4" fill="currentColor" />
+                        <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+                      </svg>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -513,11 +510,11 @@ function DrinkLogCard({
               <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
             </div>
           ) : (
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
-              style={{ backgroundColor: profile.avatarColor }}
-            >
-              {profile.username[0]?.toUpperCase() ?? "U"}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-neutral-400 dark:text-white/30">
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+              </svg>
             </div>
           )}
           <div className="flex flex-col">
@@ -639,11 +636,11 @@ function GroupedDrinkCard({
               <Image src={profile.avatarUrl || "/placeholder.svg"} alt="Profile" fill className="object-cover" unoptimized />
             </div>
           ) : (
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white dark:ring-neutral-800"
-              style={{ backgroundColor: profile.avatarColor }}
-            >
-              {profile.username[0]?.toUpperCase() ?? "U"}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-neutral-400 dark:text-white/30">
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+              </svg>
             </div>
           )}
           <div className="flex flex-col">
@@ -943,7 +940,6 @@ export default function UserProfilePage() {
         joinDate: formatJoinDate(m.created_at),
         friendCount: p.friend_count ?? 0,
         drinkCount: p.drink_count ?? 0,
-        avatarColor: "#4ECDC4",
         avatarUrl: avatarSignedUrl,
         showcaseAchievements: p.showcase_achievements ?? [],
       }
@@ -1266,11 +1262,11 @@ export default function UserProfilePage() {
                   <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
                 </div>
               ) : (
-                <div
-                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white ring-2 ring-white dark:ring-neutral-800 shadow-sm"
-                  style={{ backgroundColor: profile.avatarColor }}
-                >
-                  {profile.username[0]?.toUpperCase() ?? "U"}
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-10 w-10 text-neutral-400 dark:text-white/30">
+                    <circle cx="12" cy="8" r="4" fill="currentColor" />
+                    <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+                  </svg>
                 </div>
               )}
 
