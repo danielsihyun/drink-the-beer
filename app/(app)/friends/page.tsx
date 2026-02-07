@@ -138,11 +138,11 @@ function PersonCard({
             </div>
           )}
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 space-y-0.5">
             <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</div>
             <div className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{username}</div>
 
-            <div className="mt-1.5 flex gap-4 text-[13px]">
+            <div className="flex gap-4 text-[13px]">
               <div>
                 <span className="font-semibold text-neutral-900 dark:text-white">{friendCount}</span>{" "}
                 <span className="text-neutral-500 dark:text-white/40">friends</span>
