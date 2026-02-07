@@ -7,15 +7,12 @@ import { Camera, Check, ChevronDown, Loader2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
-import { Geolocation } from '@capacitor/geolocation'
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
 
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
 type Area = { width: number; height: number; x: number; y: number }
-
-type LocationStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable"
 
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -87,10 +84,6 @@ export default function LogDrinkPage() {
   const [cropping, setCropping] = React.useState(false)
   const [cropObjectFit, setCropObjectFit] = React.useState<"horizontal-cover" | "vertical-cover">("horizontal-cover")
 
-  // Geolocation state
-  const [location, setLocation] = React.useState<{ latitude: number; longitude: number } | null>(null)
-  const [locationStatus, setLocationStatus] = React.useState<LocationStatus>("idle")
-
   const canPost = Boolean(file && drinkType && !submitting)
 
   // Close dropdown when clicking outside
@@ -103,57 +96,6 @@ export default function LogDrinkPage() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
-
-  // ==========================================================================
-  // GEOLOCATION HANDLING - using Capacitor plugin
-  // ==========================================================================
-
-  const getLocation = React.useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
-    return new Promise(async (resolve) => {
-      try {
-        const permission = await Geolocation.checkPermissions()
-        
-        if (permission.location === 'denied') {
-          setLocationStatus("denied")
-          resolve(null)
-          return
-        }
-        
-        if (permission.location === 'prompt') {
-          const requested = await Geolocation.requestPermissions()
-          if (requested.location === 'denied') {
-            setLocationStatus("denied")
-            resolve(null)
-            return
-          }
-        }
-
-        setLocationStatus("requesting")
-
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: false,
-          timeout: 5000,
-        })
-
-        const loc = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }
-        setLocation(loc)
-        setLocationStatus("granted")
-        resolve(loc)
-      } catch (err) {
-        console.log("Geolocation error:", err)
-        setLocationStatus("unavailable")
-        resolve(null)
-      }
-    })
-  }, [])
-
-  // Request location on mount
-  React.useEffect(() => {
-    getLocation()
-  }, [getLocation])
 
   React.useEffect(() => {
     if (!file) return
@@ -196,13 +138,6 @@ export default function LogDrinkPage() {
       }
       console.log("2. Got user:", user.id)
 
-      let finalLocation = location
-      if (!finalLocation) {
-        console.log("3. Requesting location...")
-        finalLocation = await getLocation()
-      }
-      console.log("3. Final location:", finalLocation)
-
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
 
       const uuid =
@@ -213,7 +148,7 @@ export default function LogDrinkPage() {
       const filename = `${uuid}.${ext}`
       const photoPath = `${user.id}/${filename}`
 
-      console.log("4. Starting upload to:", photoPath)
+      console.log("3. Starting upload to:", photoPath)
 
       const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
         cacheControl: "3600",
@@ -222,7 +157,7 @@ export default function LogDrinkPage() {
       })
       if (uploadErr) throw uploadErr
 
-      console.log("5. Upload complete")
+      console.log("4. Upload complete")
 
       const nextCaption = caption.trim()
 
@@ -231,8 +166,6 @@ export default function LogDrinkPage() {
         photo_path: string
         drink_type: DrinkType
         caption: string | null
-        latitude?: number
-        longitude?: number
       } = {
         user_id: user.id,
         photo_path: photoPath,
@@ -240,24 +173,19 @@ export default function LogDrinkPage() {
         caption: nextCaption.length ? nextCaption : null,
       }
 
-      if (finalLocation) {
-        insertData.latitude = finalLocation.latitude
-        insertData.longitude = finalLocation.longitude
-      }
-
-      console.log("6. Starting insert:", insertData)
+      console.log("5. Starting insert:", insertData)
 
       const { error: insErr } = await supabase.from("drink_logs").insert(insertData)
       if (insErr) throw insErr
 
-      console.log("7. Insert complete")
+      console.log("6. Insert complete")
 
-      console.log("8. Checking achievements")
+      console.log("7. Checking achievements")
       await checkAchievements()
-      console.log("9. Achievements checked")
+      console.log("8. Achievements checked")
 
       resetForm()
-      console.log("10. Redirecting to feed")
+      console.log("9. Redirecting to feed")
       router.replace("/feed?posted=1")
     } catch (e: unknown) {
       console.error("Submit error:", e)
