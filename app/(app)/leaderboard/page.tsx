@@ -16,7 +16,7 @@ const GLASS_DROPDOWN = "overflow-hidden rounded-xl border border-neutral-200/50 
 
 // --- Types ---
 
-type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
+type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD" | "ALL"
 type Scope = "friends" | "global"
 
 type LeaderboardEntry = {
@@ -37,19 +37,21 @@ const timeRangeOptions: { key: TimeRange; label: string }[] = [
   { key: "6M", label: "6M" },
   { key: "1Y", label: "1Y" },
   { key: "YTD", label: "YTD" },
+  { key: "ALL", label: "All" },
 ]
 
 function getTimeRangeLabel(value: TimeRange): string {
   return timeRangeOptions.find((opt) => opt.key === value)?.label ?? value
 }
 
-function getStartDate(timeRange: TimeRange): Date {
+function getStartDate(timeRange: TimeRange): Date | null {
+  if (timeRange === "ALL") return null
   const now = new Date()
   let startDate: Date
 
   switch (timeRange) {
     case "1W":
-      startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
       break
     case "1M":
       startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
@@ -169,19 +171,20 @@ function ScopeToggle({
 function PodiumAvatar({
   entry,
   size,
+  position,
 }: {
   entry: LeaderboardEntry
   size: "lg" | "md"
+  position: 1 | 2 | 3
 }) {
   const dim = size === "lg" ? "h-20 w-20" : "h-16 w-16"
   const iconDim = size === "lg" ? "h-10 w-10" : "h-8 w-8"
+  const ringColor = position === 1 ? "ring-amber-400" : position === 2 ? "ring-neutral-300 dark:ring-neutral-400" : "ring-amber-600"
 
   return (
     <Link href={`/profile/${entry.username}`}>
       {entry.avatarUrl ? (
-        <div className={cn("relative shrink-0 overflow-hidden rounded-full ring-2 shadow-sm border border-neutral-100 dark:border-white/[0.06]", dim,
-          entry.rank === 1 ? "ring-amber-400" : entry.rank === 2 ? "ring-neutral-300 dark:ring-neutral-400" : "ring-amber-600"
-        )}>
+        <div className={cn("relative shrink-0 overflow-hidden rounded-full ring-2 shadow-sm border border-neutral-100 dark:border-white/[0.06]", dim, ringColor)}>
           <Image
             src={entry.avatarUrl}
             alt={entry.username}
@@ -191,9 +194,7 @@ function PodiumAvatar({
           />
         </div>
       ) : (
-        <div className={cn("flex shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 shadow-sm", dim,
-          entry.rank === 1 ? "ring-amber-400" : entry.rank === 2 ? "ring-neutral-300 dark:ring-neutral-400" : "ring-amber-600"
-        )}>
+        <div className={cn("flex shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 shadow-sm", dim, ringColor)}>
           <svg viewBox="0 0 24 24" fill="none" className={cn(iconDim, "text-neutral-400 dark:text-white/30")}>
             <circle cx="12" cy="8" r="4" fill="currentColor" />
             <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
@@ -234,9 +235,10 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 function Podium({ entries }: { entries: LeaderboardEntry[] }) {
-  const first = entries.find((e) => e.rank === 1)
-  const second = entries.find((e) => e.rank === 2)
-  const third = entries.find((e) => e.rank === 3)
+  // entries are already sorted by rank, take by position not rank number
+  const first = entries[0] ?? null
+  const second = entries[1] ?? null
+  const third = entries[2] ?? null
 
   if (!first) return null
 
@@ -246,7 +248,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
       <div className="flex flex-col items-center flex-1">
         {second ? (
           <>
-            <PodiumAvatar entry={second} size="md" />
+            <PodiumAvatar entry={second} size="md" position={2} />
             <div className="mt-2 text-center w-full px-1">
               <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate">
                 {second.display_name}
@@ -273,7 +275,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
       <div className="flex flex-col items-center flex-1">
         <div className="relative">
           <Trophy className="absolute -top-9 left-1/2 -translate-x-1/2 h-6 w-6 text-amber-400" />
-          <PodiumAvatar entry={first} size="lg" />
+          <PodiumAvatar entry={first} size="lg" position={1} />
         </div>
         <div className="mt-2 text-center w-full px-1">
           <p className="text-[15px] font-bold text-neutral-900 dark:text-white truncate">
@@ -297,7 +299,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
       <div className="flex flex-col items-center flex-1">
         {third ? (
           <>
-            <PodiumAvatar entry={third} size="md" />
+            <PodiumAvatar entry={third} size="md" position={3} />
             <div className="mt-2 text-center w-full px-1">
               <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate">
                 {third.display_name}
@@ -327,15 +329,17 @@ function LeaderboardRow({
   entry,
   isViewer,
   isPinned,
+  displayRank,
 }: {
   entry: LeaderboardEntry
   isViewer: boolean
   isPinned?: boolean
+  displayRank?: number
 }) {
   return (
     <div
       className={cn(
-        "flex items-center rounded-[2rem] pl-3 pr-6 py-3 transition-colors",
+        "flex items-center rounded-2xl px-4 py-3 transition-colors",
         isViewer
           ? "bg-amber-50/40 dark:bg-amber-500/[0.04] border border-amber-200/30 dark:border-amber-500/[0.08]"
           : "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]",
@@ -343,10 +347,10 @@ function LeaderboardRow({
       )}
     >
       <div className="w-7 shrink-0">
-        <RankBadge rank={entry.rank} />
+        <RankBadge rank={displayRank ?? entry.rank} />
       </div>
 
-      <Link href={`/profile/${entry.username}`} className="flex items-center gap-3 flex-1 min-w-0 ml-1">
+      <Link href={`/profile/${entry.username}`} className="flex items-center gap-3 flex-1 min-w-0 ml-2">
         {entry.avatarUrl ? (
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
             <Image
@@ -375,7 +379,7 @@ function LeaderboardRow({
         </div>
       </Link>
 
-      <div className="shrink-0 text-right ml-0">
+      <div className="shrink-0 text-right ml-2">
         <p className="text-lg font-bold text-neutral-900 dark:text-white">{entry.drink_count}</p>
         <p className="text-[11px] text-neutral-500 dark:text-white/40">drinks</p>
       </div>
@@ -416,7 +420,7 @@ export default function LeaderboardPage() {
       const { data, error: rpcErr } = await supabase.rpc("get_leaderboard", {
         p_viewer_id: userId,
         p_scope: sc,
-        p_start_date: startDate.toISOString(),
+        p_start_date: startDate ? startDate.toISOString() : new Date(0).toISOString(),
         p_limit: 50,
       })
 
@@ -453,25 +457,17 @@ export default function LeaderboardPage() {
     fetchLeaderboard(timeRange, scope)
   }, [timeRange, scope, fetchLeaderboard])
 
-  // Split entries into podium (top 3), rest (4+), and pinned viewer
-  const podiumEntries = entries.filter((e) => e.rank <= 3)
-  const restEntries = entries.filter((e) => e.rank > 3 && !e.is_viewer)
+  // Split entries into podium (top 3 positions) and rest
+  // Use array position, not rank number, since ties can cause rank gaps
+  const sortedEntries = [...entries].sort((a, b) => a.rank - b.rank)
+  const podiumEntries = sortedEntries.slice(0, 3)
+  const restEntries = sortedEntries.slice(3)
   const viewerEntry = entries.find((e) => e.is_viewer)
-  const viewerInTop3 = viewerEntry ? viewerEntry.rank <= 3 : false
-  const viewerInRest = viewerEntry ? viewerEntry.rank > 3 : false
-  const pinnedViewer = viewerEntry && !viewerInTop3 && !viewerInRest ? viewerEntry : null
+  const viewerInPodium = podiumEntries.some((e) => e.is_viewer)
+  const viewerInRest = restEntries.some((e) => e.is_viewer)
+  const pinnedViewer = viewerEntry && !viewerInPodium && !viewerInRest ? viewerEntry : null
 
-  // If viewer is rank 4+, include them in the rest list at their position
-  const fullRestEntries = React.useMemo(() => {
-    if (!viewerEntry || viewerInTop3) return restEntries
-    // Viewer is 4+ — merge them into the list
-    const combined = [...restEntries]
-    if (viewerInRest) {
-      // Viewer is already excluded from restEntries, add them back
-    }
-    // Actually rebuild from entries rank > 3
-    return entries.filter((e) => e.rank > 3)
-  }, [entries, viewerEntry, viewerInTop3, viewerInRest, restEntries])
+  const fullRestEntries = restEntries
 
   // --- Skeleton ---
   if (loading) {
@@ -574,11 +570,12 @@ export default function LeaderboardPage() {
           {/* Scrollable List (4th place onwards) */}
           {fullRestEntries.length > 0 && (
             <div className="p-2">
-              {fullRestEntries.map((entry) => (
+              {fullRestEntries.map((entry, i) => (
                 <LeaderboardRow
                   key={entry.user_id}
                   entry={entry}
                   isViewer={entry.is_viewer}
+                  displayRank={podiumEntries.length + i + 1}
                 />
               ))}
             </div>
