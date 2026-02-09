@@ -242,13 +242,54 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
 
   if (!first) return null
 
+  // Tie detection
+  const firstSecondTied = second ? first.drink_count === second.drink_count : false
+  const secondThirdTied = second && third ? second.drink_count === third.drink_count : false
+
+  // Determine podium style for each position based on ties
+  // If 1st and 2nd tied: both get gold style, 3rd stays bronze
+  // If 2nd and 3rd tied: 1st stays gold, both get silver style
+  // If all three tied: all get gold style
+  const allTied = firstSecondTied && secondThirdTied
+
+  type PodiumStyle = { ring: 1 | 2 | 3; barColor: string; barHeight: string }
+
+  const goldStyle: PodiumStyle = {
+    ring: 1,
+    barColor: "bg-amber-400/30 dark:bg-amber-400/20",
+    barHeight: "h-32",
+  }
+  const silverStyle: PodiumStyle = {
+    ring: 2,
+    barColor: "bg-neutral-300/50 dark:bg-neutral-400/20",
+    barHeight: "h-24",
+  }
+  const bronzeStyle: PodiumStyle = {
+    ring: 3,
+    barColor: "bg-amber-600/25 dark:bg-amber-600/20",
+    barHeight: "h-20",
+  }
+
+  let firstStyle = goldStyle
+  let secondStyle = silverStyle
+  let thirdStyle = bronzeStyle
+
+  if (allTied) {
+    secondStyle = goldStyle
+    thirdStyle = goldStyle
+  } else if (firstSecondTied) {
+    secondStyle = goldStyle
+  } else if (secondThirdTied) {
+    thirdStyle = silverStyle
+  }
+
   return (
     <div className="flex items-end justify-center gap-3">
       {/* 2nd Place */}
       <div className="flex flex-col items-center flex-1">
         {second ? (
           <>
-            <PodiumAvatar entry={second} size="md" position={2} />
+            <PodiumAvatar entry={second} size="md" position={secondStyle.ring} />
             <div className="mt-2 text-center w-full px-1">
               <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate">
                 {second.display_name}
@@ -258,7 +299,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
               </p>
             </div>
             <div className="mt-2 w-full">
-              <div className="flex h-24 w-full items-start justify-center rounded-t-xl bg-neutral-300/50 dark:bg-neutral-400/20">
+              <div className={cn("flex w-full items-start justify-center rounded-t-xl", secondStyle.barColor, secondStyle.barHeight)}>
                 <div className="pt-4 text-center">
                   <p className="text-lg font-bold text-neutral-900 dark:text-white">{second.drink_count}</p>
                   <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
@@ -275,7 +316,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
       <div className="flex flex-col items-center flex-1">
         <div className="relative">
           <Trophy className="absolute -top-9 left-1/2 -translate-x-1/2 h-6 w-6 text-amber-400" />
-          <PodiumAvatar entry={first} size="lg" position={1} />
+          <PodiumAvatar entry={first} size="lg" position={firstStyle.ring} />
         </div>
         <div className="mt-2 text-center w-full px-1">
           <p className="text-[15px] font-bold text-neutral-900 dark:text-white truncate">
@@ -286,7 +327,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
           </p>
         </div>
         <div className="mt-2 w-full">
-          <div className="flex h-32 w-full items-start justify-center rounded-t-xl bg-amber-400/30 dark:bg-amber-400/20">
+          <div className={cn("flex w-full items-start justify-center rounded-t-xl", firstStyle.barColor, firstStyle.barHeight)}>
             <div className="pt-4 text-center">
               <p className="text-xl font-bold text-neutral-900 dark:text-white">{first.drink_count}</p>
               <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
@@ -299,7 +340,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
       <div className="flex flex-col items-center flex-1">
         {third ? (
           <>
-            <PodiumAvatar entry={third} size="md" position={3} />
+            <PodiumAvatar entry={third} size="md" position={thirdStyle.ring} />
             <div className="mt-2 text-center w-full px-1">
               <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate">
                 {third.display_name}
@@ -309,7 +350,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
               </p>
             </div>
             <div className="mt-2 w-full">
-              <div className="flex h-20 w-full items-start justify-center rounded-t-xl bg-amber-600/25 dark:bg-amber-600/20">
+              <div className={cn("flex w-full items-start justify-center rounded-t-xl", thirdStyle.barColor, thirdStyle.barHeight)}>
                 <div className="pt-4 text-center">
                   <p className="text-lg font-bold text-neutral-900 dark:text-white">{third.drink_count}</p>
                   <p className="text-[10px] text-neutral-500 dark:text-white/40">drinks</p>
@@ -485,15 +526,41 @@ export default function LeaderboardPage() {
 
         {/* Combined skeleton */}
         <div className={cn(GLASS_CARD, "overflow-hidden")}>
-          <div className="px-6 pt-6">
+          <div className="px-6 pt-12">
             <div className="flex items-end justify-center gap-3">
-              {[20, 28, 16].map((h, i) => (
-                <div key={i} className="flex flex-col items-center flex-1 gap-2">
-                  <div className={cn("rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse", i === 1 ? "h-20 w-20" : "h-16 w-16")} />
-                  <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className={cn("w-full rounded-t-xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse")} style={{ height: `${h * 4}px` }} />
+              {/* 2nd place skeleton */}
+              <div className="flex flex-col items-center flex-1">
+                <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="mt-2 flex flex-col items-center gap-1 w-full">
+                  <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                 </div>
-              ))}
+                <div className="mt-2 w-full">
+                  <div className="h-24 w-full rounded-t-xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+              </div>
+              {/* 1st place skeleton */}
+              <div className="flex flex-col items-center flex-1">
+                <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="mt-2 flex flex-col items-center gap-1 w-full">
+                  <div className="h-4 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="mt-2 w-full">
+                  <div className="h-32 w-full rounded-t-xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+              </div>
+              {/* 3rd place skeleton */}
+              <div className="flex flex-col items-center flex-1">
+                <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="mt-2 flex flex-col items-center gap-1 w-full">
+                  <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="mt-2 w-full">
+                  <div className="h-20 w-full rounded-t-xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+              </div>
             </div>
           </div>
           <div className="mx-5 border-t border-neutral-200/40 dark:border-white/[0.06]" />
