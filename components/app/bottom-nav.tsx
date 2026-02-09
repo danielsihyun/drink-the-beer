@@ -42,6 +42,7 @@ export function BottomNav() {
   const [userId, setUserId] = React.useState<string | null>(null)
   const [pendingRequestCount, setPendingRequestCount] = React.useState(0)
   const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
+  const prevPathnameRef = React.useRef(pathname)
 
   // Load pending friend requests count
   const loadPendingRequests = React.useCallback(async () => {
@@ -83,51 +84,38 @@ export function BottomNav() {
     }
   }, [supabase])
 
-  // Mark profile as seen (update last_seen timestamp)
-  const markProfileSeen = React.useCallback(async () => {
-    try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr || !userRes.user) return
-
-      // Upsert the last seen timestamp
-      const { error: upsertErr } = await supabase
-        .from("user_last_seen")
-        .upsert(
-          {
-            user_id: userRes.user.id,
-            profile_last_seen: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        )
-
-      if (upsertErr) throw upsertErr
-
-      // Clear the badge immediately
-      setUnseenCheersCount(0)
-    } catch (e) {
-      console.error("Failed to mark profile seen:", e)
-    }
-  }, [supabase])
-
   // Load counts on mount
   React.useEffect(() => {
     loadPendingRequests()
     loadUnseenCheers()
   }, [loadPendingRequests, loadUnseenCheers])
 
-  // Handle pathname changes
+  // Handle pathname changes — mark as seen when LEAVING profile, then refresh
   React.useEffect(() => {
-    // Refresh friends count when navigating (handles accept/reject)
+    const wasOnProfile = prevPathnameRef.current === "/profile/me"
+    const isOnProfile = pathname === "/profile/me"
+    prevPathnameRef.current = pathname
+
+    if (wasOnProfile && !isOnProfile && userId) {
+      // Just left profile — mark as seen, then refresh counts
+      supabase
+        .from("user_last_seen")
+        .upsert(
+          { user_id: userId, profile_last_seen: new Date().toISOString() },
+          { onConflict: "user_id" }
+        )
+        .then(() => {
+          loadUnseenCheers()
+        })
+    }
+
     loadPendingRequests()
 
-    // When user visits profile, mark as seen
-    if (pathname === "/profile/me") {
-      markProfileSeen()
-    } else {
-      // Refresh unseen cheers when not on profile
+    // Only refresh cheers if NOT arriving at profile (preserve the count for display)
+    if (!isOnProfile && !wasOnProfile) {
       loadUnseenCheers()
     }
-  }, [pathname, loadPendingRequests, loadUnseenCheers, markProfileSeen])
+  }, [pathname, userId, supabase, loadPendingRequests, loadUnseenCheers])
 
   // Expose a way for other components to trigger a refresh
   React.useEffect(() => {
@@ -140,7 +128,7 @@ export function BottomNav() {
     return () => window.removeEventListener("refresh-nav-badges", handleRefreshNav)
   }, [loadPendingRequests, loadUnseenCheers])
 
-  // ✅ Realtime subscription for friend requests
+  // Realtime subscription for friend requests
   React.useEffect(() => {
     if (!userId) return
 
@@ -165,7 +153,7 @@ export function BottomNav() {
     }
   }, [userId, supabase, loadPendingRequests])
 
-  // ✅ Realtime subscription for cheers - simplified to always refresh on any change
+  // Realtime subscription for cheers (only when NOT on profile)
   React.useEffect(() => {
     if (!userId) return
     if (pathname === "/profile/me") return
@@ -175,13 +163,11 @@ export function BottomNav() {
       .on(
         "postgres_changes",
         {
-          event: "*", // Listen to INSERT, UPDATE, and DELETE
+          event: "*",
           schema: "public",
           table: "drink_cheers",
         },
         () => {
-          // Simply refresh the count on any change to drink_cheers
-          // The RPC function will calculate the correct count
           loadUnseenCheers()
         }
       )
@@ -192,6 +178,9 @@ export function BottomNav() {
     }
   }, [userId, supabase, loadUnseenCheers, pathname])
 
+  // Profile badge = pending friends + unseen cheers
+  const profileBadgeCount = pendingRequestCount + unseenCheersCount
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">
       <div className="mx-auto max-w-md">
@@ -200,9 +189,7 @@ export function BottomNav() {
             const isActive = pathname === item.href
             const Icon = item.icon
 
-            // Determine which badge to show
-            const showLeaderboardBadge = item.href === "/leaderboard" && pendingRequestCount > 0
-            const showProfileBadge = item.href === "/profile/me" && unseenCheersCount > 0
+            const showProfileBadge = item.href === "/profile/me" && profileBadgeCount > 0
 
             return (
               <li key={item.href} className="flex-1">
@@ -215,14 +202,9 @@ export function BottomNav() {
                 >
                   <div className="relative">
                     <Icon className={cn("h-5 w-5", isActive && "fill-primary/20")} />
-                    {showLeaderboardBadge && (
-                      <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
-                      </span>
-                    )}
                     {showProfileBadge && (
                       <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {unseenCheersCount > 9 ? "9+" : unseenCheersCount}
+                        {profileBadgeCount > 9 ? "9+" : profileBadgeCount}
                       </span>
                     )}
                   </div>

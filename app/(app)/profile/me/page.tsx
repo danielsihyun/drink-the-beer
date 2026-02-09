@@ -60,6 +60,7 @@ type UiProfile = {
   joinDate: string
   friendCount: number
   drinkCount: number
+  totalCheersReceived: number
   avatarUrl: string | null
   avatarPath: string | null
   showcaseAchievements: string[]
@@ -98,6 +99,7 @@ const DEFAULT_PROFILE: UiProfile = {
   joinDate: "—",
   friendCount: 0,
   drinkCount: 0,
+  totalCheersReceived: 0,
   avatarUrl: null,
   avatarPath: null,
   showcaseAchievements: [],
@@ -944,6 +946,9 @@ export default function ProfilePage() {
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<DrinkLog | null>(null)
 
+  const [pendingFriendRequests, setPendingFriendRequests] = React.useState(0)
+  const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
+
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -1070,6 +1075,27 @@ export default function ProfilePage() {
       setAchievements((achievementsData ?? []) as Achievement[])
       setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
 
+      // Fetch total cheers received across all user's drink logs
+      const { count: totalCheers } = await supabase
+        .from("drink_cheers")
+        .select("*", { count: "exact", head: true })
+        .in("drink_log_id", mapped.map((m) => m.id))
+
+      // Fetch pending friend requests (where user is the addressee)
+      const { count: pendingFriends } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("addressee_id", user.id)
+        .eq("status", "pending")
+
+      setPendingFriendRequests(pendingFriends ?? 0)
+
+      // Fetch unseen cheers count
+      const { data: unseenData } = await supabase.rpc("get_unseen_cheers_count", {
+        p_user_id: user.id,
+      })
+      setUnseenCheersCount(unseenData ?? 0)
+
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
         username: p.username,
@@ -1077,6 +1103,7 @@ export default function ProfilePage() {
         joinDate: formatJoinDate(m.created_at),
         friendCount: p.friend_count ?? 0,
         drinkCount: p.drink_count ?? 0,
+        totalCheersReceived: totalCheers ?? 0,
         avatarUrl: avatarSignedUrl,
         avatarPath: p.avatar_path ?? null,
         showcaseAchievements: p.showcase_achievements ?? [],
@@ -1093,6 +1120,82 @@ export default function ProfilePage() {
   React.useEffect(() => {
     load()
   }, [load])
+
+  // Realtime: refresh pending friend requests when friendships change
+  React.useEffect(() => {
+    if (!userId) return
+
+    const friendshipsChannel = supabase
+      .channel("profile-friendships-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+          filter: `addressee_id=eq.${userId}`,
+        },
+        async () => {
+          const { count } = await supabase
+            .from("friendships")
+            .select("*", { count: "exact", head: true })
+            .eq("addressee_id", userId)
+            .eq("status", "pending")
+          setPendingFriendRequests(count ?? 0)
+          // Also refresh friend count on profile
+          const { data: prof } = await supabase
+            .from("profile_public_stats")
+            .select("friend_count")
+            .eq("id", userId)
+            .single()
+          if (prof) {
+            setProfile((prev) => ({ ...prev, friendCount: prof.friend_count ?? prev.friendCount }))
+          }
+          window.dispatchEvent(new Event("refresh-nav-badges"))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(friendshipsChannel)
+    }
+  }, [userId, supabase])
+
+  // Realtime: refresh cheers counts when drink_cheers change
+  React.useEffect(() => {
+    if (!userId) return
+
+    const cheersChannel = supabase
+      .channel("profile-cheers-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "drink_cheers",
+        },
+        async () => {
+          // Refresh total cheers received
+          const logIds = logs.map((l) => l.id)
+          if (logIds.length > 0) {
+            const { count } = await supabase
+              .from("drink_cheers")
+              .select("*", { count: "exact", head: true })
+              .in("drink_log_id", logIds)
+            setProfile((prev) => ({ ...prev, totalCheersReceived: count ?? prev.totalCheersReceived }))
+          }
+          // Refresh individual post cheers
+          if (logIds.length > 0) {
+            await loadCheersState(logIds, userId)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(cheersChannel)
+    }
+  }, [userId, supabase, logs, loadCheersState])
 
   async function toggleCheers(log: DrinkLog) {
     if (!userId) return
@@ -1378,13 +1481,27 @@ export default function ProfilePage() {
                   <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
 
                   <div className="mt-1.5 flex gap-4 text-sm">
-                    <Link href="/friends" className="hover:opacity-70 transition-opacity">
+                    <Link href="/friends" className="relative hover:opacity-70 transition-opacity">
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Friends</span>
+                      {pendingFriendRequests > 0 && (
+                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {pendingFriendRequests > 9 ? "9+" : pendingFriendRequests}
+                        </span>
+                      )}
                     </Link>
                     <div>
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.drinkCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Drinks</span>
+                    </div>
+                    <div className="relative">
+                      <span className="font-bold text-neutral-900 dark:text-white">{profile.totalCheersReceived}</span>{" "}
+                      <span className="text-neutral-500 dark:text-white/40">Cheers</span>
+                      {unseenCheersCount > 0 && (
+                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {unseenCheersCount > 9 ? "9+" : unseenCheersCount}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
