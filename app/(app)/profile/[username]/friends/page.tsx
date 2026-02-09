@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -12,6 +12,72 @@ interface FriendProfile {
   username: string
   displayName: string
   avatarUrl: string | null
+  friendCount: number
+  drinkCount: number
+  cheersCount: number
+}
+
+function PersonCard({
+  avatarUrl,
+  username,
+  displayName,
+  friendCount,
+  drinkCount,
+  cheersCount,
+}: {
+  avatarUrl: string | null
+  username: string
+  displayName: string
+  friendCount: number
+  drinkCount: number
+  cheersCount: number
+}) {
+  return (
+    <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-4">
+      <div className="flex items-center gap-3">
+        <Link href={`/profile/${username}`} className="flex items-center gap-3 flex-1 min-w-0 group/profile">
+          {avatarUrl ? (
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
+              <Image
+                src={avatarUrl}
+                alt="Profile"
+                fill
+                className="object-cover transition-transform duration-500 group-hover/profile:scale-110"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-neutral-400 dark:text-white/30">
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+              </svg>
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</div>
+            <div className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{username}</div>
+
+            <div className="flex gap-4 text-[13px]">
+              <div>
+                <span className="font-semibold text-neutral-900 dark:text-white">{friendCount}</span>{" "}
+                <span className="text-neutral-500 dark:text-white/40">friends</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-900 dark:text-white">{drinkCount}</span>{" "}
+                <span className="text-neutral-500 dark:text-white/40">drinks</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-900 dark:text-white">{cheersCount}</span>{" "}
+                <span className="text-neutral-500 dark:text-white/40">cheers</span>
+              </div>
+            </div>
+          </div>
+        </Link>
+      </div>
+    </article>
+  )
 }
 
 export default function UserFriendsPage() {
@@ -82,29 +148,46 @@ export default function UserFriendsPage() {
         // Fetch profiles for all friends
         const { data: profiles, error: pErr } = await supabase
           .from("profile_public_stats")
-          .select("id, username, display_name, avatar_path")
+          .select("id, username, display_name, avatar_path, friend_count, drink_count")
           .in("id", friendIds)
 
         if (pErr) throw pErr
 
         // Get signed avatar URLs
-        const friendProfiles: FriendProfile[] = await Promise.all(
+        const avatarUrls = await Promise.all(
+          (profiles ?? []).map((p: any) =>
+            p.avatar_path
+              ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null)
+          )
+        )
+
+        // Fetch cheers counts for each friend
+        const cheersCounts = await Promise.all(
           (profiles ?? []).map(async (p: any) => {
-            let avatarUrl: string | null = null
-            if (p.avatar_path) {
-              const { data } = await supabase.storage
-                .from("profile-photos")
-                .createSignedUrl(p.avatar_path, 60 * 60)
-              avatarUrl = data?.signedUrl ?? null
-            }
-            return {
-              id: p.id,
-              username: p.username,
-              displayName: p.display_name || p.username,
-              avatarUrl,
-            }
+            const { data: logIds } = await supabase
+              .from("drink_logs")
+              .select("id")
+              .eq("user_id", p.id)
+            const ids = (logIds ?? []).map((r: any) => r.id)
+            if (ids.length === 0) return 0
+            const { count } = await supabase
+              .from("drink_cheers")
+              .select("*", { count: "exact", head: true })
+              .in("drink_log_id", ids)
+            return count ?? 0
           })
         )
+
+        const friendProfiles: FriendProfile[] = (profiles ?? []).map((p: any, i: number) => ({
+          id: p.id,
+          username: p.username,
+          displayName: p.display_name || p.username,
+          avatarUrl: avatarUrls[i],
+          friendCount: p.friend_count ?? 0,
+          drinkCount: p.drink_count ?? 0,
+          cheersCount: cheersCounts[i],
+        }))
 
         // Sort alphabetically by display name
         friendProfiles.sort((a, b) =>
@@ -123,9 +206,9 @@ export default function UserFriendsPage() {
   }, [username, supabase, router])
 
   return (
-    <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
+    <div className="container max-w-md mx-auto px-0 py-4">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-6 flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}
@@ -134,28 +217,38 @@ export default function UserFriendsPage() {
         >
           <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
         </button>
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+        <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
           {displayName}&apos;s Friends
         </h2>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="mb-6 rounded-[2rem] border border-red-500/20 bg-red-50/50 dark:bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
+            Friends
+          </div>
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4"
+              className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4"
             >
-              <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-28 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-3.5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="flex gap-4 pt-1">
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -170,47 +263,20 @@ export default function UserFriendsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+        <div className="space-y-3 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
+            Friends{friends.length > 0 && ` (${friends.length})`}
+          </div>
           {friends.map((friend) => (
-            <Link
+            <PersonCard
               key={friend.id}
-              href={`/profile/${friend.username}`}
-              className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4 transition-all hover:bg-white dark:hover:bg-white/[0.06]"
-            >
-              {friend.avatarUrl ? (
-                <div className="relative h-12 w-12 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
-                  <Image
-                    src={friend.avatarUrl}
-                    alt={friend.username}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-              ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="h-6 w-6 text-neutral-400 dark:text-white/30"
-                  >
-                    <circle cx="12" cy="8" r="4" fill="currentColor" />
-                    <path
-                      d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">
-                  {friend.displayName}
-                </p>
-                <p className="text-sm text-neutral-500 dark:text-white/40 truncate">
-                  @{friend.username}
-                </p>
-              </div>
-            </Link>
+              avatarUrl={friend.avatarUrl}
+              username={friend.username}
+              displayName={friend.displayName}
+              friendCount={friend.friendCount}
+              drinkCount={friend.drinkCount}
+              cheersCount={friend.cheersCount}
+            />
           ))}
         </div>
       )}

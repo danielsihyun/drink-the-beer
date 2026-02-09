@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2, ArrowLeft } from "lucide-react"
+import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -38,6 +38,7 @@ type UiPerson = {
   avatarUrl: string | null
   friendCount: number
   drinkCount: number
+  cheersCount: number
   friendshipCreatedAt?: string
   outgoingPending?: boolean
 }
@@ -51,6 +52,7 @@ type UiPending = {
   avatarUrl: string | null
   friendCount: number
   drinkCount: number
+  cheersCount: number
 }
 
 function sortLabel(s: FriendSort) {
@@ -106,6 +108,7 @@ function PersonCard({
   displayName,
   friendCount,
   drinkCount,
+  cheersCount,
   actions,
 }: {
   avatarUrl: string | null
@@ -113,6 +116,7 @@ function PersonCard({
   displayName: string
   friendCount: number
   drinkCount: number
+  cheersCount?: number
   actions?: React.ReactNode
 }) {
   return (
@@ -151,6 +155,12 @@ function PersonCard({
                 <span className="font-semibold text-neutral-900 dark:text-white">{drinkCount}</span>{" "}
                 <span className="text-neutral-500 dark:text-white/40">drinks</span>
               </div>
+              {cheersCount !== undefined && (
+                <div>
+                  <span className="font-semibold text-neutral-900 dark:text-white">{cheersCount}</span>{" "}
+                  <span className="text-neutral-500 dark:text-white/40">cheers</span>
+                </div>
+              )}
             </div>
           </div>
         </Link>
@@ -254,6 +264,23 @@ export default function FriendsPage() {
           )
         )
 
+        // Fetch cheers counts for each friend
+        const cheersCounts = await Promise.all(
+          (profiles ?? []).map(async (p: any) => {
+            const { data: logIds } = await supabase
+              .from("drink_logs")
+              .select("id")
+              .eq("user_id", p.id)
+            const ids = (logIds ?? []).map((r: any) => r.id)
+            if (ids.length === 0) return 0
+            const { count } = await supabase
+              .from("drink_cheers")
+              .select("*", { count: "exact", head: true })
+              .in("drink_log_id", ids)
+            return count ?? 0
+          })
+        )
+
         const mappedFriends: UiPerson[] = (profiles ?? []).map((r: any, i: number) => ({
           id: r.id,
           username: r.username,
@@ -261,6 +288,7 @@ export default function FriendsPage() {
           avatarUrl: avatarUrls[i],
           friendCount: r.friend_count ?? 0,
           drinkCount: r.drink_count ?? 0,
+          cheersCount: cheersCounts[i],
           friendshipCreatedAt: friendshipMap.get(r.id),
         }))
 
@@ -299,6 +327,7 @@ export default function FriendsPage() {
         avatarUrl: pendingAvatarUrls[i],
         friendCount: p.friend_count ?? 0,
         drinkCount: p.drink_count ?? 0,
+        cheersCount: 0,
       }))
 
       setPending(mappedPending)
@@ -457,6 +486,7 @@ export default function FriendsPage() {
           avatarUrl: avatarUrls[i],
           friendCount: p.friend_count ?? 0,
           drinkCount: p.drink_count ?? 0,
+          cheersCount: 0,
           outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
         }))
 
@@ -607,17 +637,7 @@ export default function FriendsPage() {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
-          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
           <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortLabel(sort)}
@@ -673,17 +693,7 @@ export default function FriendsPage() {
       <div className="container max-w-md mx-auto px-0 py-4 pb-24">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
-          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
 
           <div ref={sortMenuRef} className="relative">
             <button
@@ -888,6 +898,7 @@ export default function FriendsPage() {
                 displayName={f.displayName}
                 friendCount={f.friendCount}
                 drinkCount={f.drinkCount}
+                cheersCount={f.cheersCount}
                 actions={
                   <button
                     type="button"
