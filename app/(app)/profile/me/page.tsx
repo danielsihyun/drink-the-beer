@@ -1378,10 +1378,10 @@ export default function ProfilePage() {
                   <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
 
                   <div className="mt-1.5 flex gap-4 text-sm">
-                    <div>
+                    <Link href="/friends" className="hover:opacity-70 transition-opacity">
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Friends</span>
-                    </div>
+                    </Link>
                     <div>
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.drinkCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Drinks</span>
