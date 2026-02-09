@@ -546,7 +546,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-4">
       {/* Profile card skeleton */}
-      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[24px]">
+      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[22px]">
         <div className="flex items-center gap-4">
           <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-2">
@@ -566,6 +566,12 @@ function LoadingSkeleton() {
       <div className="flex gap-3">
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
+      </div>
+
+      {/* Timeline header skeleton */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="h-5 w-28 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+        <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
       {/* Card skeletons */}

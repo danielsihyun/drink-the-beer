@@ -61,6 +61,7 @@ type UiProfile = {
   joinDate: string
   friendCount: number
   drinkCount: number
+  totalCheersReceived: number
   avatarUrl: string | null
   showcaseAchievements: string[]
 }
@@ -387,18 +388,32 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-4">
       {/* Profile card skeleton */}
-      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
+      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[22px]">
         <div className="flex items-center gap-4">
           <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 space-y-2">
             <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="h-3 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            <div className="flex gap-4">
-              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="h-3.5 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="flex gap-4 pt-0.5">
+              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Action buttons skeleton */}
+      <div className="flex gap-3">
+        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
+        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
+      </div>
+
+      {/* Timeline header skeleton */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="h-5 w-36 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+        <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
       {/* Card skeletons */}
@@ -933,6 +948,21 @@ export default function UserProfilePage() {
         .eq("user_id", p.id)
       setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
 
+      // Fetch total cheers received for this user's drink logs
+      const { data: userLogIds } = await supabase
+        .from("drink_logs")
+        .select("id")
+        .eq("user_id", p.id)
+      const logIdList = (userLogIds ?? []).map((r: any) => r.id)
+      let totalCheers = 0
+      if (logIdList.length > 0) {
+        const { count } = await supabase
+          .from("drink_cheers")
+          .select("*", { count: "exact", head: true })
+          .in("drink_log_id", logIdList)
+        totalCheers = count ?? 0
+      }
+
       const ui: UiProfile = {
         id: p.id,
         username: p.username,
@@ -940,6 +970,7 @@ export default function UserProfilePage() {
         joinDate: formatJoinDate(m.created_at),
         friendCount: p.friend_count ?? 0,
         drinkCount: p.drink_count ?? 0,
+        totalCheersReceived: totalCheers,
         avatarUrl: avatarSignedUrl,
         showcaseAchievements: p.showcase_achievements ?? [],
       }
@@ -1275,14 +1306,18 @@ export default function UserProfilePage() {
                 <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
                 <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
 
-                <div className="mt-1.5 flex gap-4 text-sm">
-                  <div>
+                <div className="mt-2 -mb-0.5 flex gap-4 text-sm">
+                  <Link href={`/profile/${profile.username}/friends`} className="hover:opacity-70 transition-opacity">
                     <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                     <span className="text-neutral-500 dark:text-white/40">Friends</span>
-                  </div>
+                  </Link>
                   <div>
                     <span className="font-bold text-neutral-900 dark:text-white">{profile.drinkCount}</span>{" "}
                     <span className="text-neutral-500 dark:text-white/40">Drinks</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-neutral-900 dark:text-white">{profile.totalCheersReceived}</span>{" "}
+                    <span className="text-neutral-500 dark:text-white/40">Cheers</span>
                   </div>
                 </div>
               </div>
