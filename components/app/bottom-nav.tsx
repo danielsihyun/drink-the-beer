@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Users, Plus, BarChart3, User } from "lucide-react"
+import { Home, Trophy, Plus, BarChart3, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -14,9 +14,9 @@ const navItems = [
     icon: Home,
   },
   {
-    href: "/friends",
-    label: "Friends",
-    icon: Users,
+    href: "/leaderboard",
+    label: "Leaderboard",
+    icon: Trophy,
   },
   {
     href: "/log",
@@ -201,7 +201,7 @@ export function BottomNav() {
             const Icon = item.icon
 
             // Determine which badge to show
-            const showFriendsBadge = item.href === "/friends" && pendingRequestCount > 0
+            const showLeaderboardBadge = item.href === "/leaderboard" && pendingRequestCount > 0
             const showProfileBadge = item.href === "/profile/me" && unseenCheersCount > 0
 
             return (
@@ -215,7 +215,7 @@ export function BottomNav() {
                 >
                   <div className="relative">
                     <Icon className={cn("h-5 w-5", isActive && "fill-primary/20")} />
-                    {showFriendsBadge && (
+                    {showLeaderboardBadge && (
                       <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                         {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
                       </span>
