@@ -526,7 +526,7 @@ export default function LeaderboardPage() {
 
         {/* Combined skeleton */}
         <div className={cn(GLASS_CARD, "overflow-hidden")}>
-          <div className="px-6 pt-12">
+          <div className="px-6 pt-[56px]">
             <div className="flex items-end justify-center gap-3">
               {/* 2nd place skeleton */}
               <div className="flex flex-col items-center flex-1">
