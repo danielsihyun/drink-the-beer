@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2 } from "lucide-react"
+import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -607,7 +607,17 @@ export default function FriendsPage() {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded-full border p-2"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+          </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortLabel(sort)}
@@ -663,7 +673,17 @@ export default function FriendsPage() {
       <div className="container max-w-md mx-auto px-0 py-4 pb-24">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded-full border p-2"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+          </div>
 
           <div ref={sortMenuRef} className="relative">
             <button
