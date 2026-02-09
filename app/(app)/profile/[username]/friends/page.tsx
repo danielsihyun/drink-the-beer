@@ -80,6 +80,64 @@ function PersonCard({
   )
 }
 
+function ResponsiveTitle({ text }: { text: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [fontSize, setFontSize] = React.useState(24)
+  const baseSize = 24
+  const minSize = 16
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const calculateSize = () => {
+      const containerWidth = container.clientWidth
+      if (containerWidth === 0) return
+
+      const measureSpan = document.createElement('span')
+      measureSpan.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: ${baseSize}px;
+        font-weight: 700;
+        font-family: inherit;
+      `
+      measureSpan.textContent = text
+      document.body.appendChild(measureSpan)
+      
+      const textWidth = measureSpan.offsetWidth
+      document.body.removeChild(measureSpan)
+
+      if (textWidth > containerWidth) {
+        const ratio = containerWidth / textWidth
+        const newSize = Math.max(Math.floor(baseSize * ratio * 0.95), minSize)
+        setFontSize(newSize)
+      } else {
+        setFontSize(baseSize)
+      }
+    }
+
+    calculateSize()
+
+    const resizeObserver = new ResizeObserver(calculateSize)
+    resizeObserver.observe(container)
+
+    return () => resizeObserver.disconnect()
+  }, [text])
+
+  return (
+    <div ref={containerRef} className="min-w-0 flex-1 overflow-hidden">
+      <h2
+        className="font-bold whitespace-nowrap"
+        style={{ fontSize: `${fontSize}px`, lineHeight: '1.25' }}
+      >
+        {text}
+      </h2>
+    </div>
+  )
+}
+
 export default function UserFriendsPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -208,17 +266,17 @@ export default function UserFriendsPage() {
   return (
     <div className="container max-w-md mx-auto px-0 py-4">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex items-center gap-3 min-w-0">
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+          className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 shrink-0 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
           aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
         </button>
-        <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
-          {displayName}&apos;s Friends
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white truncate">
+          @{username}&apos;s Friends
         </h2>
       </div>
 
