@@ -1022,7 +1022,7 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     }
     startDate.setHours(0, 0, 0, 0)
 
-    if (timeRange !== "1W") {
+    if (timeRange !== "1W" && timeRange !== "1M") {
       const jsDay = startDate.getDay()
       const mondayOffset = (jsDay + 6) % 7
       startDate.setDate(startDate.getDate() - mondayOffset)
