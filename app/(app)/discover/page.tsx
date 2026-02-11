@@ -616,17 +616,19 @@ export default function DiscoverPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.drinkType}</div>
-                        <div className="text-[13px] text-neutral-500 dark:text-white/40">{drink.count} logs</div>
-                        {drink.percentChange !== null && drink.percentChange !== 0 && (
-                          <div className={cn(
-                            "text-[11px] font-semibold",
-                            drink.percentChange > 0
-                              ? "text-emerald-500 dark:text-emerald-400"
-                              : "text-red-400 dark:text-red-400"
-                          )}>
-                            {drink.percentChange > 0 ? "↑" : "↓"} {Math.abs(drink.percentChange)}% vs last week
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5 text-[13px]">
+                          <span className="text-neutral-500 dark:text-white/40">{drink.count} logs</span>
+                          {drink.percentChange !== null && drink.percentChange !== 0 && (
+                            <span className={cn(
+                              "font-semibold",
+                              drink.percentChange > 0
+                                ? "text-emerald-500 dark:text-emerald-400"
+                                : "text-red-400 dark:text-red-400"
+                            )}>
+                              {drink.percentChange > 0 ? "+" : ""}{drink.percentChange}%
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
