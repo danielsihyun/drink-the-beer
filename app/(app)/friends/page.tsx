@@ -3,22 +3,12 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, ArrowUpDown, Plus, Check, X, Trash2 } from "lucide-react"
+import { Loader2, ArrowUpDown, Plus, Check, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
 type FriendSort = "name_asc" | "name_desc" | "since_new" | "since_old"
-
-type SearchProfileRow = {
-  id: string
-  username: string
-  display_name: string
-  avatar_path: string | null
-  friend_count: number
-  drink_count: number
-  outgoing_pending?: boolean
-}
 
 type PendingIncomingRow = {
   friendshipId: string
@@ -40,7 +30,6 @@ type UiPerson = {
   drinkCount: number
   cheersCount: number
   friendshipCreatedAt?: string
-  outgoingPending?: boolean
 }
 
 type UiPending = {
@@ -180,10 +169,6 @@ export default function FriendsPage() {
 
   const [meId, setMeId] = React.useState<string | null>(null)
 
-  const [query, setQuery] = React.useState("")
-  const [searching, setSearching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<UiPerson[]>([])
-
   const [pending, setPending] = React.useState<UiPending[]>([])
   const [pendingBusyId, setPendingBusyId] = React.useState<string | null>(null)
 
@@ -207,8 +192,6 @@ export default function FriendsPage() {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
     }
   }, [])
-
-  const [outgoingPendingIds, setOutgoingPendingIds] = React.useState<Record<string, true>>({})
 
   const loadFriends = React.useCallback(async () => {
     setError(null)
@@ -343,21 +326,6 @@ export default function FriendsPage() {
   }, [loadFriends])
 
   React.useEffect(() => {
-    if (!friends.length) return
-    setOutgoingPendingIds((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const f of friends) {
-        if (next[f.id]) {
-          delete next[f.id]
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [friends])
-
-  React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
         setShowSortMenu(false)
@@ -438,69 +406,6 @@ export default function FriendsPage() {
     }
   }, [meId, supabase, loadFriends])
 
-  React.useEffect(() => {
-    if (!meId) return
-    const q = query.trim()
-    if (!q.length) {
-      setSearchResults([])
-      return
-    }
-
-    const t = window.setTimeout(async () => {
-      setSearching(true)
-      try {
-        const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-        if (sessErr) throw sessErr
-        const token = sessRes.session?.access_token
-        if (!token) throw new Error("Missing session token. Please log out and back in.")
-
-        const res = await fetch("/api/profile/search", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ q }),
-        })
-
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json?.error ?? "Search failed.")
-
-        const base = (json?.items ?? []) as SearchProfileRow[]
-        const friendIdSet = new Set(friends.map((f) => f.id))
-
-        const filtered = base.filter((p) => p.id !== meId && !friendIdSet.has(p.id))
-
-        const avatarUrls = await Promise.all(
-          filtered.map((p) =>
-            p.avatar_path
-              ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null)
-          )
-        )
-
-        const mapped: UiPerson[] = filtered.map((p, i) => ({
-          id: p.id,
-          username: p.username,
-          displayName: p.display_name,
-          avatarUrl: avatarUrls[i],
-          friendCount: p.friend_count ?? 0,
-          drinkCount: p.drink_count ?? 0,
-          cheersCount: 0,
-          outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
-        }))
-
-        setSearchResults(mapped)
-      } catch (e: any) {
-        setError(e?.message ?? "Search failed.")
-      } finally {
-        setSearching(false)
-      }
-    }, 250)
-
-    return () => window.clearTimeout(t)
-  }, [query, meId, supabase, friends, outgoingPendingIds])
-
   function sortedFriends(list: UiPerson[]) {
     const copy = [...list]
     if (sort === "name_asc") copy.sort((a, b) => a.username.localeCompare(b.username))
@@ -510,45 +415,6 @@ export default function FriendsPage() {
     else if (sort === "since_old")
       copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
     return copy
-  }
-
-  async function addFriend(friendId: string) {
-    setError(null)
-    try {
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and back in.")
-
-      const res = await fetch("/api/friends/add", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ friendId }),
-      })
-
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error ?? "Could not add friend.")
-
-      if (json?.autoAccepted) {
-        showToast("Friend added!")
-        setSearchResults((prev) => prev.filter((p) => p.id !== friendId))
-      } else {
-        showToast("Request sent!")
-
-        setOutgoingPendingIds((prev) => ({ ...prev, [friendId]: true }))
-
-        setSearchResults((prev) => prev.map((p) => (p.id === friendId ? { ...p, outgoingPending: true } : p)))
-      }
-
-      await loadFriends()
-
-      window.dispatchEvent(new Event("refresh-nav-badges"))
-    } catch (e: any) {
-      setError(e?.message ?? "Could not add friend.")
-    }
   }
 
   async function respondToRequest(requestId: string, action: "accepted" | "rejected") {
@@ -642,11 +508,6 @@ export default function FriendsPage() {
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortLabel(sort)}
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
-          <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
-          <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
         </div>
 
         <div className="space-y-3">
@@ -759,68 +620,6 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className={cn(
-            "flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
-            "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
-          )}>
-            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search people by username or name…"
-              className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
-            />
-            {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30" />}
-          </div>
-        </div>
-
-        {/* Search Results */}
-        {query.trim().length > 0 && (
-          <div className="mb-6 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Search results</div>
-
-            {searchResults.length === 0 && !searching ? (
-              <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
-                No matches found.
-              </div>
-            ) : (
-              searchResults.map((p) => (
-                <PersonCard
-                  key={p.id}
-                  avatarUrl={p.avatarUrl}
-                  username={p.username}
-                  displayName={p.displayName}
-                  friendCount={p.friendCount}
-                  drinkCount={p.drinkCount}
-                  actions={
-                    p.outgoingPending ? (
-                      <button
-                        type="button"
-                        disabled
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-neutral-400 dark:text-white/30"
-                        aria-label="Request pending"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => addFriend(p.id)}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
-                        aria-label="Add friend"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    )
-                  }
-                />
-              ))
-            )}
-          </div>
-        )}
-
         {/* Pending Requests */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
@@ -886,7 +685,7 @@ export default function FriendsPage() {
               </div>
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No friends yet</h3>
               <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-white/45 leading-relaxed">
-                Search for people above and hit + to add them as a friend.
+                Head to the Discover tab to find and add friends.
               </p>
             </div>
           ) : (
