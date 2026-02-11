@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, Plus, Check, TrendingUp, Users, Sparkles } from "lucide-react"
+import { Loader2, Search, Plus, Check, Users, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -602,10 +602,7 @@ export default function DiscoverPage() {
           {/* ── Trending Drinks ────────────────────────────────── */}
           {trending.length > 0 && (
             <div className="mb-6 space-y-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-3.5 w-3.5 text-neutral-400 dark:text-white/30" />
-                <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Trending this week</div>
-              </div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Trending this week</div>
 
               <div className="grid grid-cols-2 gap-3">
                 {trending.map((drink, i) => (
@@ -619,19 +616,17 @@ export default function DiscoverPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.drinkType}</div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] text-neutral-500 dark:text-white/40">{drink.count} logs</span>
-                          {drink.percentChange !== null && drink.percentChange !== 0 && (
-                            <span className={cn(
-                              "text-[11px] font-semibold",
-                              drink.percentChange > 0
-                                ? "text-emerald-500 dark:text-emerald-400"
-                                : "text-red-400 dark:text-red-400"
-                            )}>
-                              {drink.percentChange > 0 ? "+" : ""}{drink.percentChange}%
-                            </span>
-                          )}
-                        </div>
+                        <div className="text-[13px] text-neutral-500 dark:text-white/40">{drink.count} logs</div>
+                        {drink.percentChange !== null && drink.percentChange !== 0 && (
+                          <div className={cn(
+                            "text-[11px] font-semibold",
+                            drink.percentChange > 0
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-red-400 dark:text-red-400"
+                          )}>
+                            {drink.percentChange > 0 ? "↑" : "↓"} {Math.abs(drink.percentChange)}% vs last week
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
