@@ -3,7 +3,23 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, Search, Plus, Check, Users, Sparkles } from "lucide-react"
+import {
+  Loader2,
+  Search,
+  Plus,
+  Check,
+  Users,
+  Sparkles,
+  TrendingUp,
+  MapPin,
+  Star,
+  ChevronRight,
+  Flame,
+  BookOpen,
+  Lightbulb,
+  CalendarDays,
+  Trophy,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -37,6 +53,103 @@ type TrendingDrink = {
 }
 
 type SuggestedPerson = UiPerson & { mutualCount: number }
+
+type NearbyVenue = {
+  id: string
+  name: string
+  distance: string
+  vibe: string
+  rating: number
+  specialty: string
+  imageUrl: string | null
+}
+
+type DrinkCollection = {
+  id: string
+  name: string
+  count: number
+  emoji: string
+  gradient: string
+}
+
+type RecommendedDrink = {
+  id: string
+  name: string
+  emoji: string
+  flavor: string
+  reason: string
+}
+
+type MoodOption = {
+  id: string
+  label: string
+  emoji: string
+}
+
+/* ── Constants ─────────────────────────────────────────────────── */
+
+const DRINK_EMOJI: Record<string, string> = {
+  Beer: "🍺",
+  Wine: "🍷",
+  Cocktail: "🍸",
+  Shot: "🥃",
+  Seltzer: "🥤",
+  Spirit: "🥃",
+  Other: "🍹",
+}
+
+const MOOD_OPTIONS: MoodOption[] = [
+  { id: "cozy", label: "Cozy Night In", emoji: "🕯️" },
+  { id: "party", label: "Party Mode", emoji: "🎉" },
+  { id: "fancy", label: "Feeling Fancy", emoji: "✨" },
+  { id: "chill", label: "Beach Vibes", emoji: "🏖️" },
+  { id: "dinner", label: "After Dinner", emoji: "🍽️" },
+  { id: "light", label: "Keep It Light", emoji: "🌸" },
+]
+
+const COLLECTIONS: DrinkCollection[] = [
+  { id: "whiskey", name: "Whiskey Classics", count: 24, emoji: "🥃", gradient: "from-amber-900/40 to-amber-600/20" },
+  { id: "tiki", name: "Tiki Time", count: 18, emoji: "🌺", gradient: "from-rose-900/40 to-rose-500/20" },
+  { id: "low-abv", name: "Low & No ABV", count: 31, emoji: "🌿", gradient: "from-emerald-900/40 to-emerald-500/20" },
+  { id: "brunch", name: "Brunch Worthy", count: 15, emoji: "🥂", gradient: "from-yellow-900/40 to-yellow-500/20" },
+  { id: "bitter", name: "Bitter & Bold", count: 22, emoji: "🍋", gradient: "from-orange-900/40 to-orange-500/20" },
+  { id: "date", name: "Date Night", count: 19, emoji: "🌙", gradient: "from-violet-900/40 to-violet-500/20" },
+]
+
+/* ── Section Header ────────────────────────────────────────────── */
+
+function SectionHeader({
+  icon: Icon,
+  label,
+  action,
+  onAction,
+}: {
+  icon?: React.ElementType
+  label: string
+  action?: string
+  onAction?: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="h-3.5 w-3.5 text-neutral-400 dark:text-white/30" />}
+        <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
+          {label}
+        </div>
+      </div>
+      {action && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="flex items-center gap-0.5 text-xs font-medium text-neutral-400 dark:text-white/30 transition-colors hover:text-neutral-600 dark:hover:text-white/50"
+        >
+          {action}
+          <ChevronRight className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+}
 
 /* ── PersonCard ────────────────────────────────────────────────── */
 
@@ -107,16 +220,126 @@ function PersonCard({
   )
 }
 
-/* ── Drink type icon helper ────────────────────────────────────── */
+/* ── Mood Chip ─────────────────────────────────────────────────── */
 
-const DRINK_EMOJI: Record<string, string> = {
-  Beer: "🍺",
-  Wine: "🍷",
-  Cocktail: "🍸",
-  Shot: "🥃",
-  Seltzer: "🥤",
-  Spirit: "🥃",
-  Other: "🍹",
+function MoodChip({
+  mood,
+  active,
+  onToggle,
+}: {
+  mood: MoodOption
+  active: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
+        active
+          ? "border-neutral-300 dark:border-white/20 bg-white dark:bg-white/[0.12] text-neutral-900 dark:text-white shadow-sm"
+          : "border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] text-neutral-500 dark:text-white/40 hover:bg-white/90 dark:hover:bg-white/[0.06]"
+      )}
+    >
+      <span className="text-base">{mood.emoji}</span>
+      <span>{mood.label}</span>
+    </button>
+  )
+}
+
+/* ── Nearby Venue Card ─────────────────────────────────────────── */
+
+function NearbyCard({ venue }: { venue: NearbyVenue }) {
+  return (
+    <div className="shrink-0 w-[240px] overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      {/* Image area */}
+      <div className="relative h-28 w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.06]">
+        {venue.imageUrl ? (
+          <Image src={venue.imageUrl} alt={venue.name} fill className="object-cover" unoptimized />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-3xl opacity-30">🍸</div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Distance badge */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
+          <MapPin className="h-3 w-3" />
+          {venue.distance}
+        </div>
+
+        {/* Rating badge */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-amber-300 backdrop-blur-md">
+          <Star className="h-3 w-3 fill-amber-300" />
+          {venue.rating}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-3.5 space-y-2">
+        <div>
+          <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{venue.name}</div>
+          <div className="text-[12px] text-neutral-500 dark:text-white/35 mt-0.5">{venue.vibe}</div>
+        </div>
+
+        <div className="rounded-xl bg-neutral-50/80 dark:bg-white/[0.04] border border-neutral-100 dark:border-white/[0.04] px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/25">Known for</div>
+          <div className="text-[13px] font-medium text-neutral-700 dark:text-white/70 mt-0.5">🍹 {venue.specialty}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Collection Card ───────────────────────────────────────────── */
+
+function CollectionCard({ collection }: { collection: DrinkCollection }) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-3.5 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] active:scale-[0.98] w-full text-left"
+    >
+      <div className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg",
+        collection.gradient
+      )}>
+        {collection.emoji}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[14px] font-semibold text-neutral-900 dark:text-white truncate">{collection.name}</div>
+        <div className="text-[12px] text-neutral-500 dark:text-white/35">{collection.count} drinks</div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300 dark:text-white/15" />
+    </button>
+  )
+}
+
+/* ── Recommendation Card ───────────────────────────────────────── */
+
+function RecommendationCard({ drink }: { drink: RecommendedDrink }) {
+  return (
+    <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-4 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-neutral-100/80 dark:bg-white/[0.06] border border-neutral-100 dark:border-white/[0.04] text-xl">
+        {drink.emoji}
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{drink.name}</div>
+        <div className="text-[12px] text-neutral-500 dark:text-white/35">{drink.flavor}</div>
+        <div className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/10 px-2.5 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+          Because {drink.reason.toLowerCase()}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
+        aria-label="Log this drink"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  )
 }
 
 /* ── Main Component ────────────────────────────────────────────── */
@@ -141,6 +364,21 @@ export default function DiscoverPage() {
 
   // Suggested people (friends of friends)
   const [suggested, setSuggested] = React.useState<SuggestedPerson[]>([])
+
+  // Mood filter
+  const [activeMoods, setActiveMoods] = React.useState<Set<string>>(new Set())
+
+  // Nearby venues (placeholder — would come from a location-based API)
+  const [nearby] = React.useState<NearbyVenue[]>([])
+
+  // Recommendations (placeholder — would come from a recommendation engine)
+  const [recommendations] = React.useState<RecommendedDrink[]>([])
+
+  // Drink of the day (placeholder — would come from a curated feed)
+  const [drinkOfTheDay] = React.useState<{ name: string; emoji: string; description: string } | null>(null)
+
+  // Seasonal (placeholder — would be content-managed)
+  const [seasonal] = React.useState<{ title: string; subtitle: string; emoji: string; drinks: string[] } | null>(null)
 
   // Toast
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
@@ -194,6 +432,7 @@ export default function DiscoverPage() {
         await Promise.all([
           loadTrending(userId),
           loadSuggested(userId, myFriendIds),
+          // Future: loadNearby(), loadRecommendations(), loadDrinkOfTheDay(), loadSeasonal()
         ])
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
@@ -213,7 +452,6 @@ export default function DiscoverPage() {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
-      // All drink logs from last 14 days (global/community)
       const { data: recentLogs } = await supabase
         .from("drink_logs")
         .select("drink_type, created_at")
@@ -266,7 +504,6 @@ export default function DiscoverPage() {
 
       const friendIdArray = Array.from(myFriendIds)
 
-      // Get friendships of my friends
       const { data: fofRows } = await supabase
         .from("friendships")
         .select("requester_id, addressee_id")
@@ -278,14 +515,12 @@ export default function DiscoverPage() {
         )
         .limit(500)
 
-      // Count mutual friends for each potential suggestion
       const mutualCounts: Record<string, number> = {}
 
       for (const row of fofRows ?? []) {
         const personA = row.requester_id
         const personB = row.addressee_id
 
-        // For each friendship, figure out which side is my friend and which is the FoF
         if (myFriendIds.has(personA) && personB !== userId && !myFriendIds.has(personB)) {
           mutualCounts[personB] = (mutualCounts[personB] || 0) + 1
         }
@@ -294,7 +529,6 @@ export default function DiscoverPage() {
         }
       }
 
-      // Sort by mutual count, take top 10
       const topSuggestions = Object.entries(mutualCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
@@ -320,7 +554,6 @@ export default function DiscoverPage() {
         )
       )
 
-      // Check for existing outgoing pending requests
       const { data: pendingOut } = await supabase
         .from("friendships")
         .select("addressee_id")
@@ -341,9 +574,7 @@ export default function DiscoverPage() {
         outgoingPending: pendingOutIds.has(p.id),
       }))
 
-      // Sort by mutual count descending
       mapped.sort((a, b) => b.mutualCount - a.mutualCount)
-
       setSuggested(mapped)
     } catch (e) {
       console.error("Failed to load suggestions:", e)
@@ -482,6 +713,17 @@ export default function DiscoverPage() {
     )
   }
 
+  /* ── Mood toggle ──────────────────────────────────────────────── */
+
+  function toggleMood(id: string) {
+    setActiveMoods((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   /* ── Skeleton ─────────────────────────────────────────────────── */
 
   if (loading) {
@@ -492,7 +734,14 @@ export default function DiscoverPage() {
         {/* Search skeleton */}
         <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
           <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
-          <span className="text-sm text-neutral-300 dark:text-white/20">Search people by username or name…</span>
+          <span className="text-sm text-neutral-300 dark:text-white/20">Search drinks, people, bars…</span>
+        </div>
+
+        {/* Mood skeleton */}
+        <div className="flex gap-2 overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-9 w-28 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          ))}
         </div>
 
         {/* Trending skeleton */}
@@ -506,6 +755,24 @@ export default function DiscoverPage() {
                   <div className="space-y-1.5 flex-1">
                     <div className="h-3.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                     <div className="h-3 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Collections skeleton */}
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -567,7 +834,7 @@ export default function DiscoverPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search people by username or name…"
+            placeholder="Search drinks, people, bars…"
             className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
           />
           {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30" />}
@@ -577,7 +844,7 @@ export default function DiscoverPage() {
       {/* Search Results (replaces rest of page when active) */}
       {isSearchActive ? (
         <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Search results</div>
+          <SectionHeader label="Search results" />
 
           {searchResults.length === 0 && !searching ? (
             <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
@@ -598,14 +865,30 @@ export default function DiscoverPage() {
           )}
         </div>
       ) : (
-        <>
-          {/* ── Trending Drinks ────────────────────────────────── */}
+        <div className="space-y-8">
+
+          {/* ── Mood Filter ──────────────────────────────────── */}
+          <div className="space-y-3">
+            <SectionHeader label="What's the vibe?" />
+            <div className="-mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-none">
+              {MOOD_OPTIONS.map((m) => (
+                <MoodChip
+                  key={m.id}
+                  mood={m}
+                  active={activeMoods.has(m.id)}
+                  onToggle={() => toggleMood(m.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── Trending Drinks ──────────────────────────────── */}
           {trending.length > 0 && (
-            <div className="mb-6 space-y-3">
-              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Trending this week</div>
+            <div className="space-y-3">
+              <SectionHeader icon={Flame} label="Trending this week" action="See all" />
 
               <div className="grid grid-cols-2 gap-3">
-                {trending.map((drink, i) => (
+                {trending.map((drink) => (
                   <div
                     key={drink.drinkType}
                     className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-4 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
@@ -637,13 +920,92 @@ export default function DiscoverPage() {
             </div>
           )}
 
-          {/* ── Suggested People ───────────────────────────────── */}
+          {/* ── Seasonal / Featured Banner ────────────────────── */}
+          {seasonal && (
+            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-gradient-to-br from-indigo-950/40 via-blue-900/30 to-sky-800/20 dark:from-indigo-950/60 dark:via-blue-900/40 dark:to-sky-800/30 backdrop-blur-xl p-5 relative overflow-hidden">
+              <div className="absolute -top-4 -right-2 text-6xl opacity-10">{seasonal.emoji}</div>
+
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/35">
+                Seasonal pick
+              </div>
+              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-1.5">{seasonal.title}</div>
+              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{seasonal.subtitle}</div>
+
+              <div className="flex flex-wrap gap-2">
+                {seasonal.drinks.map((d) => (
+                  <span
+                    key={d}
+                    className="rounded-full border border-neutral-200/40 dark:border-white/10 bg-white/60 dark:bg-white/[0.08] px-3 py-1.5 text-[13px] font-medium text-neutral-700 dark:text-white/70 backdrop-blur-sm"
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Sipping Nearby ────────────────────────────────── */}
+          {nearby.length > 0 && (
+            <div className="space-y-3">
+              <SectionHeader icon={MapPin} label="Sipping nearby" action="Map view" />
+
+              <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-none pb-1">
+                {nearby.map((v) => (
+                  <NearbyCard key={v.id} venue={v} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Collections ──────────────────────────────────── */}
+          <div className="space-y-3">
+            <SectionHeader icon={BookOpen} label="Collections" action="Browse all" />
+
+            <div className="grid grid-cols-2 gap-3">
+              {COLLECTIONS.map((c) => (
+                <CollectionCard key={c.id} collection={c} />
+              ))}
+            </div>
+          </div>
+
+          {/* ── You Might Enjoy (Recommendations) ────────────── */}
+          {recommendations.length > 0 && (
+            <div className="space-y-3">
+              <SectionHeader icon={Lightbulb} label="You might enjoy" />
+
+              {recommendations.map((d) => (
+                <RecommendationCard key={d.id} drink={d} />
+              ))}
+            </div>
+          )}
+
+          {/* ── Drink of the Day ─────────────────────────────── */}
+          {drinkOfTheDay && (
+            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5 text-center relative overflow-hidden">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-5xl opacity-10">🏆</div>
+
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400/60">
+                Drink of the day
+              </div>
+              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-2">
+                {drinkOfTheDay.emoji} {drinkOfTheDay.name}
+              </div>
+              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
+
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Log this drink
+              </button>
+            </div>
+          )}
+
+          {/* ── Suggested People ─────────────────────────────── */}
           {suggested.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-3.5 w-3.5 text-neutral-400 dark:text-white/30" />
-                <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">People you may know</div>
-              </div>
+              <SectionHeader icon={Users} label="People you may know" />
 
               {suggested.map((p) => (
                 <PersonCard
@@ -672,7 +1034,7 @@ export default function DiscoverPage() {
               </p>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
