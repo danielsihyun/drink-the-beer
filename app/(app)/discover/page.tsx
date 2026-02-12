@@ -213,44 +213,52 @@ function PersonCard({
 
 /* ── Nearby Venue Card ─────────────────────────────────────────── */
 
-function NearbyCard({ venue }: { venue: NearbyVenue }) {
+function NearbyCard({ venue, active, onSelect }: { venue: NearbyVenue; active: boolean; onSelect: () => void }) {
   return (
-    <div className="shrink-0 w-[240px] overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-      {/* Image area */}
-      <div className="relative h-28 w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.06]">
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex items-center gap-3 w-full rounded-2xl border p-3 transition-all duration-200 active:scale-[0.98] text-left",
+        active
+          ? "border-neutral-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+          : "border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+      )}
+    >
+      {/* Icon / image */}
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.06]">
         {venue.imageUrl ? (
           <Image src={venue.imageUrl} alt={venue.name} fill className="object-cover" unoptimized />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl opacity-30">🍸</div>
+          <div className="flex h-full w-full items-center justify-center text-xl opacity-40">🍸</div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-        {/* Distance badge */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
-          <MapPin className="h-3 w-3" />
-          {venue.distance}
-        </div>
-
-        {/* Rating badge */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-amber-300 backdrop-blur-md">
-          <Star className="h-3 w-3 fill-amber-300" />
-          {venue.rating}
-        </div>
       </div>
 
       {/* Info */}
-      <div className="p-3.5 space-y-2">
-        <div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
           <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{venue.name}</div>
-          <div className="text-[12px] text-neutral-500 dark:text-white/35 mt-0.5">{venue.vibe}</div>
+          <div className="flex items-center gap-0.5 text-[11px] font-medium text-amber-500 dark:text-amber-400 shrink-0">
+            <Star className="h-3 w-3 fill-amber-400 dark:fill-amber-400" />
+            {venue.rating}
+          </div>
         </div>
-
-        <div className="rounded-xl bg-neutral-50/80 dark:bg-white/[0.04] border border-neutral-100 dark:border-white/[0.04] px-3 py-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/25">Known for</div>
-          <div className="text-[13px] font-medium text-neutral-700 dark:text-white/70 mt-0.5">🍹 {venue.specialty}</div>
+        <div className="flex items-center gap-2 mt-0.5 text-[12px] text-neutral-500 dark:text-white/35">
+          <span className="flex items-center gap-0.5">
+            <MapPin className="h-3 w-3" />
+            {venue.distance}
+          </span>
+          <span className="text-neutral-300 dark:text-white/15">·</span>
+          <span>{venue.vibe}</span>
         </div>
       </div>
-    </div>
+
+      {/* Specialty badge */}
+      <div className="shrink-0 text-right">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/25">Known for</div>
+        <div className="text-[12px] font-medium text-neutral-700 dark:text-white/60 mt-0.5">🍹 {venue.specialty}</div>
+      </div>
+    </button>
   )
 }
 
@@ -336,6 +344,7 @@ export default function DiscoverPage() {
     { id: "2", name: "Death & Co", distance: "0.8 mi", vibe: "Speakeasy · Classic", rating: 4.9, specialty: "Oaxaca Old Fashioned", imageUrl: null },
     { id: "3", name: "Attaboy", distance: "1.2 mi", vibe: "Intimate · Omakase", rating: 4.8, specialty: "Dealer's Choice", imageUrl: null },
   ])
+  const [activeNearbyId, setActiveNearbyId] = React.useState<string | null>(null)
 
   // Recommendations (placeholder — replace with recommendation engine)
   const [recommendations] = React.useState<RecommendedDrink[]>([
@@ -748,17 +757,17 @@ export default function DiscoverPage() {
         {/* Sipping nearby skeleton */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Sipping nearby</div>
-          <div className="flex gap-3 overflow-hidden">
-            {[1, 2].map((i) => (
-              <div key={i} className="shrink-0 w-[240px] rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl overflow-hidden">
-                <div className="h-28 bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                <div className="p-3.5 space-y-2.5">
-                  <div className="h-4 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                  <div className="rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/[0.04] p-2.5 space-y-1.5">
-                    <div className="h-2.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                    <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                  </div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="h-3.5 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="space-y-1.5 shrink-0">
+                  <div className="h-2.5 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse ml-auto" />
+                  <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                 </div>
               </div>
             ))}
@@ -978,9 +987,14 @@ export default function DiscoverPage() {
             <div className="space-y-3">
               <SectionHeader icon={MapPin} label="Sipping nearby" />
 
-              <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-none pb-1">
+              <div className="space-y-2">
                 {nearby.map((v) => (
-                  <NearbyCard key={v.id} venue={v} />
+                  <NearbyCard
+                    key={v.id}
+                    venue={v}
+                    active={activeNearbyId === v.id}
+                    onSelect={() => setActiveNearbyId(activeNearbyId === v.id ? null : v.id)}
+                  />
                 ))}
               </div>
             </div>
