@@ -725,6 +725,46 @@ export default function DiscoverPage() {
           </div>
         </div>
 
+        {/* Drink of the day skeleton */}
+        <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 flex flex-col items-center gap-3">
+          <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+          <div className="h-3 w-48 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-10 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse mt-1" />
+        </div>
+
+        {/* Seasonal skeleton */}
+        <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 space-y-3">
+          <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-5 w-40 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+          <div className="h-3 w-48 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="flex gap-2 pt-1">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-8 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            ))}
+          </div>
+        </div>
+
+        {/* Sipping nearby skeleton */}
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Sipping nearby</div>
+          <div className="flex gap-3 overflow-hidden">
+            {[1, 2].map((i) => (
+              <div key={i} className="shrink-0 w-[240px] rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl overflow-hidden">
+                <div className="h-28 bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                <div className="p-3.5 space-y-2.5">
+                  <div className="h-4 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-100 dark:border-white/[0.04] p-2.5 space-y-1.5">
+                    <div className="h-2.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Collections skeleton */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
@@ -741,6 +781,24 @@ export default function DiscoverPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* You might enjoy skeleton */}
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">You might enjoy</div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-2xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-3.5 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="h-5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Suggested skeleton */}
