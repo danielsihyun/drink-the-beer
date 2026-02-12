@@ -80,11 +80,7 @@ type RecommendedDrink = {
   reason: string
 }
 
-type MoodOption = {
-  id: string
-  label: string
-  emoji: string
-}
+
 
 /* ── Constants ─────────────────────────────────────────────────── */
 
@@ -98,14 +94,7 @@ const DRINK_EMOJI: Record<string, string> = {
   Other: "🍹",
 }
 
-const MOOD_OPTIONS: MoodOption[] = [
-  { id: "cozy", label: "Cozy Night In", emoji: "🕯️" },
-  { id: "party", label: "Party Mode", emoji: "🎉" },
-  { id: "fancy", label: "Feeling Fancy", emoji: "✨" },
-  { id: "chill", label: "Beach Vibes", emoji: "🏖️" },
-  { id: "dinner", label: "After Dinner", emoji: "🍽️" },
-  { id: "light", label: "Keep It Light", emoji: "🌸" },
-]
+
 
 const COLLECTIONS: DrinkCollection[] = [
   { id: "whiskey", name: "Whiskey Classics", count: 24, emoji: "🥃", gradient: "from-amber-900/40 to-amber-600/20" },
@@ -220,33 +209,7 @@ function PersonCard({
   )
 }
 
-/* ── Mood Chip ─────────────────────────────────────────────────── */
 
-function MoodChip({
-  mood,
-  active,
-  onToggle,
-}: {
-  mood: MoodOption
-  active: boolean
-  onToggle: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
-        active
-          ? "border-neutral-300 dark:border-white/20 bg-white dark:bg-white/[0.12] text-neutral-900 dark:text-white shadow-sm"
-          : "border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] text-neutral-500 dark:text-white/40 hover:bg-white/90 dark:hover:bg-white/[0.06]"
-      )}
-    >
-      <span className="text-base">{mood.emoji}</span>
-      <span>{mood.label}</span>
-    </button>
-  )
-}
 
 /* ── Nearby Venue Card ─────────────────────────────────────────── */
 
@@ -295,9 +258,9 @@ function NearbyCard({ venue }: { venue: NearbyVenue }) {
 
 function CollectionCard({ collection }: { collection: DrinkCollection }) {
   return (
-    <button
-      type="button"
-      className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-3.5 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] active:scale-[0.98] w-full text-left"
+    <Link
+      href={`/discover/collections/${collection.id}`}
+      className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-3.5 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] active:scale-[0.98] w-full"
     >
       <div className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg",
@@ -310,7 +273,7 @@ function CollectionCard({ collection }: { collection: DrinkCollection }) {
         <div className="text-[12px] text-neutral-500 dark:text-white/35">{collection.count} drinks</div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300 dark:text-white/15" />
-    </button>
+    </Link>
   )
 }
 
@@ -365,20 +328,36 @@ export default function DiscoverPage() {
   // Suggested people (friends of friends)
   const [suggested, setSuggested] = React.useState<SuggestedPerson[]>([])
 
-  // Mood filter
-  const [activeMoods, setActiveMoods] = React.useState<Set<string>>(new Set())
 
-  // Nearby venues (placeholder — would come from a location-based API)
-  const [nearby] = React.useState<NearbyVenue[]>([])
 
-  // Recommendations (placeholder — would come from a recommendation engine)
-  const [recommendations] = React.useState<RecommendedDrink[]>([])
+  // Nearby venues (placeholder — replace with location-based API)
+  const [nearby] = React.useState<NearbyVenue[]>([
+    { id: "1", name: "The Broken Shaker", distance: "0.3 mi", vibe: "Tropical · Craft", rating: 4.7, specialty: "Frozen Daiquiri", imageUrl: null },
+    { id: "2", name: "Death & Co", distance: "0.8 mi", vibe: "Speakeasy · Classic", rating: 4.9, specialty: "Oaxaca Old Fashioned", imageUrl: null },
+    { id: "3", name: "Attaboy", distance: "1.2 mi", vibe: "Intimate · Omakase", rating: 4.8, specialty: "Dealer's Choice", imageUrl: null },
+  ])
 
-  // Drink of the day (placeholder — would come from a curated feed)
-  const [drinkOfTheDay] = React.useState<{ name: string; emoji: string; description: string } | null>(null)
+  // Recommendations (placeholder — replace with recommendation engine)
+  const [recommendations] = React.useState<RecommendedDrink[]>([
+    { id: "1", name: "Last Word", emoji: "🌿", flavor: "Herbal · Citrus", reason: "You liked Negroni" },
+    { id: "2", name: "Jungle Bird", emoji: "🦜", flavor: "Tropical · Bitter", reason: "You liked Mai Tai" },
+    { id: "3", name: "Penicillin", emoji: "💊", flavor: "Smoky · Ginger", reason: "You liked Whiskey Sour" },
+  ])
 
-  // Seasonal (placeholder — would be content-managed)
-  const [seasonal] = React.useState<{ title: string; subtitle: string; emoji: string; drinks: string[] } | null>(null)
+  // Drink of the day (placeholder — replace with curated feed)
+  const [drinkOfTheDay] = React.useState<{ name: string; emoji: string; description: string } | null>({
+    name: "Bee's Knees",
+    emoji: "🍸",
+    description: "Gin · Honey · Lemon — A Prohibition-era classic",
+  })
+
+  // Seasonal (placeholder — replace with content-managed data)
+  const [seasonal] = React.useState<{ title: string; subtitle: string; emoji: string; drinks: string[] } | null>({
+    title: "Winter Warmers",
+    subtitle: "Cozy cocktails for cold nights",
+    emoji: "❄️",
+    drinks: ["Hot Toddy", "Irish Coffee", "Mulled Wine", "Spiked Cider"],
+  })
 
   // Toast
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
@@ -713,16 +692,7 @@ export default function DiscoverPage() {
     )
   }
 
-  /* ── Mood toggle ──────────────────────────────────────────────── */
 
-  function toggleMood(id: string) {
-    setActiveMoods((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   /* ── Skeleton ─────────────────────────────────────────────────── */
 
@@ -735,13 +705,6 @@ export default function DiscoverPage() {
         <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
           <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
           <span className="text-sm text-neutral-300 dark:text-white/20">Search drinks, people, bars…</span>
-        </div>
-
-        {/* Mood skeleton */}
-        <div className="flex gap-2 overflow-hidden">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-9 w-28 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-          ))}
         </div>
 
         {/* Trending skeleton */}
@@ -866,21 +829,6 @@ export default function DiscoverPage() {
         </div>
       ) : (
         <div className="space-y-8">
-
-          {/* ── Mood Filter ──────────────────────────────────── */}
-          <div className="space-y-3">
-            <SectionHeader label="What's the vibe?" />
-            <div className="-mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-none">
-              {MOOD_OPTIONS.map((m) => (
-                <MoodChip
-                  key={m.id}
-                  mood={m}
-                  active={activeMoods.has(m.id)}
-                  onToggle={() => toggleMood(m.id)}
-                />
-              ))}
-            </div>
-          </div>
 
           {/* ── Trending Drinks ──────────────────────────────── */}
           {trending.length > 0 && (
