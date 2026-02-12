@@ -833,7 +833,7 @@ export default function DiscoverPage() {
           {/* ── Trending Drinks ──────────────────────────────── */}
           {trending.length > 0 && (
             <div className="space-y-3">
-              <SectionHeader icon={Flame} label="Trending this week" action="See all" />
+              <SectionHeader icon={Flame} label="Trending this week" />
 
               <div className="grid grid-cols-2 gap-3">
                 {trending.map((drink) => (
@@ -868,6 +868,29 @@ export default function DiscoverPage() {
             </div>
           )}
 
+          {/* ── Drink of the Day ─────────────────────────────── */}
+          {drinkOfTheDay && (
+            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5 text-center relative overflow-hidden">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-5xl opacity-10">🏆</div>
+
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400/60">
+                Drink of the day
+              </div>
+              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-2">
+                {drinkOfTheDay.emoji} {drinkOfTheDay.name}
+              </div>
+              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
+
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Log this drink
+              </button>
+            </div>
+          )}
+
           {/* ── Seasonal / Featured Banner ────────────────────── */}
           {seasonal && (
             <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-gradient-to-br from-indigo-950/40 via-blue-900/30 to-sky-800/20 dark:from-indigo-950/60 dark:via-blue-900/40 dark:to-sky-800/30 backdrop-blur-xl p-5 relative overflow-hidden">
@@ -895,7 +918,7 @@ export default function DiscoverPage() {
           {/* ── Sipping Nearby ────────────────────────────────── */}
           {nearby.length > 0 && (
             <div className="space-y-3">
-              <SectionHeader icon={MapPin} label="Sipping nearby" action="Map view" />
+              <SectionHeader icon={MapPin} label="Sipping nearby" />
 
               <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-none pb-1">
                 {nearby.map((v) => (
@@ -907,7 +930,7 @@ export default function DiscoverPage() {
 
           {/* ── Collections ──────────────────────────────────── */}
           <div className="space-y-3">
-            <SectionHeader icon={BookOpen} label="Collections" action="Browse all" />
+            <SectionHeader icon={BookOpen} label="Collections" />
 
             <div className="grid grid-cols-2 gap-3">
               {COLLECTIONS.map((c) => (
@@ -924,29 +947,6 @@ export default function DiscoverPage() {
               {recommendations.map((d) => (
                 <RecommendationCard key={d.id} drink={d} />
               ))}
-            </div>
-          )}
-
-          {/* ── Drink of the Day ─────────────────────────────── */}
-          {drinkOfTheDay && (
-            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5 text-center relative overflow-hidden">
-              <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-5xl opacity-10">🏆</div>
-
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400/60">
-                Drink of the day
-              </div>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-2">
-                {drinkOfTheDay.emoji} {drinkOfTheDay.name}
-              </div>
-              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
-
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Log this drink
-              </button>
             </div>
           )}
 
