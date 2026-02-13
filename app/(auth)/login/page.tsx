@@ -70,7 +70,7 @@ function LoginContent() {
             <Beer className="h-9 w-9 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold">Drink The Beer</h1>
-          <p className="text-sm text-muted-foreground">Track, rate, and share your favorite beers</p>
+          <p className="text-sm text-muted-foreground">Track, analyze, and discover drinks with your friends!</p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
