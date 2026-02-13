@@ -69,7 +69,7 @@ function LoginContent() {
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
             <Beer className="h-9 w-9 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold">Drink The Beer</h1>
+          <h1 className="text-2xl font-bold">drinkr</h1>
           <p className="text-sm text-muted-foreground">Track, analyze, and discover drinks with your friends!</p>
         </div>
 
@@ -143,7 +143,7 @@ export default function LoginPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary animate-pulse">
               <Beer className="h-9 w-9 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold">Drink The Beer</h1>
+            <h1 className="text-2xl font-bold">drinkr</h1>
           </div>
         </div>
       </div>
