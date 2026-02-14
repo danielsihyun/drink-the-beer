@@ -46,7 +46,7 @@ export async function GET(req: Request) {
       .select("id,user_id,photo_path,drink_type,caption,created_at")
       .in("user_id", feedUserIds)
       .order("created_at", { ascending: false })
-      .limit(50)
+      .limit(10)
 
     if (logsErr) throw logsErr
 
