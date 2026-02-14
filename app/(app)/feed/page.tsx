@@ -410,6 +410,11 @@ function FeedContent() {
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<FeedItem[]>([])
   
+  // Pagination
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = React.useState(false)
+  const sentinelRef = React.useRef<HTMLDivElement>(null)
+
   const [viewerId, setViewerId] = React.useState<string | null>(null)
   const [postedBanner, setPostedBanner] = React.useState(false)
 
@@ -425,6 +430,9 @@ function FeedContent() {
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<FeedItem | null>(null)
+
+  // Stable ref for token so we can use it in fetchPage without re-renders
+  const tokenRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     if (searchParams.get("posted") === "1") {
@@ -454,6 +462,39 @@ function FeedContent() {
     }))
   }, [supabase])
 
+  /* ── Fetch a page of feed items ──────────────────────────────── */
+
+  const fetchPage = React.useCallback(async (
+    token: string,
+    userId: string,
+    cursor: string | null,
+  ): Promise<{ mapped: FeedItem[]; nextCursor: string | null }> => {
+    const params = new URLSearchParams()
+    if (cursor) params.set("cursor", cursor)
+    params.set("limit", "10")
+
+    const res = await fetch(`/api/feed?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
+
+    const mapped: FeedItem[] = (json?.items ?? []).map((it: FeedApiItem) => ({
+      ...it,
+      photoUrl: it.photoUrl ?? null,
+      avatarUrl: it.avatarUrl ?? null,
+      isMine: it.user_id === userId,
+      timestampLabel: formatCardTimestamp(it.created_at),
+      cheersCount: 0,
+      cheeredByMe: false,
+    }))
+
+    return { mapped, nextCursor: json?.nextCursor ?? null }
+  }, [])
+
+  /* ── Initial load ────────────────────────────────────────────── */
+
   const load = React.useCallback(async () => {
     setError(null)
     try {
@@ -464,31 +505,73 @@ function FeedContent() {
 
       const { data: sessRes } = await supabase.auth.getSession()
       const token = sessRes.session?.access_token
-      
-      const res = await fetch("/api/feed", { method: "GET", headers: { Authorization: `Bearer ${token}` } })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
+      if (!token) throw new Error("Missing session token.")
+      tokenRef.current = token
 
-      const mapped: FeedItem[] = (json?.items ?? []).map((it: FeedApiItem) => ({
-        ...it,
-        photoUrl: it.photoUrl ?? null,
-        avatarUrl: it.avatarUrl ?? null,
-        isMine: it.user_id === user.id,
-        timestampLabel: formatCardTimestamp(it.created_at),
-        cheersCount: 0,
-        cheeredByMe: false,
-      })).sort((a: FeedItem, b: FeedItem) => b.created_at.localeCompare(a.created_at))
+      const { mapped, nextCursor: nc } = await fetchPage(token, user.id, null)
 
       setItems(mapped)
-      await loadCheersState(mapped.map(m => m.id), user.id)
+      setNextCursor(nc)
+
+      if (mapped.length > 0) {
+        await loadCheersState(mapped.map(m => m.id), user.id)
+      }
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, loadCheersState])
+  }, [router, supabase, loadCheersState, fetchPage])
 
   React.useEffect(() => { load() }, [load])
+
+  /* ── Load more (next page) ───────────────────────────────────── */
+
+  const loadMore = React.useCallback(async () => {
+    if (loadingMore || !nextCursor || !viewerId || !tokenRef.current) return
+    setLoadingMore(true)
+    try {
+      const { mapped, nextCursor: nc } = await fetchPage(tokenRef.current, viewerId, nextCursor)
+
+      if (mapped.length > 0) {
+        setItems((prev) => {
+          // Deduplicate in case of race conditions
+          const existingIds = new Set(prev.map((p) => p.id))
+          const newItems = mapped.filter((m) => !existingIds.has(m.id))
+          return [...prev, ...newItems]
+        })
+        setNextCursor(nc)
+        await loadCheersState(mapped.map(m => m.id), viewerId)
+      } else {
+        setNextCursor(null)
+      }
+    } catch (e: any) {
+      console.error("Failed to load more:", e)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, nextCursor, viewerId, fetchPage, loadCheersState])
+
+  /* ── Intersection observer for infinite scroll ───────────────── */
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: "400px" }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [loadMore])
+
+  /* ── Actions ─────────────────────────────────────────────────── */
 
   function openEdit(it: FeedItem) {
     setActive(it)
@@ -654,7 +737,7 @@ function FeedContent() {
                     </div>
                   </Link>
 
-                  {/* Drink type pill — sentence case, softer Apple style */}
+                  {/* Drink type pill */}
                   <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
                     {it.drink_type}
                   </span>
@@ -707,7 +790,7 @@ function FeedContent() {
                       )}
                     </div>
 
-                    {/* Edit/Delete Buttons — contained with hover backgrounds */}
+                    {/* Edit/Delete Buttons */}
                     {it.isMine && (
                       <div className="flex items-center gap-0.5">
                         <button
@@ -728,7 +811,7 @@ function FeedContent() {
                     )}
                   </div>
 
-                  {/* Caption (conditionally rendered) */}
+                  {/* Caption */}
                   {it.caption && (
                     <div className="pl-1">
                       <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">
@@ -739,6 +822,16 @@ function FeedContent() {
                 </div>
               </article>
             ))}
+
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="py-4 flex justify-center">
+              {loadingMore && (
+                <Loader2 className="h-5 w-5 animate-spin text-neutral-400 dark:text-white/30" />
+              )}
+              {!loadingMore && !nextCursor && items.length > 0 && (
+                <p className="text-[13px] text-neutral-400 dark:text-white/25">You're all caught up</p>
+              )}
+            </div>
           </div>
         )}
       </div>
