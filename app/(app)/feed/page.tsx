@@ -565,15 +565,22 @@ function FeedContent() {
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-3xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
-            <div className="flex gap-3">
-              <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              <div className="space-y-2">
-                <div className="h-4 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+            <div className="flex items-center justify-between px-4 pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
               </div>
+              <div className="h-6 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="aspect-square w-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="flex items-center gap-2 px-4 pt-4 pb-4">
+              <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
         ))}
       </div>
