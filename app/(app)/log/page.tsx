@@ -267,117 +267,127 @@ function DrinkPicker({
               <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-white/30">
                 Start typing to search drinks
               </div>
-            ) : results.length === 0 && !searching ? (
-              <div className="p-3">
-                {!showCustom ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-neutral-400 dark:text-white/30 mb-3">No drinks found for "{query}"</p>
+            ) : showCustom ? (
+              /* Custom drink creation form */
+              <div className="p-3 space-y-3 py-2">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Drink name</label>
+                  <input
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] px-3 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-black/20 dark:focus:border-white/20"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Category</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DRINK_TYPES.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setCustomCategory(t)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                          t === customCategory
+                            ? "bg-black dark:bg-white text-white dark:text-black"
+                            : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 hover:bg-neutral-200 dark:hover:bg-white/[0.1]"
+                        )}
+                      >
+                        {CATEGORY_EMOJI[t]} {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustom(false)
+                      setCustomName("")
+                    }}
+                    className="flex-1 rounded-xl py-2.5 text-sm font-medium bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 transition-all active:scale-[0.98]"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateCustom}
+                    disabled={creating || !customName.trim()}
+                    className={cn(
+                      "flex-1 rounded-xl py-2.5 text-sm font-medium transition-all active:scale-[0.98]",
+                      customName.trim()
+                        ? "bg-black dark:bg-white text-white dark:text-black"
+                        : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30"
+                    )}
+                  >
+                    {creating ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Adding…
+                      </span>
+                    ) : (
+                      "Add drink"
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Search results + add custom row at bottom */
+              <div className="p-1.5">
+                {searching && results.length === 0 ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-neutral-400 dark:text-white/30" />
+                  </div>
+                ) : (
+                  <>
+                    {results.length === 0 && (
+                      <div className="px-3 py-3 text-center text-sm text-neutral-400 dark:text-white/30">
+                        No matches for "{query}"
+                      </div>
+                    )}
+
+                    {results.map((drink) => (
+                      <button
+                        key={drink.id}
+                        type="button"
+                        onClick={() => handleSelect(drink)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/[0.1]"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-base overflow-hidden">
+                          {drink.image_url ? (
+                            <Image src={drink.image_url} alt="" width={36} height={36} className="object-cover rounded-lg" unoptimized />
+                          ) : (
+                            CATEGORY_EMOJI[drink.category] ?? "🍹"
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">{drink.name}</div>
+                          <div className="text-xs text-neutral-500 dark:text-white/35">{drink.category}</div>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Single "add custom" option at the bottom */}
                     <button
                       type="button"
                       onClick={() => {
                         setCustomName(query.trim())
                         setShowCustom(true)
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-black dark:bg-white px-4 py-2 text-sm font-medium text-white dark:text-black transition-all active:scale-95"
-                    >
-                      <span>+ Add "{query.trim()}"</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3 py-2">
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Drink name</label>
-                      <input
-                        value={customName}
-                        onChange={(e) => setCustomName(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] px-3 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-black/20 dark:focus:border-white/20"
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Category</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DRINK_TYPES.map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setCustomCategory(t)}
-                            className={cn(
-                              "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
-                              t === customCategory
-                                ? "bg-black dark:bg-white text-white dark:text-black"
-                                : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 hover:bg-neutral-200 dark:hover:bg-white/[0.1]"
-                            )}
-                          >
-                            {CATEGORY_EMOJI[t]} {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCreateCustom}
-                      disabled={creating || !customName.trim()}
                       className={cn(
-                        "w-full rounded-xl py-2.5 text-sm font-medium transition-all active:scale-[0.98]",
-                        customName.trim()
-                          ? "bg-black dark:bg-white text-white dark:text-black"
-                          : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30"
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]",
+                        results.length > 0 ? "border-t border-neutral-100 dark:border-white/[0.04] mt-1 pt-3" : ""
                       )}
                     >
-                      {creating ? (
-                        <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Adding…
-                        </span>
-                      ) : (
-                        "Add drink"
-                      )}
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
+                        <span className="text-lg">+</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Don't see it? Add "{query.trim()}"</div>
+                      </div>
                     </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-1.5">
-                {results.map((drink) => (
-                  <button
-                    key={drink.id}
-                    type="button"
-                    onClick={() => handleSelect(drink)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/[0.1]"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-base overflow-hidden">
-                      {drink.image_url ? (
-                        <Image src={drink.image_url} alt="" width={36} height={36} className="object-cover rounded-lg" unoptimized />
-                      ) : (
-                        CATEGORY_EMOJI[drink.category] ?? "🍹"
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">{drink.name}</div>
-                      <div className="text-xs text-neutral-500 dark:text-white/35">{drink.category}</div>
-                    </div>
-                  </button>
-                ))}
-
-                {/* Always show "add custom" at bottom of results */}
-                {query.trim().length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomName(query.trim())
-                      setShowCustom(true)
-                      setResults([])
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06] border-t border-neutral-100 dark:border-white/[0.04] mt-1 pt-3"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
-                      <span className="text-lg">+</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Add "{query.trim()}" as new drink</div>
-                    </div>
-                  </button>
+                  </>
                 )}
               </div>
             )}
