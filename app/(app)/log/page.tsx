@@ -3,16 +3,41 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Check, ChevronDown, Loader2, X } from "lucide-react"
+import { Camera, Check, ChevronDown, Loader2, Search, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
+import { cn } from "@/lib/utils"
+
+/* ── Types ─────────────────────────────────────────────────────── */
 
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
-
 const DRINK_TYPES: DrinkType[] = ["Beer", "Seltzer", "Wine", "Cocktail", "Shot", "Spirit", "Other"]
 
+type DrinkResult = {
+  id: string
+  name: string
+  category: string
+  image_url: string | null
+  glass: string | null
+  ingredients: { name: string; measure: string }[]
+}
+
 type Area = { width: number; height: number; x: number; y: number }
+
+/* ── Category emoji helper ─────────────────────────────────────── */
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  Beer: "🍺",
+  Wine: "🍷",
+  Cocktail: "🍸",
+  Shot: "🥃",
+  Seltzer: "🥤",
+  Spirit: "🥃",
+  Other: "🍹",
+}
+
+/* ── Image crop helpers ────────────────────────────────────────── */
 
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -56,13 +81,322 @@ async function getCroppedFile(imageSrc: string, crop: Area, outputMime: string) 
   return file
 }
 
+/* ── Drink Search Picker ───────────────────────────────────────── */
+
+function DrinkPicker({
+  selectedDrink,
+  selectedDrinkType,
+  onSelect,
+  onClear,
+  disabled,
+}: {
+  selectedDrink: DrinkResult | null
+  selectedDrinkType: DrinkType | null
+  onSelect: (drink: DrinkResult, drinkType: DrinkType) => void
+  onClear: () => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState("")
+  const [results, setResults] = React.useState<DrinkResult[]>([])
+  const [searching, setSearching] = React.useState(false)
+  const [customName, setCustomName] = React.useState("")
+  const [customCategory, setCustomCategory] = React.useState<DrinkType>("Other")
+  const [showCustom, setShowCustom] = React.useState(false)
+  const [creating, setCreating] = React.useState(false)
+
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  // Close when clicking outside
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+        setShowCustom(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  // Search with debounce
+  React.useEffect(() => {
+    const q = query.trim()
+    if (q.length < 1) {
+      setResults([])
+      return
+    }
+
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(`/api/drinks/search?q=${encodeURIComponent(q)}&limit=8`)
+        const json = await res.json()
+        setResults(json?.items ?? [])
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 200)
+
+    return () => clearTimeout(t)
+  }, [query])
+
+  function handleSelect(drink: DrinkResult) {
+    const drinkType = (DRINK_TYPES.includes(drink.category as DrinkType)
+      ? drink.category
+      : "Other") as DrinkType
+    onSelect(drink, drinkType)
+    setOpen(false)
+    setQuery("")
+    setResults([])
+    setShowCustom(false)
+  }
+
+  async function handleCreateCustom() {
+    if (!customName.trim()) return
+    setCreating(true)
+    try {
+      const supabase = createClient()
+      const { data: userRes } = await supabase.auth.getUser()
+      const userId = userRes.user?.id
+
+      const { data, error } = await supabase
+        .from("drinks")
+        .insert({
+          name: customName.trim(),
+          category: customCategory,
+          source: "user",
+          created_by: userId ?? null,
+        })
+        .select("id, name, category, image_url, glass, ingredients")
+        .single()
+
+      if (error) throw error
+
+      handleSelect(data as DrinkResult)
+      setCustomName("")
+      setShowCustom(false)
+    } catch (e) {
+      console.error("Failed to create drink:", e)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // If a drink is selected, show it as a pill
+  if (selectedDrink) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-3.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100/80 dark:bg-white/[0.06] text-lg">
+          {selectedDrink.image_url ? (
+            <div className="relative h-10 w-10 overflow-hidden rounded-xl">
+              <Image src={selectedDrink.image_url} alt="" fill className="object-cover" unoptimized />
+            </div>
+          ) : (
+            CATEGORY_EMOJI[selectedDrink.category] ?? "🍹"
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{selectedDrink.name}</div>
+          <div className="text-[12px] text-neutral-500 dark:text-white/40">{selectedDrink.category}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (!disabled) onClear()
+          }}
+          disabled={disabled}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] text-neutral-500 dark:text-white/40 transition-colors hover:bg-neutral-200 dark:hover:bg-white/[0.12]"
+          aria-label="Clear selection"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {/* Search input */}
+      <button
+        type="button"
+        onClick={() => {
+          if (!disabled) {
+            setOpen(true)
+            setTimeout(() => inputRef.current?.focus(), 50)
+          }
+        }}
+        disabled={disabled}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all",
+          "hover:border-black/30 dark:hover:border-white/20 focus:outline-none",
+          open ? "border-black/30 dark:border-white/20 ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "",
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        )}
+      >
+        <Search className="h-4 w-4 text-neutral-400 dark:text-white/30 shrink-0" />
+        <span className="text-neutral-400 dark:text-white/30">Search for a drink…</span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
+          {/* Search field inside dropdown */}
+          <div className="flex items-center gap-3 border-b border-neutral-100 dark:border-white/[0.06] px-4 py-3">
+            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25 shrink-0" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setShowCustom(false)
+              }}
+              placeholder="Type a drink name…"
+              className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
+              autoComplete="off"
+            />
+            {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30 shrink-0" />}
+          </div>
+
+          {/* Results */}
+          <div className="max-h-[280px] overflow-y-auto">
+            {query.trim().length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-white/30">
+                Start typing to search drinks
+              </div>
+            ) : results.length === 0 && !searching ? (
+              <div className="p-3">
+                {!showCustom ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-neutral-400 dark:text-white/30 mb-3">No drinks found for "{query}"</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomName(query.trim())
+                        setShowCustom(true)
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black dark:bg-white px-4 py-2 text-sm font-medium text-white dark:text-black transition-all active:scale-95"
+                    >
+                      <span>+ Add "{query.trim()}"</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-2">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Drink name</label>
+                      <input
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        className="w-full rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] px-3 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-black/20 dark:focus:border-white/20"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Category</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DRINK_TYPES.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setCustomCategory(t)}
+                            className={cn(
+                              "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                              t === customCategory
+                                ? "bg-black dark:bg-white text-white dark:text-black"
+                                : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 hover:bg-neutral-200 dark:hover:bg-white/[0.1]"
+                            )}
+                          >
+                            {CATEGORY_EMOJI[t]} {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateCustom}
+                      disabled={creating || !customName.trim()}
+                      className={cn(
+                        "w-full rounded-xl py-2.5 text-sm font-medium transition-all active:scale-[0.98]",
+                        customName.trim()
+                          ? "bg-black dark:bg-white text-white dark:text-black"
+                          : "bg-neutral-100 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30"
+                      )}
+                    >
+                      {creating ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Adding…
+                        </span>
+                      ) : (
+                        "Add drink"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-1.5">
+                {results.map((drink) => (
+                  <button
+                    key={drink.id}
+                    type="button"
+                    onClick={() => handleSelect(drink)}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/[0.1]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-base overflow-hidden">
+                      {drink.image_url ? (
+                        <Image src={drink.image_url} alt="" width={36} height={36} className="object-cover rounded-lg" unoptimized />
+                      ) : (
+                        CATEGORY_EMOJI[drink.category] ?? "🍹"
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">{drink.name}</div>
+                      <div className="text-xs text-neutral-500 dark:text-white/35">{drink.category}</div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Always show "add custom" at bottom of results */}
+                {query.trim().length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomName(query.trim())
+                      setShowCustom(true)
+                      setResults([])
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06] border-t border-neutral-100 dark:border-white/[0.04] mt-1 pt-3"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
+                      <span className="text-lg">+</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Add "{query.trim()}" as new drink</div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Main Page ─────────────────────────────────────────────────── */
+
 export default function LogDrinkPage() {
   const supabase = createClient()
   const router = useRouter()
   const { checkAchievements } = useAchievements()
 
+  const [selectedDrink, setSelectedDrink] = React.useState<DrinkResult | null>(null)
   const [drinkType, setDrinkType] = React.useState<DrinkType | null>(null)
-  const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const [caption, setCaption] = React.useState("")
   const [file, setFile] = React.useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
@@ -72,7 +406,6 @@ export default function LogDrinkPage() {
   const [success, setSuccess] = React.useState<string | null>(null)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Crop UI state
   const [cropOpen, setCropOpen] = React.useState(false)
@@ -84,18 +417,7 @@ export default function LogDrinkPage() {
   const [cropping, setCropping] = React.useState(false)
   const [cropObjectFit, setCropObjectFit] = React.useState<"horizontal-cover" | "vertical-cover">("horizontal-cover")
 
-  const canPost = Boolean(file && drinkType && !submitting)
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+  const canPost = Boolean(file && selectedDrink && drinkType && !submitting)
 
   React.useEffect(() => {
     if (!file) return
@@ -105,6 +427,7 @@ export default function LogDrinkPage() {
   }, [file])
 
   function resetForm() {
+    setSelectedDrink(null)
     setDrinkType(null)
     setCaption("")
     setFile(null)
@@ -123,12 +446,10 @@ export default function LogDrinkPage() {
     setSuccess(null)
 
     if (!file) return setError("Please take or upload a photo.")
-    if (!drinkType) return setError("Please select a drink type.")
+    if (!selectedDrink || !drinkType) return setError("Please select a drink.")
 
     setSubmitting(true)
     try {
-      console.log("1. Starting submit")
-
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr) throw userErr
       const user = userRes.user
@@ -136,7 +457,6 @@ export default function LogDrinkPage() {
         router.replace("/login?redirectTo=%2Flog")
         return
       }
-      console.log("2. Got user:", user.id)
 
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
 
@@ -148,8 +468,6 @@ export default function LogDrinkPage() {
       const filename = `${uuid}.${ext}`
       const photoPath = `${user.id}/${filename}`
 
-      console.log("3. Starting upload to:", photoPath)
-
       const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
         cacheControl: "3600",
         upsert: false,
@@ -157,35 +475,19 @@ export default function LogDrinkPage() {
       })
       if (uploadErr) throw uploadErr
 
-      console.log("4. Upload complete")
-
       const nextCaption = caption.trim()
 
-      const insertData: {
-        user_id: string
-        photo_path: string
-        drink_type: DrinkType
-        caption: string | null
-      } = {
+      const { error: insErr } = await supabase.from("drink_logs").insert({
         user_id: user.id,
         photo_path: photoPath,
         drink_type: drinkType,
+        drink_id: selectedDrink.id,
         caption: nextCaption.length ? nextCaption : null,
-      }
-
-      console.log("5. Starting insert:", insertData)
-
-      const { error: insErr } = await supabase.from("drink_logs").insert(insertData)
+      })
       if (insErr) throw insErr
 
-      console.log("6. Insert complete")
-
-      console.log("7. Checking achievements")
       await checkAchievements()
-      console.log("8. Achievements checked")
-
       resetForm()
-      console.log("9. Redirecting to feed")
       router.replace("/feed?posted=1")
     } catch (e: unknown) {
       console.error("Submit error:", e)
@@ -271,6 +573,7 @@ export default function LogDrinkPage() {
           </div>
         ) : null}
 
+        {/* Photo */}
         <div className="relative">
           {previewUrl ? (
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border bg-background/50">
@@ -319,57 +622,25 @@ export default function LogDrinkPage() {
           />
         </div>
 
-        <div className="relative mt-4" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setDropdownOpen(!dropdownOpen)
+        {/* Drink Picker */}
+        <div className="mt-4">
+          <DrinkPicker
+            selectedDrink={selectedDrink}
+            selectedDrinkType={drinkType}
+            onSelect={(drink, type) => {
+              setSelectedDrink(drink)
+              setDrinkType(type)
               setError(null)
-              setSuccess(null)
             }}
-            className={[
-              "flex w-full items-center justify-between rounded-2xl border bg-background/50 px-4 py-4 text-sm transition-all",
-              "hover:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/20",
-              dropdownOpen ? "border-black/30 ring-2 ring-black/20" : "",
-              drinkType ? "text-foreground" : "text-muted-foreground",
-            ].join(" ")}
-          >
-            <span>{drinkType || "Select drink type"}</span>
-            <ChevronDown
-              className={[
-                "h-4 w-4 transition-transform duration-200",
-                dropdownOpen ? "rotate-180" : "",
-              ].join(" ")}
-            />
-          </button>
-
-          {dropdownOpen && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-lg">
-              {DRINK_TYPES.map((t, index) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setDrinkType(t)
-                    setDropdownOpen(false)
-                    setError(null)
-                    setSuccess(null)
-                  }}
-                  className={[
-                    "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
-                    "hover:bg-black/5 active:bg-black/10",
-                    t === drinkType ? "bg-black/5 font-medium" : "",
-                    index !== DRINK_TYPES.length - 1 ? "border-b border-black/5" : "",
-                  ].join(" ")}
-                >
-                  <span>{t}</span>
-                  {t === drinkType && <Check className="h-4 w-4" />}
-                </button>
-              ))}
-            </div>
-          )}
+            onClear={() => {
+              setSelectedDrink(null)
+              setDrinkType(null)
+            }}
+            disabled={submitting}
+          />
         </div>
 
+        {/* Caption */}
         <div className="relative mt-4">
           <textarea
             value={caption}
@@ -385,14 +656,15 @@ export default function LogDrinkPage() {
           <div className="absolute bottom-4 right-4 text-xs opacity-60">{caption.length}/200</div>
         </div>
 
+        {/* Submit */}
         <button
           type="button"
           onClick={onSubmit}
           disabled={!canPost}
-          className={[
-            "mt-4 w-full rounded-2xl border p-3 text-sm font-medium",
-            canPost ? "bg-black text-white" : "bg-black/20 text-white/70",
-          ].join(" ")}
+          className={cn(
+            "mt-4 w-full rounded-2xl border p-3 text-sm font-medium transition-all active:scale-[0.99]",
+            canPost ? "bg-black text-white" : "bg-black/20 text-white/70"
+          )}
         >
           {submitting ? (
             <span className="inline-flex items-center justify-center gap-2">
@@ -405,7 +677,7 @@ export default function LogDrinkPage() {
         </button>
       </div>
 
-      {/* Crop Modal - Instagram-style: pan + zoom with dynamic sizing */}
+      {/* Crop Modal */}
       {cropOpen && rawUrl ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
@@ -439,10 +711,7 @@ export default function LogDrinkPage() {
               <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (cropping) return
-                    onCancelCrop()
-                  }}
+                  onClick={() => { if (!cropping) onCancelCrop() }}
                   disabled={cropping}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full"
                   aria-label="Cancel"
