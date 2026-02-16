@@ -44,6 +44,7 @@ type UiPerson = {
   friendCount: number
   drinkCount: number
   outgoingPending?: boolean
+  isFriend?: boolean
 }
 
 type TrendingDrink = {
@@ -600,7 +601,7 @@ export default function DiscoverPage() {
         if (!res.ok) throw new Error(json?.error ?? "Search failed.")
 
         const base = (json?.items ?? []) as SearchProfileRow[]
-        const filtered = base.filter((p) => p.id !== meId && !friendIds.has(p.id))
+        const filtered = base.filter((p) => p.id !== meId)
 
         const avatarUrls = await Promise.all(
           filtered.map((p) =>
@@ -618,6 +619,7 @@ export default function DiscoverPage() {
           friendCount: p.friend_count ?? 0,
           drinkCount: p.drink_count ?? 0,
           outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
+          isFriend: friendIds.has(p.id),
         }))
 
         setSearchResults(mapped)
@@ -655,7 +657,7 @@ export default function DiscoverPage() {
 
       if (json?.autoAccepted) {
         showToast("Friend added!")
-        setSearchResults((prev) => prev.filter((p) => p.id !== friendId))
+        setSearchResults((prev) => prev.map((p) => (p.id === friendId ? { ...p, isFriend: true } : p)))
         setSuggested((prev) => prev.filter((p) => p.id !== friendId))
         setFriendIds((prev) => new Set([...prev, friendId]))
       } else {
@@ -889,7 +891,7 @@ export default function DiscoverPage() {
                 displayName={p.displayName}
                 friendCount={p.friendCount}
                 drinkCount={p.drinkCount}
-                actions={<AddButton person={p} />}
+                actions={!p.isFriend ? <AddButton person={p} /> : undefined}
               />
             ))
           )}
