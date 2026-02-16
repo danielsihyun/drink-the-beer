@@ -36,6 +36,7 @@ type DrinkLogRow = {
   user_id: string
   photo_path: string
   drink_type: DrinkType
+  drink_id: string | null
   caption: string | null
   created_at: string
 }
@@ -75,6 +76,7 @@ interface DrinkLog {
   timestampLabel: string
   photoUrl: string
   drinkType: DrinkType
+  drinkName?: string
   caption?: string
   cheersCount: number
   cheeredByMe: boolean
@@ -545,7 +547,6 @@ function OverlayPage({
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      {/* Profile card skeleton */}
       <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[22px]">
         <div className="flex items-center gap-4">
           <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -561,20 +562,14 @@ function LoadingSkeleton() {
           </div>
         </div>
       </div>
-
-      {/* Action buttons skeleton */}
       <div className="flex gap-3">
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
       </div>
-
-      {/* Timeline header skeleton */}
       <div className="mb-4 flex items-center justify-between">
         <div className="h-5 w-28 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
       </div>
-
-      {/* Card skeletons */}
       <div className="space-y-5">
         {[1, 2, 3].map((i) => (
           <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
@@ -655,8 +650,8 @@ function DrinkLogCard({
           </div>
         </div>
 
-        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
-          {log.drinkType}
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
+          {log.drinkName ?? log.drinkType}
         </span>
       </div>
 
@@ -806,8 +801,8 @@ function GroupedDrinkCard({
           </div>
         </div>
 
-        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
-          {currentDrink.drinkType}
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
+          {currentDrink.drinkName ?? currentDrink.drinkType}
         </span>
       </div>
 
@@ -1039,7 +1034,7 @@ export default function ProfilePage() {
 
       const { data: rows, error: logsErr } = await supabase
         .from("drink_logs")
-        .select("id,user_id,photo_path,drink_type,caption,created_at")
+        .select("id,user_id,photo_path,drink_type,drink_id,caption,created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200)
@@ -1053,6 +1048,14 @@ export default function ProfilePage() {
         )
       )
 
+      // Fetch drink names
+      const drinkIds = [...new Set(base.map(r => r.drink_id).filter(Boolean))] as string[]
+      let drinkNameById = new Map<string, string>()
+      if (drinkIds.length > 0) {
+        const { data: drinksData } = await supabase.from("drinks").select("id, name").in("id", drinkIds)
+        drinkNameById = new Map((drinksData ?? []).map((d: any) => [d.id, d.name]))
+      }
+
       const mapped: DrinkLog[] = base.map((r, i) => ({
         id: r.id,
         userId: r.user_id,
@@ -1061,6 +1064,7 @@ export default function ProfilePage() {
         timestampLabel: formatCardTimestamp(r.created_at),
         photoUrl: photoUrls[i],
         drinkType: r.drink_type,
+        drinkName: r.drink_id ? drinkNameById.get(r.drink_id) : undefined,
         caption: r.caption ?? undefined,
         cheersCount: 0,
         cheeredByMe: false,
@@ -1150,7 +1154,6 @@ export default function ProfilePage() {
             .eq("addressee_id", userId)
             .eq("status", "pending")
           setPendingFriendRequests(count ?? 0)
-          // Also refresh friend count on profile
           const { data: prof } = await supabase
             .from("profile_public_stats")
             .select("friend_count")
@@ -1183,7 +1186,6 @@ export default function ProfilePage() {
           table: "drink_cheers",
         },
         async () => {
-          // Refresh total cheers received
           const logIds = logs.map((l) => l.id)
           if (logIds.length > 0) {
             const { count } = await supabase
@@ -1192,7 +1194,6 @@ export default function ProfilePage() {
               .in("drink_log_id", logIds)
             setProfile((prev) => ({ ...prev, totalCheersReceived: count ?? prev.totalCheersReceived }))
           }
-          // Refresh individual post cheers
           if (logIds.length > 0) {
             await loadCheersState(logIds, userId)
           }
