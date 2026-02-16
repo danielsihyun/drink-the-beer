@@ -568,6 +568,7 @@ export default function DiscoverPage() {
         avatarUrl: avatarUrls[i],
         friendCount: p.friend_count ?? 0,
         drinkCount: p.drink_count ?? 0,
+        cheersCount: 0,
         mutualCount: mutualMap.get(p.id) ?? 0,
         outgoingPending: pendingOutIds.has(p.id),
       }))
