@@ -125,11 +125,14 @@ function DrinkPicker({
     const q = query.trim()
     if (q.length < 1) {
       setResults([])
+      setSearching(false)
       return
     }
 
+    // Show loading immediately so "no matches" doesn't flash
+    setSearching(true)
+
     const t = setTimeout(async () => {
-      setSearching(true)
       try {
         const res = await fetch(`/api/drinks/search?q=${encodeURIComponent(q)}&limit=8`)
         const json = await res.json()
