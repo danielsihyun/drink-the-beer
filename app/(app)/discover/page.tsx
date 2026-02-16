@@ -43,6 +43,7 @@ type UiPerson = {
   avatarUrl: string | null
   friendCount: number
   drinkCount: number
+  cheersCount: number
   outgoingPending?: boolean
   isFriend?: boolean
 }
@@ -149,6 +150,7 @@ function PersonCard({
   displayName,
   friendCount,
   drinkCount,
+  cheersCount,
   subtitle,
   actions,
 }: {
@@ -157,6 +159,7 @@ function PersonCard({
   displayName: string
   friendCount: number
   drinkCount: number
+  cheersCount?: number
   subtitle?: string
   actions?: React.ReactNode
 }) {
@@ -199,6 +202,12 @@ function PersonCard({
                   <span className="font-semibold text-neutral-900 dark:text-white">{drinkCount}</span>{" "}
                   <span className="text-neutral-500 dark:text-white/40">drinks</span>
                 </div>
+                {cheersCount !== undefined && (
+                  <div>
+                    <span className="font-semibold text-neutral-900 dark:text-white">{cheersCount}</span>{" "}
+                    <span className="text-neutral-500 dark:text-white/40">cheers</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -603,13 +612,49 @@ export default function DiscoverPage() {
         const base = (json?.items ?? []) as SearchProfileRow[]
         const filtered = base.filter((p) => p.id !== meId)
 
-        const avatarUrls = await Promise.all(
-          filtered.map((p) =>
-            p.avatar_path
-              ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null)
-          )
-        )
+        const filteredIds = filtered.map((p) => p.id)
+
+        const [avatarUrls, cheersCountMap] = await Promise.all([
+          Promise.all(
+            filtered.map((p) =>
+              p.avatar_path
+                ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
+                : Promise.resolve(null)
+            )
+          ),
+          // Batch fetch cheers received for each user
+          (async () => {
+            if (filteredIds.length === 0) return new Map<string, number>()
+            // Get all drink log IDs grouped by user
+            const { data: logRows } = await supabase
+              .from("drink_logs")
+              .select("id, user_id")
+              .in("user_id", filteredIds)
+            const logsByUser = new Map<string, string[]>()
+            for (const r of (logRows ?? []) as { id: string; user_id: string }[]) {
+              const arr = logsByUser.get(r.user_id) ?? []
+              arr.push(r.id)
+              logsByUser.set(r.user_id, arr)
+            }
+            const allLogIds = (logRows ?? []).map((r: any) => r.id)
+            if (allLogIds.length === 0) return new Map<string, number>()
+            const { data: cheersRows } = await supabase
+              .from("drink_cheers")
+              .select("drink_log_id")
+              .in("drink_log_id", allLogIds)
+            // Count cheers per user
+            const countMap = new Map<string, number>()
+            for (const c of (cheersRows ?? []) as { drink_log_id: string }[]) {
+              for (const [uid, logs] of logsByUser) {
+                if (logs.includes(c.drink_log_id)) {
+                  countMap.set(uid, (countMap.get(uid) ?? 0) + 1)
+                  break
+                }
+              }
+            }
+            return countMap
+          })(),
+        ])
 
         const mapped: UiPerson[] = filtered.map((p, i) => ({
           id: p.id,
@@ -618,6 +663,7 @@ export default function DiscoverPage() {
           avatarUrl: avatarUrls[i],
           friendCount: p.friend_count ?? 0,
           drinkCount: p.drink_count ?? 0,
+          cheersCount: cheersCountMap.get(p.id) ?? 0,
           outgoingPending: !!p.outgoing_pending || !!outgoingPendingIds[p.id],
           isFriend: friendIds.has(p.id),
         }))
@@ -891,6 +937,7 @@ export default function DiscoverPage() {
                 displayName={p.displayName}
                 friendCount={p.friendCount}
                 drinkCount={p.drinkCount}
+                cheersCount={p.cheersCount}
                 actions={!p.isFriend ? <AddButton person={p} /> : undefined}
               />
             ))
