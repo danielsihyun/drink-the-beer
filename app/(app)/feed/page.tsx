@@ -18,6 +18,7 @@ type FeedApiItem = {
   user_id: string
   photo_path: string
   drink_type: DrinkType
+  drink_name: string | null
   caption: string | null
   created_at: string
   username: string
@@ -30,6 +31,7 @@ type FeedItem = {
   user_id: string
   photo_path: string
   drink_type: DrinkType
+  drink_name: string | null
   caption: string | null
   created_at: string
   photoUrl: string | null
@@ -410,7 +412,22 @@ function FeedContent() {
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<FeedItem[]>([])
   
+  // Pagination
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = React.useState(false)
+  const sentinelRef = React.useRef<HTMLDivElement>(null)
+
+  // Refs to avoid stale closures in the intersection observer
+  const nextCursorRef = React.useRef<string | null>(null)
+  const loadingMoreRef = React.useRef(false)
+  const viewerIdRef = React.useRef<string | null>(null)
+
   const [viewerId, setViewerId] = React.useState<string | null>(null)
+
+  // Keep refs in sync with state
+  React.useEffect(() => { nextCursorRef.current = nextCursor }, [nextCursor])
+  React.useEffect(() => { loadingMoreRef.current = loadingMore }, [loadingMore])
+  React.useEffect(() => { viewerIdRef.current = viewerId }, [viewerId])
   const [postedBanner, setPostedBanner] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
@@ -425,6 +442,9 @@ function FeedContent() {
   const [cheersBusy, setCheersBusy] = React.useState<Record<string, boolean>>({})
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<FeedItem | null>(null)
+
+  // Stable ref for token so we can use it in fetchPage without re-renders
+  const tokenRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     if (searchParams.get("posted") === "1") {
@@ -454,6 +474,39 @@ function FeedContent() {
     }))
   }, [supabase])
 
+  /* ── Fetch a page of feed items ──────────────────────────────── */
+
+  const fetchPage = React.useCallback(async (
+    token: string,
+    userId: string,
+    cursor: string | null,
+  ): Promise<{ mapped: FeedItem[]; nextCursor: string | null }> => {
+    const params = new URLSearchParams()
+    if (cursor) params.set("cursor", cursor)
+    params.set("limit", "10")
+
+    const res = await fetch(`/api/feed?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
+
+    const mapped: FeedItem[] = (json?.items ?? []).map((it: FeedApiItem) => ({
+      ...it,
+      photoUrl: it.photoUrl ?? null,
+      avatarUrl: it.avatarUrl ?? null,
+      isMine: it.user_id === userId,
+      timestampLabel: formatCardTimestamp(it.created_at),
+      cheersCount: 0,
+      cheeredByMe: false,
+    }))
+
+    return { mapped, nextCursor: json?.nextCursor ?? null }
+  }, [])
+
+  /* ── Initial load ────────────────────────────────────────────── */
+
   const load = React.useCallback(async () => {
     setError(null)
     try {
@@ -464,31 +517,82 @@ function FeedContent() {
 
       const { data: sessRes } = await supabase.auth.getSession()
       const token = sessRes.session?.access_token
-      
-      const res = await fetch("/api/feed", { method: "GET", headers: { Authorization: `Bearer ${token}` } })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error ?? "Could not load feed.")
+      if (!token) throw new Error("Missing session token.")
+      tokenRef.current = token
 
-      const mapped: FeedItem[] = (json?.items ?? []).map((it: FeedApiItem) => ({
-        ...it,
-        photoUrl: it.photoUrl ?? null,
-        avatarUrl: it.avatarUrl ?? null,
-        isMine: it.user_id === user.id,
-        timestampLabel: formatCardTimestamp(it.created_at),
-        cheersCount: 0,
-        cheeredByMe: false,
-      })).sort((a: FeedItem, b: FeedItem) => b.created_at.localeCompare(a.created_at))
+      const { mapped, nextCursor: nc } = await fetchPage(token, user.id, null)
 
       setItems(mapped)
-      await loadCheersState(mapped.map(m => m.id), user.id)
+      setNextCursor(nc)
+
+      if (mapped.length > 0) {
+        await loadCheersState(mapped.map(m => m.id), user.id)
+      }
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, loadCheersState])
+  }, [router, supabase, loadCheersState, fetchPage])
 
   React.useEffect(() => { load() }, [load])
+
+  /* ── Load more (next page) ───────────────────────────────────── */
+
+  const loadMore = React.useCallback(async () => {
+    const cursor = nextCursorRef.current
+    const viewer = viewerIdRef.current
+    const token = tokenRef.current
+
+    if (loadingMoreRef.current || !cursor || !viewer || !token) return
+
+    setLoadingMore(true)
+    loadingMoreRef.current = true
+
+    try {
+      const { mapped, nextCursor: nc } = await fetchPage(token, viewer, cursor)
+
+      if (mapped.length > 0) {
+        setItems((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id))
+          const newItems = mapped.filter((m) => !existingIds.has(m.id))
+          return [...prev, ...newItems]
+        })
+        setNextCursor(nc)
+        nextCursorRef.current = nc
+        await loadCheersState(mapped.map(m => m.id), viewer)
+      } else {
+        setNextCursor(null)
+        nextCursorRef.current = null
+      }
+    } catch (e: any) {
+      console.error("Failed to load more:", e)
+    } finally {
+      setLoadingMore(false)
+      loadingMoreRef.current = false
+    }
+  }, [fetchPage, loadCheersState])
+
+  /* ── Intersection observer for infinite scroll ───────────────── */
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: "400px" }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [loadMore])
+
+  /* ── Actions ─────────────────────────────────────────────────── */
 
   function openEdit(it: FeedItem) {
     setActive(it)
@@ -565,22 +669,15 @@ function FeedContent() {
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
-            <div className="flex items-center justify-between px-4 pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="space-y-1.5">
-                  <div className="h-3.5 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className="h-3 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                </div>
+          <div key={i} className="rounded-3xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
+            <div className="flex gap-3">
+              <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-4 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               </div>
-              <div className="h-6 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            <div className="aspect-square w-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            <div className="flex items-center gap-2 px-4 pt-4 pb-4">
-              <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-3.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            </div>
+            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
         ))}
       </div>
@@ -661,9 +758,9 @@ function FeedContent() {
                     </div>
                   </Link>
 
-                  {/* Drink type pill — sentence case, softer Apple style */}
-                  <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
-                    {it.drink_type}
+                  {/* Drink pill — specific name when available, category fallback */}
+                  <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
+                    {it.drink_name ?? it.drink_type}
                   </span>
                 </div>
 
@@ -714,7 +811,7 @@ function FeedContent() {
                       )}
                     </div>
 
-                    {/* Edit/Delete Buttons — contained with hover backgrounds */}
+                    {/* Edit/Delete Buttons */}
                     {it.isMine && (
                       <div className="flex items-center gap-0.5">
                         <button
@@ -735,7 +832,7 @@ function FeedContent() {
                     )}
                   </div>
 
-                  {/* Caption (conditionally rendered) */}
+                  {/* Caption */}
                   {it.caption && (
                     <div className="pl-1">
                       <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">
@@ -746,6 +843,16 @@ function FeedContent() {
                 </div>
               </article>
             ))}
+
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="py-4 flex justify-center">
+              {loadingMore && (
+                <Loader2 className="h-5 w-5 animate-spin text-neutral-400 dark:text-white/30" />
+              )}
+              {!loadingMore && !nextCursor && items.length > 0 && (
+                <p className="text-[13px] text-neutral-400 dark:text-white/25">You're all caught up</p>
+              )}
+            </div>
           </div>
         )}
       </div>
