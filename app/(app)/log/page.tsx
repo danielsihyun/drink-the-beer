@@ -366,18 +366,16 @@ function DrinkPicker({
                       </button>
                     ))}
 
-                    {/* Single "add custom" option at the bottom */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomName(query.trim())
-                        setShowCustom(true)
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]",
-                        results.length > 0 ? "border-t border-neutral-100 dark:border-white/[0.04] mt-1 pt-3" : ""
-                      )}
-                    >
+                    {/* Add custom option — only when no matches */}
+                    {results.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomName(query.trim())
+                          setShowCustom(true)
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]"
+                      >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
                         <span className="text-lg">+</span>
                       </div>
@@ -385,6 +383,7 @@ function DrinkPicker({
                         <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Don't see it? Add "{query.trim()}"</div>
                       </div>
                     </button>
+                    )}
                   </>
                 )}
               </div>
