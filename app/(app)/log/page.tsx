@@ -220,54 +220,52 @@ function DrinkPicker({
 
   return (
     <div className="relative" ref={containerRef}>
-      {/* Search input */}
-      <button
-        type="button"
-        onClick={() => {
-          if (!disabled) {
-            setOpen(true)
-            setTimeout(() => inputRef.current?.focus(), 50)
-          }
-        }}
-        disabled={disabled}
+      {/* Single search input — becomes active on focus */}
+      <div
         className={cn(
           "flex w-full items-center gap-3 rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all",
-          "hover:border-black/30 dark:hover:border-white/20 focus:outline-none",
-          open ? "border-black/30 dark:border-white/20 ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "",
+          open ? "border-black/30 dark:border-white/20 ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "hover:border-black/30 dark:hover:border-white/20",
           disabled ? "opacity-50 cursor-not-allowed" : ""
         )}
       >
         <Search className="h-4 w-4 text-neutral-400 dark:text-white/30 shrink-0" />
-        <span className="text-neutral-400 dark:text-white/30">Search for a drink…</span>
-      </button>
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setShowCustom(false)
+          }}
+          onFocus={() => { if (!disabled) setOpen(true) }}
+          placeholder="Search for a drink…"
+          className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-white/30 outline-none"
+          autoComplete="off"
+          disabled={disabled}
+        />
+        {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30 shrink-0" />}
+        {open && query.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("")
+              setResults([])
+              setShowCustom(false)
+              inputRef.current?.focus()
+            }}
+            className="shrink-0 text-neutral-400 dark:text-white/30 hover:text-neutral-600 dark:hover:text-white/50"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
 
-      {/* Dropdown */}
-      {open && (
+      {/* Results dropdown */}
+      {open && (query.trim().length > 0 || showCustom) && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
-          {/* Search field inside dropdown */}
-          <div className="flex items-center gap-3 border-b border-neutral-100 dark:border-white/[0.06] px-4 py-3">
-            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25 shrink-0" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                setShowCustom(false)
-              }}
-              placeholder="Type a drink name…"
-              className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
-              autoComplete="off"
-            />
-            {searching && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30 shrink-0" />}
-          </div>
 
           {/* Results */}
           <div className="max-h-[280px] overflow-y-auto">
-            {query.trim().length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-white/30">
-                Start typing to search drinks
-              </div>
-            ) : showCustom ? (
+            {showCustom ? (
               /* Custom drink creation form */
               <div className="p-3 space-y-3 py-2">
                 <div>
