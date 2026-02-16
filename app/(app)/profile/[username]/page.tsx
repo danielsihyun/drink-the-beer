@@ -36,6 +36,7 @@ type DrinkLogRow = {
   user_id: string
   photo_path: string
   drink_type: DrinkType
+  drink_id: string | null
   caption: string | null
   created_at: string
 }
@@ -77,6 +78,7 @@ interface DrinkLog {
   timestampLabel: string
   photoUrl: string
   drinkType: DrinkType
+  drinkName?: string
   caption?: string
   cheersCount: number
   cheeredByMe: boolean
@@ -387,7 +389,6 @@ function CheersListModal({
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      {/* Profile card skeleton */}
       <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[22px]">
         <div className="flex items-center gap-4">
           <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -403,20 +404,14 @@ function LoadingSkeleton() {
           </div>
         </div>
       </div>
-
-      {/* Action buttons skeleton */}
       <div className="flex gap-3">
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
         <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
       </div>
-
-      {/* Timeline header skeleton */}
       <div className="mb-4 flex items-center justify-between">
         <div className="h-5 w-36 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
       </div>
-
-      {/* Card skeletons */}
       <div className="space-y-5">
         {[1, 2, 3].map((i) => (
           <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
@@ -517,7 +512,6 @@ function DrinkLogCard({
 }) {
   return (
     <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-4">
         <div className="flex items-center gap-3">
           {profile.avatarUrl ? (
@@ -538,12 +532,11 @@ function DrinkLogCard({
           </div>
         </div>
 
-        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
-          {log.drinkType}
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
+          {log.drinkName ?? log.drinkType}
         </span>
       </div>
 
-      {/* Photo — full bleed */}
       <div>
         <div className="relative aspect-square w-full overflow-hidden bg-neutral-100 dark:bg-white/[0.04]">
           <Image
@@ -556,7 +549,6 @@ function DrinkLogCard({
         </div>
       </div>
 
-      {/* Actions & Caption */}
       <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
         <div className="flex items-center gap-1.5">
           <button
@@ -643,7 +635,6 @@ function GroupedDrinkCard({
 
   return (
     <article className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-4">
         <div className="flex items-center gap-3">
           {profile.avatarUrl ? (
@@ -664,12 +655,11 @@ function GroupedDrinkCard({
           </div>
         </div>
 
-        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50">
-          {currentDrink.drinkType}
+        <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
+          {currentDrink.drinkName ?? currentDrink.drinkType}
         </span>
       </div>
 
-      {/* Photo carousel — full bleed */}
       <div className="relative">
         <div 
           ref={scrollContainerRef}
@@ -716,7 +706,6 @@ function GroupedDrinkCard({
         )}
       </div>
 
-      {/* Actions & Caption */}
       <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
         <div className="flex items-center gap-1.5">
           <button
@@ -785,7 +774,6 @@ export default function UserProfilePage() {
 
   const [requestBusy, setRequestBusy] = React.useState(false)
 
-  // Close dropdown when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -798,7 +786,6 @@ export default function UserProfilePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showSortMenu])
 
-  // Lock body scroll when medal detail modal is open
   const scrollYRef = React.useRef(0)
   React.useEffect(() => {
     if (selectedMedal) {
@@ -936,7 +923,6 @@ export default function UserProfilePage() {
         avatarSignedUrl = data?.signedUrl ?? null
       }
 
-      // Fetch achievements for showcase
       const { data: achievementsData } = await supabase
         .from("achievements")
         .select("*")
@@ -948,7 +934,6 @@ export default function UserProfilePage() {
         .eq("user_id", p.id)
       setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
 
-      // Fetch total cheers received for this user's drink logs
       const { data: userLogIds } = await supabase
         .from("drink_logs")
         .select("id")
@@ -979,7 +964,7 @@ export default function UserProfilePage() {
       if (status === "friends") {
         const { data: rows, error: logsErr } = await supabase
           .from("drink_logs")
-          .select("id,user_id,photo_path,drink_type,caption,created_at")
+          .select("id,user_id,photo_path,drink_type,drink_id,caption,created_at")
           .eq("user_id", p.id)
           .order("created_at", { ascending: false })
           .limit(200)
@@ -993,6 +978,14 @@ export default function UserProfilePage() {
           )
         )
 
+        // Fetch drink names
+        const drinkIds = [...new Set(base.map(r => r.drink_id).filter(Boolean))] as string[]
+        let drinkNameById = new Map<string, string>()
+        if (drinkIds.length > 0) {
+          const { data: drinksData } = await supabase.from("drinks").select("id, name").in("id", drinkIds)
+          drinkNameById = new Map((drinksData ?? []).map((d: any) => [d.id, d.name]))
+        }
+
         const mapped: DrinkLog[] = base.map((r, i) => ({
           id: r.id,
           userId: r.user_id,
@@ -1001,6 +994,7 @@ export default function UserProfilePage() {
           timestampLabel: formatCardTimestamp(r.created_at),
           photoUrl: photoUrls[i],
           drinkType: r.drink_type,
+          drinkName: r.drink_id ? drinkNameById.get(r.drink_id) : undefined,
           caption: r.caption ?? undefined,
           cheersCount: 0,
           cheeredByMe: false,
@@ -1024,7 +1018,6 @@ export default function UserProfilePage() {
     load()
   }, [load])
 
-  // Realtime subscription for friendship changes
   React.useEffect(() => {
     if (!viewerId || !profile?.id) return
 
@@ -1250,7 +1243,6 @@ export default function UserProfilePage() {
 
   return (
     <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
-      {/* Page Header */}
       <div className="mb-4 flex items-center gap-3">
         <button
           type="button"
@@ -1273,9 +1265,7 @@ export default function UserProfilePage() {
         <LoadingSkeleton />
       ) : profile ? (
         <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-          {/* PROFILE CARD */}
           <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
-            {/* Showcase Medals — read-only */}
             <div className="absolute top-4 right-4">
               <ProfileShowcase
                 showcaseIds={profile.showcaseAchievements}
@@ -1324,7 +1314,6 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Medals and Analytics buttons — only when friends */}
           {friendshipStatus === "friends" && (
             <div className="flex gap-3">
               <Link
@@ -1344,7 +1333,6 @@ export default function UserProfilePage() {
             </div>
           )}
 
-          {/* Timeline */}
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.username}&apos;s Timeline</h3>
@@ -1391,7 +1379,6 @@ export default function UserProfilePage() {
         </div>
       ) : null}
 
-      {/* Cheers List Modal */}
       {cheersListPost && (
         <CheersListModal
           drinkLogId={cheersListPost.id}
@@ -1400,7 +1387,6 @@ export default function UserProfilePage() {
         />
       )}
 
-      {/* Medal Detail Modal */}
       {selectedMedal && (
         <MedalDetailModal
           achievement={selectedMedal}
