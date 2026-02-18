@@ -8,45 +8,6 @@ const supabaseAdmin = createClient(
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function getSeasonalConfig() {
-  const month = new Date().getMonth() // 0-indexed
-  if (month >= 11 || month <= 1) {
-    return {
-      title: "Winter Warmers",
-      subtitle: "Cozy cocktails for cold nights",
-      emoji: "❄️",
-      keywords: ["Hot Toddy", "Irish Coffee", "Mulled Wine", "Hot Chocolate", "Eggnog", "Grog", "Wassail", "Amaretto", "Baileys", "Kahlúa"],
-      ingredientKeywords: ["cinnamon", "nutmeg", "honey", "cream", "coffee", "chocolate", "whiskey", "brandy"],
-    }
-  }
-  if (month >= 2 && month <= 4) {
-    return {
-      title: "Spring Sips",
-      subtitle: "Fresh & floral drinks for warmer days",
-      emoji: "🌸",
-      keywords: ["Aperol Spritz", "French 75", "Hugo", "Gin Fizz", "Mimosa", "Bellini", "Kir Royale", "Elderflower"],
-      ingredientKeywords: ["elderflower", "gin", "prosecco", "champagne", "lemon", "lavender", "mint", "cucumber"],
-    }
-  }
-  if (month >= 5 && month <= 7) {
-    return {
-      title: "Summer Crushes",
-      subtitle: "Cool refreshers for hot days",
-      emoji: "☀️",
-      keywords: ["Mojito", "Piña Colada", "Daiquiri", "Margarita", "Paloma", "Caipirinha", "Sangria", "Frosé"],
-      ingredientKeywords: ["rum", "tequila", "lime", "coconut", "pineapple", "watermelon", "mint", "agave"],
-    }
-  }
-  // Aug - Oct
-  return {
-    title: "Autumn Favorites",
-    subtitle: "Rich & warming harvest drinks",
-    emoji: "🍂",
-    keywords: ["Old Fashioned", "Manhattan", "Whiskey Sour", "Apple Cider", "Bourbon", "Sazerac", "Rob Roy", "Penicillin"],
-    ingredientKeywords: ["bourbon", "whiskey", "apple", "cinnamon", "maple", "ginger", "bitters", "rye"],
-  }
-}
-
 const COLLECTION_DEFINITIONS = [
   {
     id: "whiskey",
@@ -123,14 +84,12 @@ export async function GET(req: NextRequest) {
     const [
       trendingResult,
       drinkOfDayResult,
-      seasonalResult,
       collectionsResult,
       recommendationsResult,
       userLogsResult,
     ] = await Promise.all([
       loadTrending(),
       loadDrinkOfTheDay(),
-      loadSeasonal(),
       loadCollections(),
       loadRecommendations(userId),
       // For recommendations we need user's logged drink IDs
@@ -145,7 +104,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       trending: trendingResult,
       drinkOfTheDay: drinkOfDayResult,
-      seasonal: seasonalResult,
       collections: collectionsResult,
       recommendations: recommendationsResult,
     })
@@ -301,48 +259,6 @@ async function loadDrinkOfTheDay() {
     imageUrl: pick.image_url,
     description,
     instructions: pick.instructions,
-  }
-}
-
-// ── Seasonal: real drinks matching seasonal theme ────────────────────
-
-async function loadSeasonal() {
-  const config = getSeasonalConfig()
-
-  // Search for drinks matching seasonal keywords
-  const { data: drinks } = await supabaseAdmin
-    .from("drinks")
-    .select("id, name, category, image_url")
-    .limit(500)
-
-  if (!drinks || drinks.length === 0) {
-    return { ...config, drinks: [] }
-  }
-
-  // Match by name keywords
-  const nameMatches = drinks.filter((d: any) =>
-    config.keywords.some((kw) => d.name.toLowerCase().includes(kw.toLowerCase()))
-  )
-
-  // Match by ingredient keywords
-  const ingredientMatches = drinks.filter((d: any) => {
-    if (nameMatches.some((m: any) => m.id === d.id)) return false // avoid dupes
-    // We don't have ingredients in this query, so skip for now
-    return false
-  })
-
-  const matchedDrinks = [...nameMatches, ...ingredientMatches].slice(0, 8)
-
-  return {
-    title: config.title,
-    subtitle: config.subtitle,
-    emoji: config.emoji,
-    drinks: matchedDrinks.map((d: any) => ({
-      id: d.id,
-      name: d.name,
-      category: d.category,
-      imageUrl: d.image_url,
-    })),
   }
 }
 

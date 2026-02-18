@@ -79,12 +79,8 @@ type DrinkOfTheDay = {
   instructions: string | null
 }
 
-type SeasonalData = {
-  title: string
-  subtitle: string
-  emoji: string
-  drinks: { id: string; name: string; category: string; imageUrl: string | null }[]
-}
+
+
 
 
 
@@ -297,9 +293,6 @@ export default function DiscoverPage() {
   // Drink of the day
   const [drinkOfTheDay, setDrinkOfTheDay] = React.useState<DrinkOfTheDay | null>(null)
 
-  // Seasonal
-  const [seasonal, setSeasonal] = React.useState<SeasonalData | null>(null)
-
   // Collections
   const [collections, setCollections] = React.useState<DrinkCollection[]>([])
 
@@ -360,7 +353,7 @@ export default function DiscoverPage() {
         const token = sessRes.session?.access_token
 
         await Promise.all([
-          // Discover API: trending, drinkOfTheDay, seasonal, collections, recommendations
+          // Discover API: trending, drinkOfTheDay, collections, recommendations
           (async () => {
             if (!token) return
             try {
@@ -371,7 +364,6 @@ export default function DiscoverPage() {
               const data = await res.json()
               setTrending(data.trending ?? [])
               setDrinkOfTheDay(data.drinkOfTheDay ?? null)
-              setSeasonal(data.seasonal ?? null)
               setCollections(data.collections ?? [])
               setRecommendations(data.recommendations ?? [])
             } catch (e) {
@@ -690,18 +682,6 @@ export default function DiscoverPage() {
           <div className="h-10 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse mt-1" />
         </div>
 
-        {/* Seasonal skeleton */}
-        <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 space-y-3">
-          <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-          <div className="h-5 w-40 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-          <div className="h-3 w-48 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-          <div className="flex gap-2 pt-1">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-8 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            ))}
-          </div>
-        </div>
-
         {/* Collections skeleton */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
@@ -898,30 +878,6 @@ export default function DiscoverPage() {
                   <Plus className="h-3.5 w-3.5" />
                   Log this drink
                 </Link>
-              </div>
-            </div>
-          )}
-
-          {/* ── Seasonal / Featured Banner ────────────────────── */}
-          {seasonal && seasonal.drinks.length > 0 && (
-            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-gradient-to-br from-indigo-950/40 via-blue-900/30 to-sky-800/20 dark:from-indigo-950/60 dark:via-blue-900/40 dark:to-sky-800/30 backdrop-blur-xl p-5 relative overflow-hidden">
-              <div className="absolute -top-4 -right-2 text-6xl opacity-10">{seasonal.emoji}</div>
-
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/35">
-                Seasonal pick
-              </div>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-1.5">{seasonal.title}</div>
-              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{seasonal.subtitle}</div>
-
-              <div className="flex flex-wrap gap-2">
-                {seasonal.drinks.map((d) => (
-                  <span
-                    key={d.id}
-                    className="rounded-full border border-neutral-200/40 dark:border-white/10 bg-white/60 dark:bg-white/[0.08] px-3 py-1.5 text-[13px] font-medium text-neutral-700 dark:text-white/70 backdrop-blur-sm"
-                  >
-                    {d.name}
-                  </span>
-                ))}
               </div>
             </div>
           )}
