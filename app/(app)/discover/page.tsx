@@ -10,15 +10,10 @@ import {
   Check,
   Users,
   Sparkles,
-  TrendingUp,
-  MapPin,
-  Star,
   ChevronRight,
   Flame,
   BookOpen,
   Lightbulb,
-  CalendarDays,
-  Trophy,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -49,22 +44,15 @@ type UiPerson = {
 }
 
 type TrendingDrink = {
-  drinkType: string
+  id: string | null
+  name: string
+  category: string
+  imageUrl: string | null
   count: number
   percentChange: number | null
 }
 
 type SuggestedPerson = UiPerson & { mutualCount: number }
-
-type NearbyVenue = {
-  id: string
-  name: string
-  distance: string
-  vibe: string
-  rating: number
-  specialty: string
-  imageUrl: string | null
-}
 
 type DrinkCollection = {
   id: string
@@ -77,9 +65,25 @@ type DrinkCollection = {
 type RecommendedDrink = {
   id: string
   name: string
-  emoji: string
-  flavor: string
+  category: string
+  imageUrl: string | null
   reason: string
+}
+
+type DrinkOfTheDay = {
+  id: string
+  name: string
+  category: string
+  imageUrl: string | null
+  description: string
+  instructions: string | null
+}
+
+type SeasonalData = {
+  title: string
+  subtitle: string
+  emoji: string
+  drinks: { id: string; name: string; category: string; imageUrl: string | null }[]
 }
 
 
@@ -97,15 +101,6 @@ const DRINK_EMOJI: Record<string, string> = {
 }
 
 
-
-const COLLECTIONS: DrinkCollection[] = [
-  { id: "whiskey", name: "Whiskey Classics", count: 24, emoji: "🥃", gradient: "from-amber-900/40 to-amber-600/20" },
-  { id: "tiki", name: "Tiki Time", count: 18, emoji: "🌺", gradient: "from-rose-900/40 to-rose-500/20" },
-  { id: "low-abv", name: "Low & No ABV", count: 31, emoji: "🌿", gradient: "from-emerald-900/40 to-emerald-500/20" },
-  { id: "brunch", name: "Brunch Worthy", count: 15, emoji: "🥂", gradient: "from-yellow-900/40 to-yellow-500/20" },
-  { id: "bitter", name: "Bitter & Bold", count: 22, emoji: "🍋", gradient: "from-orange-900/40 to-orange-500/20" },
-  { id: "date", name: "Date Night", count: 19, emoji: "🌙", gradient: "from-violet-900/40 to-violet-500/20" },
-]
 
 /* ── Section Header ────────────────────────────────────────────── */
 
@@ -221,57 +216,6 @@ function PersonCard({
 
 
 
-/* ── Nearby Venue Card ─────────────────────────────────────────── */
-
-function NearbyCard({ venue, active, onSelect }: { venue: NearbyVenue; active: boolean; onSelect: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "flex items-center gap-3 w-full rounded-2xl border p-3 transition-all duration-200 active:scale-[0.98] text-left",
-        active
-          ? "border-neutral-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-          : "border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-      )}
-    >
-      {/* Icon / image */}
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.06]">
-        {venue.imageUrl ? (
-          <Image src={venue.imageUrl} alt={venue.name} fill className="object-cover" unoptimized />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xl opacity-40">🍸</div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{venue.name}</div>
-          <div className="flex items-center gap-0.5 text-[11px] font-medium text-amber-500 dark:text-amber-400 shrink-0">
-            <Star className="h-3 w-3 fill-amber-400 dark:fill-amber-400" />
-            {venue.rating}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-0.5 text-[12px] text-neutral-500 dark:text-white/35">
-          <span className="flex items-center gap-0.5">
-            <MapPin className="h-3 w-3" />
-            {venue.distance}
-          </span>
-          <span className="text-neutral-300 dark:text-white/15">·</span>
-          <span>{venue.vibe}</span>
-        </div>
-      </div>
-
-      {/* Specialty badge */}
-      <div className="shrink-0 text-right">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/25">Known for</div>
-        <div className="text-[12px] font-medium text-neutral-700 dark:text-white/60 mt-0.5">🍹 {venue.specialty}</div>
-      </div>
-    </button>
-  )
-}
-
 /* ── Collection Card ───────────────────────────────────────────── */
 
 function CollectionCard({ collection }: { collection: DrinkCollection }) {
@@ -300,25 +244,29 @@ function CollectionCard({ collection }: { collection: DrinkCollection }) {
 function RecommendationCard({ drink }: { drink: RecommendedDrink }) {
   return (
     <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-4 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-neutral-100/80 dark:bg-white/[0.06] border border-neutral-100 dark:border-white/[0.04] text-xl">
-        {drink.emoji}
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-neutral-100/80 dark:bg-white/[0.06] border border-neutral-100 dark:border-white/[0.04]">
+        {drink.imageUrl ? (
+          <Image src={drink.imageUrl} alt={drink.name} fill className="object-cover" unoptimized />
+        ) : (
+          <span className="text-xl">{DRINK_EMOJI[drink.category] ?? "🍹"}</span>
+        )}
       </div>
 
       <div className="flex-1 min-w-0 space-y-1">
         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{drink.name}</div>
-        <div className="text-[12px] text-neutral-500 dark:text-white/35">{drink.flavor}</div>
+        <div className="text-[12px] text-neutral-500 dark:text-white/35">{drink.category}</div>
         <div className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/10 px-2.5 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
-          Because {drink.reason.toLowerCase()}
+          {drink.reason}
         </div>
       </div>
 
-      <button
-        type="button"
+      <Link
+        href="/log"
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
         aria-label="Log this drink"
       >
         <Plus className="h-4 w-4" />
-      </button>
+      </Link>
     </div>
   )
 }
@@ -346,37 +294,17 @@ export default function DiscoverPage() {
   // Suggested people (friends of friends)
   const [suggested, setSuggested] = React.useState<SuggestedPerson[]>([])
 
+  // Drink of the day
+  const [drinkOfTheDay, setDrinkOfTheDay] = React.useState<DrinkOfTheDay | null>(null)
 
+  // Seasonal
+  const [seasonal, setSeasonal] = React.useState<SeasonalData | null>(null)
 
-  // Nearby venues (placeholder — replace with location-based API)
-  const [nearby] = React.useState<NearbyVenue[]>([
-    { id: "1", name: "The Broken Shaker", distance: "0.3 mi", vibe: "Tropical · Craft", rating: 4.7, specialty: "Frozen Daiquiri", imageUrl: null },
-    { id: "2", name: "Death & Co", distance: "0.8 mi", vibe: "Speakeasy · Classic", rating: 4.9, specialty: "Oaxaca Old Fashioned", imageUrl: null },
-    { id: "3", name: "Attaboy", distance: "1.2 mi", vibe: "Intimate · Omakase", rating: 4.8, specialty: "Dealer's Choice", imageUrl: null },
-  ])
-  const [activeNearbyId, setActiveNearbyId] = React.useState<string | null>(null)
+  // Collections
+  const [collections, setCollections] = React.useState<DrinkCollection[]>([])
 
-  // Recommendations (placeholder — replace with recommendation engine)
-  const [recommendations] = React.useState<RecommendedDrink[]>([
-    { id: "1", name: "Last Word", emoji: "🌿", flavor: "Herbal · Citrus", reason: "You liked Negroni" },
-    { id: "2", name: "Jungle Bird", emoji: "🦜", flavor: "Tropical · Bitter", reason: "You liked Mai Tai" },
-    { id: "3", name: "Penicillin", emoji: "💊", flavor: "Smoky · Ginger", reason: "You liked Whiskey Sour" },
-  ])
-
-  // Drink of the day (placeholder — replace with curated feed)
-  const [drinkOfTheDay] = React.useState<{ name: string; emoji: string; description: string } | null>({
-    name: "Bee's Knees",
-    emoji: "🍸",
-    description: "Gin · Honey · Lemon — A Prohibition-era classic",
-  })
-
-  // Seasonal (placeholder — replace with content-managed data)
-  const [seasonal] = React.useState<{ title: string; subtitle: string; emoji: string; drinks: string[] } | null>({
-    title: "Winter Warmers",
-    subtitle: "Cozy cocktails for cold nights",
-    emoji: "❄️",
-    drinks: ["Hot Toddy", "Irish Coffee", "Mulled Wine", "Spiked Cider"],
-  })
+  // Recommendations
+  const [recommendations, setRecommendations] = React.useState<RecommendedDrink[]>([])
 
   // Toast
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
@@ -426,11 +354,31 @@ export default function DiscoverPage() {
         )
         setFriendIds(myFriendIds)
 
-        // Load trending & suggested in parallel
+        // Load discover data & suggested in parallel
+        const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+        if (sessErr) throw sessErr
+        const token = sessRes.session?.access_token
+
         await Promise.all([
-          loadTrending(userId),
+          // Discover API: trending, drinkOfTheDay, seasonal, collections, recommendations
+          (async () => {
+            if (!token) return
+            try {
+              const res = await fetch("/api/discover", {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              if (!res.ok) throw new Error("Discover API failed")
+              const data = await res.json()
+              setTrending(data.trending ?? [])
+              setDrinkOfTheDay(data.drinkOfTheDay ?? null)
+              setSeasonal(data.seasonal ?? null)
+              setCollections(data.collections ?? [])
+              setRecommendations(data.recommendations ?? [])
+            } catch (e) {
+              console.error("Failed to load discover data:", e)
+            }
+          })(),
           loadSuggested(userId, myFriendIds),
-          // Future: loadNearby(), loadRecommendations(), loadDrinkOfTheDay(), loadSeasonal()
         ])
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
@@ -441,55 +389,6 @@ export default function DiscoverPage() {
 
     load()
   }, [supabase, router])
-
-  /* ── Trending drinks (last 7 days vs prior 7 days) ────────────── */
-
-  async function loadTrending(userId: string) {
-    try {
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-
-      const { data: recentLogs } = await supabase
-        .from("drink_logs")
-        .select("drink_type, created_at")
-        .gte("created_at", twoWeeksAgo.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(2000)
-
-      const thisWeek: Record<string, number> = {}
-      const lastWeek: Record<string, number> = {}
-
-      for (const log of recentLogs ?? []) {
-        const logDate = new Date(log.created_at)
-        if (logDate >= weekAgo) {
-          thisWeek[log.drink_type] = (thisWeek[log.drink_type] || 0) + 1
-        } else {
-          lastWeek[log.drink_type] = (lastWeek[log.drink_type] || 0) + 1
-        }
-      }
-
-      const allTypes = new Set([...Object.keys(thisWeek), ...Object.keys(lastWeek)])
-      const trendingList: TrendingDrink[] = []
-
-      for (const type of allTypes) {
-        const current = thisWeek[type] || 0
-        const previous = lastWeek[type] || 0
-        const percentChange = previous > 0
-          ? Math.round(((current - previous) / previous) * 100)
-          : current > 0 ? 100 : null
-
-        if (current > 0) {
-          trendingList.push({ drinkType: type, count: current, percentChange })
-        }
-      }
-
-      trendingList.sort((a, b) => b.count - a.count)
-      setTrending(trendingList.slice(0, 5))
-    } catch (e) {
-      console.error("Failed to load trending:", e)
-    }
-  }
 
   /* ── Suggested people (friends of friends) ────────────────────── */
 
@@ -803,26 +702,6 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Sipping nearby skeleton */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Sipping nearby</div>
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3">
-                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="h-3.5 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                </div>
-                <div className="space-y-1.5 shrink-0">
-                  <div className="h-2.5 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse ml-auto" />
-                  <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Collections skeleton */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
@@ -953,17 +832,21 @@ export default function DiscoverPage() {
               <SectionHeader icon={Flame} label="Trending this week" />
 
               <div className="grid grid-cols-2 gap-3">
-                {trending.map((drink) => (
+                {trending.map((drink, i) => (
                   <div
-                    key={drink.drinkType}
+                    key={drink.id ?? `trending-${i}`}
                     className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-4 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100/80 dark:bg-white/[0.06] text-lg">
-                        {DRINK_EMOJI[drink.drinkType] ?? "🍹"}
+                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100/80 dark:bg-white/[0.06]">
+                        {drink.imageUrl ? (
+                          <Image src={drink.imageUrl} alt={drink.name} fill className="object-cover" unoptimized />
+                        ) : (
+                          <span className="text-lg">{DRINK_EMOJI[drink.category] ?? "🍹"}</span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.drinkType}</div>
+                        <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.name}</div>
                         <div className="flex items-center gap-1.5 text-[13px]">
                           <span className="text-neutral-500 dark:text-white/40">{drink.count} logs</span>
                           {drink.percentChange !== null && drink.percentChange !== 0 && (
@@ -987,29 +870,40 @@ export default function DiscoverPage() {
 
           {/* ── Drink of the Day ─────────────────────────────── */}
           {drinkOfTheDay && (
-            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5 text-center relative overflow-hidden">
-              <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-5xl opacity-10">🏆</div>
+            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden relative">
+              {drinkOfTheDay.imageUrl && (
+                <div className="relative h-40 w-full bg-neutral-100 dark:bg-white/[0.04]">
+                  <Image src={drinkOfTheDay.imageUrl} alt={drinkOfTheDay.name} fill className="object-cover" unoptimized />
+                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-neutral-900 via-transparent to-transparent" />
+                </div>
+              )}
 
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400/60">
-                Drink of the day
-              </div>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white mt-2">
-                {drinkOfTheDay.emoji} {drinkOfTheDay.name}
-              </div>
-              <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
+              <div className={cn("p-5 text-center relative", !drinkOfTheDay.imageUrl && "pt-6")}>
+                {!drinkOfTheDay.imageUrl && (
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-5xl opacity-10">🏆</div>
+                )}
 
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Log this drink
-              </button>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400/60">
+                  Drink of the day
+                </div>
+                <div className="text-xl font-bold text-neutral-900 dark:text-white mt-2">
+                  {DRINK_EMOJI[drinkOfTheDay.category] ?? "🍸"} {drinkOfTheDay.name}
+                </div>
+                <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
+
+                <Link
+                  href="/log"
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Log this drink
+                </Link>
+              </div>
             </div>
           )}
 
           {/* ── Seasonal / Featured Banner ────────────────────── */}
-          {seasonal && (
+          {seasonal && seasonal.drinks.length > 0 && (
             <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-gradient-to-br from-indigo-950/40 via-blue-900/30 to-sky-800/20 dark:from-indigo-950/60 dark:via-blue-900/40 dark:to-sky-800/30 backdrop-blur-xl p-5 relative overflow-hidden">
               <div className="absolute -top-4 -right-2 text-6xl opacity-10">{seasonal.emoji}</div>
 
@@ -1022,44 +916,28 @@ export default function DiscoverPage() {
               <div className="flex flex-wrap gap-2">
                 {seasonal.drinks.map((d) => (
                   <span
-                    key={d}
+                    key={d.id}
                     className="rounded-full border border-neutral-200/40 dark:border-white/10 bg-white/60 dark:bg-white/[0.08] px-3 py-1.5 text-[13px] font-medium text-neutral-700 dark:text-white/70 backdrop-blur-sm"
                   >
-                    {d}
+                    {d.name}
                   </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* ── Sipping Nearby ────────────────────────────────── */}
-          {nearby.length > 0 && (
+          {/* ── Collections ──────────────────────────────────── */}
+          {collections.length > 0 && (
             <div className="space-y-3">
-              <SectionHeader icon={MapPin} label="Sipping nearby" />
+              <SectionHeader icon={BookOpen} label="Collections" />
 
-              <div className="space-y-2">
-                {nearby.map((v) => (
-                  <NearbyCard
-                    key={v.id}
-                    venue={v}
-                    active={activeNearbyId === v.id}
-                    onSelect={() => setActiveNearbyId(activeNearbyId === v.id ? null : v.id)}
-                  />
+              <div className="grid grid-cols-2 gap-3">
+                {collections.map((c) => (
+                  <CollectionCard key={c.id} collection={c} />
                 ))}
               </div>
             </div>
           )}
-
-          {/* ── Collections ──────────────────────────────────── */}
-          <div className="space-y-3">
-            <SectionHeader icon={BookOpen} label="Collections" />
-
-            <div className="grid grid-cols-2 gap-3">
-              {COLLECTIONS.map((c) => (
-                <CollectionCard key={c.id} collection={c} />
-              ))}
-            </div>
-          </div>
 
           {/* ── You Might Enjoy (Recommendations) ────────────── */}
           {recommendations.length > 0 && (
