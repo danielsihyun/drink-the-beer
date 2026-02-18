@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Loader2, ArrowUpDown, Plus, Check, X } from "lucide-react"
+import { Loader2, ArrowUpDown, Plus, Check, Search, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -175,6 +175,7 @@ export default function FriendsPage() {
   const [friends, setFriends] = React.useState<UiPerson[]>([])
   const [sort, setSort] = React.useState<FriendSort>("name_asc")
   const [showSortMenu, setShowSortMenu] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
 
   const sortMenuRef = React.useRef<HTMLDivElement>(null)
 
@@ -510,6 +511,12 @@ export default function FriendsPage() {
           </div>
         </div>
 
+        {/* Search skeleton */}
+        <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+          <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+          <span className="text-sm text-neutral-300 dark:text-white/20">Search friends…</span>
+        </div>
+
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
           <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
@@ -548,6 +555,16 @@ export default function FriendsPage() {
   }
 
   const friendsSorted = sortedFriends(friends)
+
+  // Client-side search filter
+  const q = searchQuery.trim().toLowerCase()
+  const friendsFiltered = q.length > 0
+    ? friendsSorted.filter(
+        (f) =>
+          f.username.toLowerCase().includes(q) ||
+          f.displayName.toLowerCase().includes(q)
+      )
+    : friendsSorted
 
   return (
     <>
@@ -606,6 +623,32 @@ export default function FriendsPage() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className={cn(
+            "flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
+            "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
+          )}>
+            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search friends…"
+              className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 outline-none"
+            />
+            {searchQuery.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-neutral-400 dark:text-white/40 transition-colors hover:bg-black/[0.1] dark:hover:bg-white/[0.15]"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Toast */}
         {toastMsg && (
           <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-500 rounded-[2rem] border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
@@ -620,76 +663,86 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {/* Pending Requests */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
+        {/* Pending Requests — hidden when searching */}
+        {q.length === 0 && (
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
 
-          {pending.length === 0 ? (
-            <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
-              No pending requests.
-            </div>
-          ) : (
-            pending.map((p) => (
-              <PersonCard
-                key={p.friendshipId}
-                avatarUrl={p.avatarUrl}
-                username={p.username}
-                displayName={p.displayName}
-                friendCount={p.friendCount}
-                drinkCount={p.drinkCount}
-                actions={
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => respondToRequest(p.friendshipId, "accepted")}
-                      disabled={pendingBusyId === p.friendshipId}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-50"
-                      aria-label="Accept"
-                    >
-                      {pendingBusyId === p.friendshipId ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => respondToRequest(p.friendshipId, "rejected")}
-                      disabled={pendingBusyId === p.friendshipId}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-all active:scale-95 hover:bg-neutral-200 dark:hover:bg-white/15 disabled:opacity-50"
-                      aria-label="Reject"
-                    >
-                      {pendingBusyId === p.friendshipId ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                }
-              />
-            ))
-          )}
-        </div>
+            {pending.length === 0 ? (
+              <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+                No pending requests.
+              </div>
+            ) : (
+              pending.map((p) => (
+                <PersonCard
+                  key={p.friendshipId}
+                  avatarUrl={p.avatarUrl}
+                  username={p.username}
+                  displayName={p.displayName}
+                  friendCount={p.friendCount}
+                  drinkCount={p.drinkCount}
+                  actions={
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => respondToRequest(p.friendshipId, "accepted")}
+                        disabled={pendingBusyId === p.friendshipId}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-50"
+                        aria-label="Accept"
+                      >
+                        {pendingBusyId === p.friendshipId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => respondToRequest(p.friendshipId, "rejected")}
+                        disabled={pendingBusyId === p.friendshipId}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-all active:scale-95 hover:bg-neutral-200 dark:hover:bg-white/15 disabled:opacity-50"
+                        aria-label="Reject"
+                      >
+                        {pendingBusyId === p.friendshipId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  }
+                />
+              ))
+            )}
+          </div>
+        )}
 
         {/* Friends List */}
-        <div className="mt-6 space-y-3">
+        <div className={cn("space-y-3", q.length === 0 && "mt-6")}>
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
-            Your friends{friendsSorted.length > 0 && ` (${friendsSorted.length})`}
+            {q.length > 0
+              ? `Results (${friendsFiltered.length})`
+              : `Your friends${friendsSorted.length > 0 ? ` (${friendsSorted.length})` : ""}`}
           </div>
 
-          {friendsSorted.length === 0 ? (
-            <div className="mt-8 flex flex-col items-center text-center">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04] text-neutral-400 dark:text-white/25">
-                <Plus className="h-8 w-8" />
+          {friendsFiltered.length === 0 ? (
+            q.length > 0 ? (
+              <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5 text-center text-sm text-neutral-400 dark:text-white/40">
+                No friends matching &ldquo;{searchQuery.trim()}&rdquo;
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No friends yet</h3>
-              <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-white/45 leading-relaxed">
-                Head to the Discover tab to find and add friends.
-              </p>
-            </div>
+            ) : (
+              <div className="mt-8 flex flex-col items-center text-center">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04] text-neutral-400 dark:text-white/25">
+                  <Plus className="h-8 w-8" />
+                </div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No friends yet</h3>
+                <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-white/45 leading-relaxed">
+                  Head to the Discover tab to find and add friends.
+                </p>
+              </div>
+            )
           ) : (
-            friendsSorted.map((f) => (
+            friendsFiltered.map((f) => (
               <PersonCard
                 key={f.id}
                 avatarUrl={f.avatarUrl}
