@@ -828,7 +828,7 @@ export default function DiscoverPage() {
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.name}</div>
                         <div className="flex items-center gap-1.5 text-[13px]">
-                          <span className="text-neutral-500 dark:text-white/40">{drink.count} logs</span>
+                          <span className="text-neutral-500 dark:text-white/40">{drink.count} drinks</span>
                           {drink.percentChange !== null && drink.percentChange !== 0 && (
                             <span className={cn(
                               "font-semibold",

@@ -342,11 +342,11 @@ async function loadRecommendations(userId: string) {
     .map(([name]) => name)
 
   // Find drinks user hasn't tried, in their preferred categories
+  // Fetch all drinks (not limited) to avoid alphabetical bias from insertion order
   const { data: candidates } = await supabaseAdmin
     .from("drinks")
     .select("id, name, category, image_url, ingredients")
     .in("category", topCategories.length > 0 ? topCategories : ["Cocktail"])
-    .limit(300)
 
   if (!candidates || candidates.length === 0) {
     return loadPopularDrinksAsRecommendations()
@@ -378,25 +378,51 @@ async function loadRecommendations(userId: string) {
       }
     }
 
-    if (score > 0 || topCategories.includes(d.category)) {
-      // Build reason string
+    if (score > 0) {
+      // Build reason string from the best matching logged drink
       const loggedSimilar = loggedDrinks.find((ld: any) =>
         (ld.ingredients as any[] ?? []).some((i: any) =>
           matchedIngredients.includes((i.name ?? "").toLowerCase())
         )
       )
 
-      const reason = loggedSimilar
-        ? `Because you liked ${loggedSimilar.name}`
-        : `Popular ${d.category.toLowerCase()}`
-
       scored.push({
         id: d.id,
         name: d.name,
         category: d.category,
         imageUrl: d.image_url ?? null,
-        score: score + (topCategories.includes(d.category) ? 1 : 0),
-        reason,
+        score,
+        reason: loggedSimilar
+          ? `Because you liked ${loggedSimilar.name}`
+          : `Popular ${d.category.toLowerCase()}`,
+      })
+    }
+  }
+
+  // If ingredient matching produced too few results, add some category matches
+  if (scored.length < 5) {
+    // Shuffle remaining unscored candidates from same categories
+    const scoredIds = new Set(scored.map((s) => s.id))
+    const remaining = candidates.filter(
+      (d: any) => !loggedDrinkIds.has(d.id) && !scoredIds.has(d.id)
+    )
+
+    // Deterministic daily shuffle so results don't change on every page load
+    const daySeed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = (daySeed * (i + 1) * 2654435761) % (i + 1)
+      const abs = Math.abs(j)
+      ;[remaining[i], remaining[abs]] = [remaining[abs], remaining[i]]
+    }
+
+    for (const d of remaining.slice(0, 5 - scored.length)) {
+      scored.push({
+        id: d.id,
+        name: d.name,
+        category: d.category,
+        imageUrl: d.image_url ?? null,
+        score: 0,
+        reason: `Popular ${d.category.toLowerCase()}`,
       })
     }
   }
