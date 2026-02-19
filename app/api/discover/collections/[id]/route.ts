@@ -67,7 +67,7 @@ const COLLECTION_DEFINITIONS = [
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = req.headers.get("authorization")
@@ -75,7 +75,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const collectionId = params.id
+    const { id: collectionId } = await context.params
     const col = COLLECTION_DEFINITIONS.find((c) => c.id === collectionId)
     if (!col) {
       return NextResponse.json({ error: "Collection not found" }, { status: 404 })
