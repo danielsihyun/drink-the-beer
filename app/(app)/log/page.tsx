@@ -4,10 +4,12 @@ import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
 import { Camera, Check, ChevronDown, Loader2, Search, X } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
 import { cn } from "@/lib/utils"
+
+import { Suspense } from "react"
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -400,9 +402,10 @@ function DrinkPicker({
 
 /* ── Main Page ─────────────────────────────────────────────────── */
 
-export default function LogDrinkPage() {
+function LogDrinkContent() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { checkAchievements } = useAchievements()
 
   const [selectedDrink, setSelectedDrink] = React.useState<DrinkResult | null>(null)
@@ -426,6 +429,35 @@ export default function LogDrinkPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null)
   const [cropping, setCropping] = React.useState(false)
   const [cropObjectFit, setCropObjectFit] = React.useState<"horizontal-cover" | "vertical-cover">("horizontal-cover")
+
+  // Pre-fill drink from URL params (e.g. from Discover page)
+  const prefillRan = React.useRef(false)
+  React.useEffect(() => {
+    if (prefillRan.current) return
+    const drinkId = searchParams.get("drinkId")
+    const drinkName = searchParams.get("drinkName")
+    const drinkCategory = searchParams.get("drinkCategory")
+    const drinkImage = searchParams.get("drinkImage")
+
+    if (drinkId && drinkName && drinkCategory) {
+      prefillRan.current = true
+      const category = drinkCategory as string
+      const mappedType: DrinkType =
+        DRINK_TYPES.includes(category as DrinkType)
+          ? (category as DrinkType)
+          : "Cocktail"
+
+      setSelectedDrink({
+        id: drinkId,
+        name: drinkName,
+        category,
+        image_url: drinkImage || null,
+        glass: null,
+        ingredients: [],
+      })
+      setDrinkType(mappedType)
+    }
+  }, [searchParams])
 
   const canPost = Boolean(file && selectedDrink && drinkType && !submitting)
 
@@ -749,5 +781,13 @@ export default function LogDrinkPage() {
         </div>
       ) : null}
     </>
+  )
+}
+
+export default function LogDrinkPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-neutral-400 dark:text-white/30">Loading...</div>}>
+      <LogDrinkContent />
+    </Suspense>
   )
 }

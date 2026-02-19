@@ -8,6 +8,16 @@ import { ArrowLeft, Plus, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
+function logDrinkUrl(drink: { id: string; name: string; category: string; imageUrl?: string | null }) {
+  const params = new URLSearchParams({
+    drinkId: drink.id,
+    drinkName: drink.name,
+    drinkCategory: drink.category,
+  })
+  if (drink.imageUrl) params.set("drinkImage", drink.imageUrl)
+  return `/log?${params.toString()}`
+}
+
 const DRINK_EMOJI: Record<string, string> = {
   Beer: "🍺",
   Wine: "🍷",
@@ -182,7 +192,7 @@ export default function CollectionDetailPage() {
               </div>
 
               <Link
-                href="/log"
+                href={logDrinkUrl(drink)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
                 aria-label="Log this drink"
               >

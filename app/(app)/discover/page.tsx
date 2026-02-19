@@ -19,6 +19,18 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
+/* ── Helpers ───────────────────────────────────────────────────── */
+
+function logDrinkUrl(drink: { id: string; name: string; category: string; imageUrl?: string | null }) {
+  const params = new URLSearchParams({
+    drinkId: drink.id,
+    drinkName: drink.name,
+    drinkCategory: drink.category,
+  })
+  if (drink.imageUrl) params.set("drinkImage", drink.imageUrl)
+  return `/log?${params.toString()}`
+}
+
 /* ── Types ─────────────────────────────────────────────────────── */
 
 type SearchProfileRow = {
@@ -259,7 +271,7 @@ function RecommendationCard({ drink }: { drink: RecommendedDrink }) {
       </div>
 
       <Link
-        href="/log"
+        href={logDrinkUrl({ id: drink.id, name: drink.name, category: drink.category, imageUrl: drink.imageUrl })}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
         aria-label="Log this drink"
       >
@@ -883,7 +895,7 @@ export default function DiscoverPage() {
                 <div className="text-[13px] text-neutral-500 dark:text-white/40 mt-1 mb-4">{drinkOfTheDay.description}</div>
 
                 <Link
-                  href="/log"
+                  href={logDrinkUrl({ id: drinkOfTheDay.id, name: drinkOfTheDay.name, category: drinkOfTheDay.category, imageUrl: drinkOfTheDay.imageUrl })}
                   className="inline-flex items-center gap-2 rounded-full border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-all active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-500/15"
                 >
                   <Plus className="h-3.5 w-3.5" />
