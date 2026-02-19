@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getCachedSignedUrl, getBatchSignedUrls } from "@/lib/signed-url-cache"
 
-const DEFAULT_LIMIT = 10
+const DEFAULT_LIMIT = 25
 
 export async function GET(req: Request) {
   try {

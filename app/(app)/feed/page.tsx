@@ -685,7 +685,7 @@ function FeedContent() {
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
           <Link
             href="/log"
-            className="group flex h-10 items-center gap-2 rounded-full bg-black dark:bg-white px-4 text-sm font-medium text-white dark:text-black shadow-sm transition-all duration-200 active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 hover:shadow-md"
+            className="group flex h-9 items-center gap-2 rounded-full bg-black dark:bg-white px-4 text-sm font-medium text-white dark:text-black shadow-sm transition-all duration-200 active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 hover:shadow-md"
           >
             <Plus className="h-4 w-4" />
             <span>Log Drink</span>
