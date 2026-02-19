@@ -737,7 +737,7 @@ export default function DiscoverPage() {
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
           <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
+              <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                   <div className="space-y-1.5 flex-1">
