@@ -31,30 +31,6 @@ type UserAchievement = {
   unlocked_at: string
 }
 
-type DrinkLogRow = {
-  id: string
-  user_id: string
-  photo_path: string
-  drink_type: DrinkType
-  drink_id: string | null
-  caption: string | null
-  created_at: string
-}
-
-type ProfileRow = {
-  id: string
-  username: string
-  display_name: string
-  avatar_path: string | null
-  friend_count: number | null
-  drink_count: number | null
-  showcase_achievements: string[] | null
-}
-
-type ProfileMetaRow = {
-  created_at: string | null
-}
-
 type UiProfile = {
   id: string
   username: string
@@ -388,41 +364,67 @@ function CheersListModal({
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-5 pt-5 pb-[22px]">
-        <div className="flex items-center gap-4">
-          <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-          <div className="flex-1 space-y-2">
+    <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+      {/* Profile Card */}
+      <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-5 pt-5 pb-5.75">
+        {/* Showcase medals placeholder (top-right) */}
+        <div className="absolute top-4 right-4 flex gap-1.5">
+          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+        </div>
+
+        <div className="flex items-center gap-4 mt-0.75">
+          <div className="relative">
+            <div className="h-20 w-20 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 animate-pulse" />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            {/* Display name */}
             <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            {/* @username */}
             <div className="h-3.5 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            {/* Joined date */}
             <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            <div className="flex gap-4 pt-0.5">
-              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            {/* Stats: Friends / Drinks / Cheers */}
+            <div className="flex gap-4 pt-1">
+              <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Action Buttons: Medals + Analytics */}
       <div className="flex gap-3">
-        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
-        <div className="h-11 flex-1 animate-pulse rounded-full bg-neutral-100 dark:bg-white/[0.06]" />
+        <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
+        <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="h-5 w-36 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-        <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+
+      {/* Timeline Header */}
+      <div className="flex items-center justify-between">
+        <div className="h-6 w-36 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+        <div className="h-[34px] w-20 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
+
+      {/* Drink Log Cards */}
       <div className="space-y-5">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-24 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+        {[1, 2].map((i) => (
+          <div key={i} className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+            <div className="flex items-center justify-between px-4 pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="space-y-1.5">
+                  <div className="h-4 w-20 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-32 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
               </div>
+              <div className="h-6 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="aspect-square w-full bg-neutral-100 dark:bg-white/[0.04] animate-pulse" />
+            <div className="flex items-center gap-2 px-4 pt-4 pb-4">
+              <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-4 w-14 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
         ))}
       </div>
@@ -814,6 +816,7 @@ export default function UserProfilePage() {
     }
   }, [selectedMedal])
 
+  // Keep loadCheersState for realtime subscription refreshes
   const loadCheersState = React.useCallback(
     async (postIds: string[], currentViewerId: string) => {
       if (!postIds.length) return
@@ -852,167 +855,78 @@ export default function UserProfilePage() {
     setLoading(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      if (!userRes.user) {
+      // Single auth call to get token
+      const { data: sessRes } = await supabase.auth.getSession()
+      const token = sessRes.session?.access_token
+      if (!token) {
         router.replace("/login?redirectTo=%2Ffeed")
         return
       }
 
-      const currentUserId = userRes.user.id
-      setViewerId(currentUserId)
+      setViewerId(sessRes.session!.user.id)
 
-      const { data: prof, error: profErr } = await supabase
-        .from("profile_public_stats")
-        .select("id,username,display_name,avatar_path,friend_count,drink_count,showcase_achievements")
-        .eq("username", username)
-        .single()
+      // Single API call replaces 9-13 sequential Supabase calls
+      const res = await fetch(`/api/profile/${encodeURIComponent(username)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
 
-      if (profErr) {
-        if (profErr.code === "PGRST116") {
+      if (res.status === 302) {
+        const json = await res.json().catch(() => ({}))
+        if (json.redirect) {
+          router.replace(json.redirect)
+          return
+        }
+      }
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
           setError("User not found")
           setLoading(false)
           return
         }
-        throw profErr
+        throw new Error(json?.error ?? "Failed to load profile")
       }
 
-      const p = prof as ProfileRow
+      const p = json.profile
+      setFriendshipStatus(json.friendshipStatus ?? "none")
 
-      if (p.id === currentUserId) {
-        router.replace("/profile/me")
-        return
-      }
+      const mapped: DrinkLog[] = (json.logs ?? []).map((r: any) => ({
+        id: r.id,
+        userId: r.userId,
+        photoPath: r.photoPath,
+        createdAt: r.createdAt,
+        timestampLabel: formatCardTimestamp(r.createdAt),
+        photoUrl: r.photoUrl,
+        drinkType: r.drinkType,
+        drinkName: r.drinkName ?? undefined,
+        caption: r.caption ?? undefined,
+        cheersCount: r.cheersCount ?? 0,
+        cheeredByMe: r.cheeredByMe ?? false,
+      }))
 
-      const { data: friendshipData, error: friendshipErr } = await supabase
-        .from("friendships")
-        .select("requester_id, addressee_id, status")
-        .or(
-          `and(requester_id.eq.${currentUserId},addressee_id.eq.${p.id}),and(requester_id.eq.${p.id},addressee_id.eq.${currentUserId})`
-        )
-        .limit(1)
-        .maybeSingle()
-
-      if (friendshipErr) throw friendshipErr
-
-      let status: FriendshipStatus = "none"
-      if (friendshipData) {
-        if (friendshipData.status === "accepted") {
-          status = "friends"
-        } else if (friendshipData.status === "pending") {
-          if (friendshipData.requester_id === currentUserId) {
-            status = "pending_outgoing"
-          } else {
-            status = "pending_incoming"
-          }
-        }
-      }
-      setFriendshipStatus(status)
-
-      const { data: meta, error: metaErr } = await supabase
-        .from("profile_public_stats")
-        .select("created_at")
-        .eq("id", p.id)
-        .single()
-      if (metaErr) throw metaErr
-      const m = meta as ProfileMetaRow
-
-      let avatarSignedUrl: string | null = null
-      if (p.avatar_path) {
-        const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
-        avatarSignedUrl = data?.signedUrl ?? null
-      }
-
-      const { data: achievementsData } = await supabase
-        .from("achievements")
-        .select("*")
-      setAchievements((achievementsData ?? []) as Achievement[])
-
-      const { data: userAchievementsData } = await supabase
-        .from("user_achievements")
-        .select("achievement_id, unlocked_at")
-        .eq("user_id", p.id)
-      setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
-
-      const { data: userLogIds } = await supabase
-        .from("drink_logs")
-        .select("id")
-        .eq("user_id", p.id)
-      const logIdList = (userLogIds ?? []).map((r: any) => r.id)
-      let totalCheers = 0
-      if (logIdList.length > 0) {
-        const { count } = await supabase
-          .from("drink_cheers")
-          .select("*", { count: "exact", head: true })
-          .in("drink_log_id", logIdList)
-        totalCheers = count ?? 0
-      }
+      setLogs(mapped)
+      setAchievements((json.achievements ?? []) as Achievement[])
+      setUserAchievements((json.userAchievements ?? []) as UserAchievement[])
 
       const ui: UiProfile = {
         id: p.id,
         username: p.username,
-        displayName: p.display_name,
-        joinDate: formatJoinDate(m.created_at),
-        friendCount: p.friend_count ?? 0,
-        drinkCount: p.drink_count ?? 0,
-        totalCheersReceived: totalCheers,
-        avatarUrl: avatarSignedUrl,
-        showcaseAchievements: p.showcase_achievements ?? [],
+        displayName: p.displayName,
+        joinDate: formatJoinDate(p.joinDate),
+        friendCount: p.friendCount ?? 0,
+        drinkCount: p.drinkCount ?? 0,
+        totalCheersReceived: p.totalCheersReceived ?? 0,
+        avatarUrl: p.avatarUrl,
+        showcaseAchievements: p.showcaseAchievements ?? [],
       }
       setProfile(ui)
-
-      if (status === "friends") {
-        const { data: rows, error: logsErr } = await supabase
-          .from("drink_logs")
-          .select("id,user_id,photo_path,drink_type,drink_id,caption,created_at")
-          .eq("user_id", p.id)
-          .order("created_at", { ascending: false })
-          .limit(200)
-        if (logsErr) throw logsErr
-
-        const base = (rows ?? []) as DrinkLogRow[]
-
-        const photoUrls = await Promise.all(
-          base.map((r) =>
-            supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60).then(res => res.data?.signedUrl ?? "")
-          )
-        )
-
-        // Fetch drink names
-        const drinkIds = [...new Set(base.map(r => r.drink_id).filter(Boolean))] as string[]
-        let drinkNameById = new Map<string, string>()
-        if (drinkIds.length > 0) {
-          const { data: drinksData } = await supabase.from("drinks").select("id, name").in("id", drinkIds)
-          drinkNameById = new Map((drinksData ?? []).map((d: any) => [d.id, d.name]))
-        }
-
-        const mapped: DrinkLog[] = base.map((r, i) => ({
-          id: r.id,
-          userId: r.user_id,
-          photoPath: r.photo_path,
-          createdAt: r.created_at,
-          timestampLabel: formatCardTimestamp(r.created_at),
-          photoUrl: photoUrls[i],
-          drinkType: r.drink_type,
-          drinkName: r.drink_id ? drinkNameById.get(r.drink_id) : undefined,
-          caption: r.caption ?? undefined,
-          cheersCount: 0,
-          cheeredByMe: false,
-        }))
-
-        setLogs(mapped)
-
-        const ids = mapped.map((m) => m.id)
-        await loadCheersState(ids, currentUserId)
-      } else {
-        setLogs([])
-      }
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading this profile.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, username, loadCheersState])
+  }, [router, supabase, username])
 
   React.useEffect(() => {
     load()
