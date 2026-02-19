@@ -23,7 +23,6 @@ type LeaderboardEntry = {
   user_id: string
   username: string
   display_name: string
-  avatar_path: string | null
   drink_count: number
   rank: number
   is_viewer: boolean
@@ -235,21 +234,14 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 function Podium({ entries }: { entries: LeaderboardEntry[] }) {
-  // entries are already sorted by rank, take by position not rank number
   const first = entries[0] ?? null
   const second = entries[1] ?? null
   const third = entries[2] ?? null
 
   if (!first) return null
 
-  // Tie detection
   const firstSecondTied = second ? first.drink_count === second.drink_count : false
   const secondThirdTied = second && third ? second.drink_count === third.drink_count : false
-
-  // Determine podium style for each position based on ties
-  // If 1st and 2nd tied: both get gold style, 3rd stays bronze
-  // If 2nd and 3rd tied: 1st stays gold, both get silver style
-  // If all three tied: all get gold style
   const allTied = firstSecondTied && secondThirdTied
 
   type PodiumStyle = { ring: 1 | 2 | 3; barColor: string; barHeight: string }
@@ -446,47 +438,30 @@ export default function LeaderboardPage() {
     setLoading(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      if (!userRes.user) {
+      const { data: sessRes } = await supabase.auth.getSession()
+      const token = sessRes.session?.access_token
+      if (!token) {
         router.replace("/login?redirectTo=%2Fleaderboard")
         return
       }
 
-      const userId = userRes.user.id
-      setViewerId(userId)
+      setViewerId(sessRes.session!.user.id)
 
       const startDate = getStartDate(tr)
-
-      const { data, error: rpcErr } = await supabase.rpc("get_leaderboard", {
-        p_viewer_id: userId,
-        p_scope: sc,
-        p_start_date: startDate ? startDate.toISOString() : new Date(0).toISOString(),
-        p_limit: 50,
+      const params = new URLSearchParams({
+        scope: sc,
+        start_date: startDate ? startDate.toISOString() : new Date(0).toISOString(),
+        limit: "50",
       })
 
-      if (rpcErr) throw rpcErr
+      const res = await fetch(`/api/leaderboard?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
 
-      const rows = (data ?? []) as LeaderboardEntry[]
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load leaderboard")
 
-      // Resolve avatar URLs
-      const avatarUrls = await Promise.all(
-        rows.map((r) =>
-          r.avatar_path
-            ? supabase.storage
-                .from("profile-photos")
-                .createSignedUrl(r.avatar_path, 60 * 60)
-                .then((res) => res.data?.signedUrl ?? null)
-            : Promise.resolve(null)
-        )
-      )
-
-      const enriched = rows.map((r, i) => ({
-        ...r,
-        avatarUrl: avatarUrls[i],
-      }))
-
-      setEntries(enriched)
+      setEntries(json.entries ?? [])
     } catch (e: any) {
       setError(e?.message ?? "Could not load leaderboard.")
     } finally {
@@ -498,8 +473,6 @@ export default function LeaderboardPage() {
     fetchLeaderboard(timeRange, scope)
   }, [timeRange, scope, fetchLeaderboard])
 
-  // Split entries into podium (top 3 positions) and rest
-  // Use array position, not rank number, since ties can cause rank gaps
   const sortedEntries = [...entries].sort((a, b) => a.rank - b.rank)
   const podiumEntries = sortedEntries.slice(0, 3)
   const restEntries = sortedEntries.slice(3)
