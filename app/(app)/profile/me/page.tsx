@@ -31,30 +31,6 @@ type UserAchievement = {
   unlocked_at: string
 }
 
-type DrinkLogRow = {
-  id: string
-  user_id: string
-  photo_path: string
-  drink_type: DrinkType
-  drink_id: string | null
-  caption: string | null
-  created_at: string
-}
-
-type ProfileRow = {
-  id: string
-  username: string
-  display_name: string
-  avatar_path: string | null
-  friend_count: number | null
-  drink_count: number | null
-  showcase_achievements: string[] | null
-}
-
-type ProfileMetaRow = {
-  created_at: string | null
-}
-
 type UiProfile = {
   username: string
   displayName: string
@@ -1002,123 +978,55 @@ export default function ProfilePage() {
     setLoading(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      const user = userRes.user
-      if (!user) {
+      // Single auth call to get token
+      const { data: sessRes } = await supabase.auth.getSession()
+      const token = sessRes.session?.access_token
+      if (!token) {
         router.replace("/login?redirectTo=%2Fprofile%2Fme")
         return
       }
 
-      setUserId(user.id)
+      setUserId(sessRes.session!.user.id)
 
-      const { data: prof, error: profErr } = await supabase
-        .from("profile_public_stats")
-        .select("id,username,display_name,avatar_path,friend_count,drink_count,showcase_achievements")
-        .eq("id", user.id)
-        .single()
-      if (profErr) throw profErr
+      // Single API call replaces 13+ sequential Supabase calls
+      const res = await fetch("/api/profile/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load profile")
 
-      const p = prof as ProfileRow
-
-      const { data: meta, error: metaErr } = await supabase.from("profile_public_stats").select("created_at").eq("id", user.id).single()
-      if (metaErr) throw metaErr
-
-      const m = meta as ProfileMetaRow
-
-      let avatarSignedUrl: string | null = null
-      if (p.avatar_path) {
-        const { data } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60)
-        avatarSignedUrl = data?.signedUrl ?? null
-      }
-
-      const { data: rows, error: logsErr } = await supabase
-        .from("drink_logs")
-        .select("id,user_id,photo_path,drink_type,drink_id,caption,created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(200)
-      if (logsErr) throw logsErr
-
-      const base = (rows ?? []) as DrinkLogRow[]
-
-      const photoUrls = await Promise.all(
-        base.map((r) =>
-          supabase.storage.from("drink-photos").createSignedUrl(r.photo_path, 60 * 60).then(res => res.data?.signedUrl ?? "")
-        )
-      )
-
-      // Fetch drink names
-      const drinkIds = [...new Set(base.map(r => r.drink_id).filter(Boolean))] as string[]
-      let drinkNameById = new Map<string, string>()
-      if (drinkIds.length > 0) {
-        const { data: drinksData } = await supabase.from("drinks").select("id, name").in("id", drinkIds)
-        drinkNameById = new Map((drinksData ?? []).map((d: any) => [d.id, d.name]))
-      }
-
-      const mapped: DrinkLog[] = base.map((r, i) => ({
+      const p = json.profile
+      const mapped: DrinkLog[] = (json.logs ?? []).map((r: any) => ({
         id: r.id,
-        userId: r.user_id,
-        photoPath: r.photo_path,
-        createdAt: r.created_at,
-        timestampLabel: formatCardTimestamp(r.created_at),
-        photoUrl: photoUrls[i],
-        drinkType: r.drink_type,
-        drinkName: r.drink_id ? drinkNameById.get(r.drink_id) : undefined,
+        userId: r.userId,
+        photoPath: r.photoPath,
+        createdAt: r.createdAt,
+        timestampLabel: formatCardTimestamp(r.createdAt),
+        photoUrl: r.photoUrl,
+        drinkType: r.drinkType,
+        drinkName: r.drinkName ?? undefined,
         caption: r.caption ?? undefined,
-        cheersCount: 0,
-        cheeredByMe: false,
+        cheersCount: r.cheersCount ?? 0,
+        cheeredByMe: r.cheeredByMe ?? false,
       }))
 
       setLogs(mapped)
-
-      const ids = mapped.map((m) => m.id)
-      await loadCheersState(ids, user.id)
-
-      const { data: achievementsData } = await supabase
-        .from("achievements")
-        .select("*")
-
-      const { data: userAchievementsData } = await supabase
-        .from("user_achievements")
-        .select("achievement_id, unlocked_at")
-        .eq("user_id", user.id)
-
-      setAchievements((achievementsData ?? []) as Achievement[])
-      setUserAchievements((userAchievementsData ?? []) as UserAchievement[])
-
-      // Fetch total cheers received across all user's drink logs
-      const { count: totalCheers } = await supabase
-        .from("drink_cheers")
-        .select("*", { count: "exact", head: true })
-        .in("drink_log_id", mapped.map((m) => m.id))
-
-      // Fetch pending friend requests (where user is the addressee)
-      const { count: pendingFriends } = await supabase
-        .from("friendships")
-        .select("*", { count: "exact", head: true })
-        .eq("addressee_id", user.id)
-        .eq("status", "pending")
-
-      setPendingFriendRequests(pendingFriends ?? 0)
-
-      // Fetch unseen cheers count
-      const { data: unseenData } = await supabase.rpc("get_unseen_cheers_count", {
-        p_user_id: user.id,
-      })
-      setUnseenCheersCount(unseenData ?? 0)
+      setAchievements((json.achievements ?? []) as Achievement[])
+      setUserAchievements((json.userAchievements ?? []) as UserAchievement[])
+      setPendingFriendRequests(json.pendingFriendRequests ?? 0)
+      setUnseenCheersCount(json.unseenCheersCount ?? 0)
 
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
         username: p.username,
-        displayName: p.display_name,
-        joinDate: formatJoinDate(m.created_at),
-        friendCount: p.friend_count ?? 0,
-        drinkCount: p.drink_count ?? 0,
-        totalCheersReceived: totalCheers ?? 0,
-        avatarUrl: avatarSignedUrl,
-        avatarPath: p.avatar_path ?? null,
-        showcaseAchievements: p.showcase_achievements ?? [],
+        displayName: p.displayName,
+        joinDate: formatJoinDate(p.joinDate),
+        friendCount: p.friendCount ?? 0,
+        drinkCount: p.drinkCount ?? 0,
+        totalCheersReceived: json.totalCheersReceived ?? 0,
+        avatarUrl: p.avatarUrl,
+        avatarPath: p.avatarPath,
+        showcaseAchievements: p.showcaseAchievements ?? [],
       }
 
       setProfile(ui)
@@ -1127,7 +1035,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, loadCheersState])
+  }, [router, supabase])
 
   React.useEffect(() => {
     load()
