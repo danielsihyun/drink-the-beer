@@ -656,6 +656,24 @@ export default function DiscoverPage() {
           <span className="text-sm text-neutral-300 dark:text-white/20">Search drinks, people, bars…</span>
         </div>
 
+        {/* Suggested skeleton */}
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">People you may know</div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-3.5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Trending skeleton */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Trending this week</div>
@@ -701,7 +719,7 @@ export default function DiscoverPage() {
         </div>
 
         {/* You might enjoy skeleton */}
-        <div className="space-y-3">
+        <div className="space-y-3 pb-24">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">You might enjoy</div>
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
@@ -711,24 +729,6 @@ export default function DiscoverPage() {
                   <div className="h-3.5 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                   <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                   <div className="h-5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                </div>
-                <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Suggested skeleton */}
-        <div className="space-y-3 pb-24">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">People you may know</div>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="h-3.5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                  <div className="h-3 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                 </div>
                 <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               </div>
@@ -806,6 +806,26 @@ export default function DiscoverPage() {
       ) : (
         <div className="space-y-8">
 
+          {/* ── Suggested People ─────────────────────────────── */}
+          {suggested.length > 0 && (
+            <div className="space-y-3">
+              <SectionHeader icon={Users} label="People you may know" />
+
+              {suggested.map((p) => (
+                <PersonCard
+                  key={p.id}
+                  avatarUrl={p.avatarUrl}
+                  username={p.username}
+                  displayName={p.displayName}
+                  friendCount={p.friendCount}
+                  drinkCount={p.drinkCount}
+                  subtitle={`${p.mutualCount} mutual friend${p.mutualCount === 1 ? "" : "s"}`}
+                  actions={<AddButton person={p} />}
+                />
+              ))}
+            </div>
+          )}
+
           {/* ── Trending Drinks ──────────────────────────────── */}
           {trending.length > 0 && (
             <div className="space-y-3">
@@ -827,19 +847,7 @@ export default function DiscoverPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">{drink.name}</div>
-                        <div className="flex items-center gap-1.5 text-[13px]">
-                          <span className="text-neutral-500 dark:text-white/40">{drink.count} drinks</span>
-                          {drink.percentChange !== null && drink.percentChange !== 0 && (
-                            <span className={cn(
-                              "font-semibold",
-                              drink.percentChange > 0
-                                ? "text-emerald-500 dark:text-emerald-400"
-                                : "text-red-400 dark:text-red-400"
-                            )}>
-                              {drink.percentChange > 0 ? "+" : ""}{drink.percentChange}%
-                            </span>
-                          )}
-                        </div>
+                        <div className="text-[13px] text-neutral-500 dark:text-white/40">{drink.count} logs</div>
                       </div>
                     </div>
                   </div>
@@ -902,26 +910,6 @@ export default function DiscoverPage() {
 
               {recommendations.map((d) => (
                 <RecommendationCard key={d.id} drink={d} />
-              ))}
-            </div>
-          )}
-
-          {/* ── Suggested People ─────────────────────────────── */}
-          {suggested.length > 0 && (
-            <div className="space-y-3">
-              <SectionHeader icon={Users} label="People you may know" />
-
-              {suggested.map((p) => (
-                <PersonCard
-                  key={p.id}
-                  avatarUrl={p.avatarUrl}
-                  username={p.username}
-                  displayName={p.displayName}
-                  friendCount={p.friendCount}
-                  drinkCount={p.drinkCount}
-                  subtitle={`${p.mutualCount} mutual friend${p.mutualCount === 1 ? "" : "s"}`}
-                  actions={<AddButton person={p} />}
-                />
               ))}
             </div>
           )}
