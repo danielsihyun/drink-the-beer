@@ -656,7 +656,7 @@ function FeedContent() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-4">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 animate-pulse" />
                 <div className="space-y-1.5">
                   <div className="h-3.5 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                   <div className="h-3 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
