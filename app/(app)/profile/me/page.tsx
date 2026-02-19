@@ -524,7 +524,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
       {/* Profile Card */}
-      <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
+      <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-5 pt-5 pb-6.5">
         {/* Showcase medals placeholder (top-right) */}
         <div className="absolute top-4 right-4 flex gap-1.5">
           <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -1393,11 +1393,9 @@ export default function ProfilePage() {
         )}
 
         {loading ? (
-          <div>
-            <LoadingSkeleton />
-          </div>
+          <LoadingSkeleton />
         ) : (
-          <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
+          <div className="space-y-4 pb-[calc(58px+env(safe-area-inset-bottom)+1rem)]">
             {/* PROFILE CARD */}
             <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-5">
               {/* Showcase Medals */}
