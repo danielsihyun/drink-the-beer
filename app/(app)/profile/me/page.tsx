@@ -559,7 +559,7 @@ function LoadingSkeleton() {
       {/* Timeline Header */}
       <div className="flex items-center justify-between">
         <div className="h-6 w-28 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-        <div className="h-8 w-20 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
+        <div className="h-[34px] w-20 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
       {/* Drink Log Cards */}
