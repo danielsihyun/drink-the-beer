@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Drink The Beer',
-    short_name: 'DTB',
-    description: 'Track your drinks with friends',
+    name: 'drinkr',
+    short_name: 'drinkr',
+    description: 'Track, analyze, and discover drinks with your friends!',
     start_url: '/feed',
     scope: '/',
     display: 'standalone',
