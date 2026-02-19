@@ -239,16 +239,18 @@ function CollectionCard({ collection }: { collection: DrinkCollection }) {
 
 function RecommendationCard({ drink }: { drink: RecommendedDrink }) {
   return (
-    <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-4 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-neutral-100/80 dark:bg-white/[0.06] border border-neutral-100 dark:border-white/[0.04]">
+    <div className="flex items-center gap-4 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] p-3 transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-100/80 dark:bg-white/[0.06] border border-neutral-100 dark:border-white/[0.04]">
         {drink.imageUrl ? (
           <Image src={drink.imageUrl} alt={drink.name} fill className="object-cover" unoptimized />
         ) : (
-          <span className="text-xl">{DRINK_EMOJI[drink.category] ?? "🍹"}</span>
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="text-3xl">{DRINK_EMOJI[drink.category] ?? "🍹"}</span>
+          </div>
         )}
       </div>
 
-      <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex-1 min-w-0 space-y-1.5">
         <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight">{drink.name}</div>
         <div className="text-[12px] text-neutral-500 dark:text-white/35">{drink.category}</div>
         <div className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/10 px-2.5 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
@@ -258,7 +260,7 @@ function RecommendationCard({ drink }: { drink: RecommendedDrink }) {
 
       <Link
         href="/log"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-sm transition-all active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100"
         aria-label="Log this drink"
       >
         <Plus className="h-4 w-4" />
@@ -721,15 +723,16 @@ export default function DiscoverPage() {
         {/* Collections skeleton */}
         <div className="space-y-3 pb-24">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                   <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3.5 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                   </div>
+                  <div className="h-4 w-4 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                 </div>
               </div>
             ))}
@@ -906,7 +909,7 @@ export default function DiscoverPage() {
             <div className="space-y-3">
               <SectionHeader icon={BookOpen} label="Collections" />
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {collections.map((c) => (
                   <CollectionCard key={c.id} collection={c} />
                 ))}
