@@ -10,52 +10,58 @@ const supabaseAdmin = createClient(
 
 const COLLECTION_DEFINITIONS = [
   {
-    id: "whiskey",
-    name: "Whiskey Classics",
-    emoji: "🥃",
-    gradient: "from-amber-900/40 to-amber-600/20",
-    keywords: ["whiskey", "bourbon", "rye", "scotch"],
-    ingredientKeywords: ["whiskey", "bourbon", "rye", "scotch"],
+    id: "beer-brews",
+    name: "Beers & Brews",
+    emoji: "🍺",
+    gradient: "from-amber-900/40 to-yellow-600/20",
+    categories: ["Beer"],
+    nameKeywords: ["ale", "lager", "ipa", "stout", "pilsner", "porter", "wheat", "amber", "draught"],
+    ingredientKeywords: [],
   },
   {
-    id: "tiki",
-    name: "Tiki Time",
-    emoji: "🌺",
+    id: "wine-bubbly",
+    name: "Wine & Bubbly",
+    emoji: "🍷",
     gradient: "from-rose-900/40 to-rose-500/20",
-    keywords: ["Mai Tai", "Zombie", "Piña Colada", "Hurricane", "Blue Lagoon", "Jungle Bird", "Painkiller"],
-    ingredientKeywords: ["rum", "coconut", "pineapple", "orgeat", "falernum"],
+    categories: ["Wine"],
+    nameKeywords: ["champagne", "prosecco", "cava", "mimosa", "bellini", "sangria", "kir", "spritz"],
+    ingredientKeywords: ["wine", "champagne", "prosecco"],
   },
   {
-    id: "low-abv",
-    name: "Low & No ABV",
-    emoji: "🌿",
-    gradient: "from-emerald-900/40 to-emerald-500/20",
-    keywords: ["Spritz", "Shandy", "Radler", "Americano", "Sherry", "Vermouth"],
-    ingredientKeywords: ["vermouth", "aperol", "campari", "sherry", "bitters", "soda"],
+    id: "spirit-neat",
+    name: "Spirits & Sippers",
+    emoji: "🥃",
+    gradient: "from-orange-900/40 to-orange-600/20",
+    categories: ["Spirit"],
+    nameKeywords: ["whiskey", "bourbon", "scotch", "rye", "cognac", "brandy", "mezcal", "tequila", "rum", "vodka", "gin", "sake", "soju", "baijiu"],
+    ingredientKeywords: [],
   },
   {
-    id: "brunch",
-    name: "Brunch Worthy",
-    emoji: "🥂",
-    gradient: "from-yellow-900/40 to-yellow-500/20",
-    keywords: ["Mimosa", "Bellini", "Bloody Mary", "Screwdriver", "Irish Coffee", "Kir Royale", "French 75"],
-    ingredientKeywords: ["champagne", "prosecco", "orange juice", "tomato", "coffee"],
+    id: "refreshers",
+    name: "Light & Refreshing",
+    emoji: "🧊",
+    gradient: "from-sky-900/40 to-cyan-500/20",
+    categories: ["Seltzer"],
+    nameKeywords: ["spritz", "mojito", "paloma", "daiquiri", "gimlet", "collins", "fizz", "cooler", "shandy", "radler", "highball", "soda", "tonic", "lemonade", "mule"],
+    ingredientKeywords: ["soda", "tonic", "lime juice", "lemon juice", "club soda", "ginger beer", "sparkling"],
   },
   {
-    id: "bitter",
-    name: "Bitter & Bold",
-    emoji: "🍋",
-    gradient: "from-orange-900/40 to-orange-500/20",
-    keywords: ["Negroni", "Boulevardier", "Campari", "Aperol", "Americano", "Paper Plane"],
-    ingredientKeywords: ["campari", "aperol", "amaro", "fernet", "bitter"],
-  },
-  {
-    id: "date",
-    name: "Date Night",
-    emoji: "🌙",
+    id: "classic-cocktails",
+    name: "Classic Cocktails",
+    emoji: "🍸",
     gradient: "from-violet-900/40 to-violet-500/20",
-    keywords: ["Espresso Martini", "French 75", "Champagne Cocktail", "Aviation", "Clover Club", "Sidecar"],
-    ingredientKeywords: ["champagne", "cognac", "espresso", "rose", "violet", "maraschino"],
+    categories: [],
+    nameKeywords: ["martini", "manhattan", "old fashioned", "negroni", "margarita", "sidecar", "sazerac", "cosmopolitan", "alexander", "sour", "mai tai", "boulevardier", "aviation", "last word", "french 75", "espresso martini", "bloody mary", "caipirinha", "piña colada", "hurricane", "zombie"],
+    ingredientKeywords: [],
+  },
+  {
+    id: "shots-party",
+    name: "Shots & Party",
+    emoji: "🎉",
+    gradient: "from-fuchsia-900/40 to-pink-500/20",
+    categories: ["Shot"],
+    nameKeywords: ["shot", "bomb", "jäger", "fireball", "shooter", "slammer", "kamikaze", "b-52", "buttery nipple", "punch", "jungle juice"],
+    ingredientKeywords: [],
   },
 ]
 
@@ -265,25 +271,46 @@ async function loadDrinkOfTheDay() {
 // ── Collections: real counts from drinks table ──────────────────────
 
 async function loadCollections() {
-  // Get all drinks for matching
+  // Get all drinks for matching (include ingredients for broader matching)
   const { data: drinks } = await supabaseAdmin
     .from("drinks")
-    .select("id, name, category")
-    .limit(1000)
+    .select("id, name, category, ingredients")
+    .limit(1500)
 
   if (!drinks) return COLLECTION_DEFINITIONS.map((c) => ({ ...c, count: 0 }))
 
   return COLLECTION_DEFINITIONS.map((col) => {
-    const matches = drinks.filter((d: any) =>
-      col.keywords.some((kw) => d.name.toLowerCase().includes(kw.toLowerCase()))
-    )
+    const matchedIds = new Set<string>()
+
+    for (const d of drinks as any[]) {
+      // Match by category
+      if (col.categories.length > 0 && col.categories.includes(d.category)) {
+        matchedIds.add(d.id)
+        continue
+      }
+
+      // Match by drink name keywords
+      const nameLower = (d.name ?? "").toLowerCase()
+      if (col.nameKeywords.some((kw) => nameLower.includes(kw.toLowerCase()))) {
+        matchedIds.add(d.id)
+        continue
+      }
+
+      // Match by ingredient keywords
+      if (col.ingredientKeywords.length > 0) {
+        const ings = (d.ingredients as any[] ?? []).map((i: any) => (i.name ?? "").toLowerCase())
+        if (col.ingredientKeywords.some((kw) => ings.some((ing) => ing.includes(kw.toLowerCase())))) {
+          matchedIds.add(d.id)
+        }
+      }
+    }
 
     return {
       id: col.id,
       name: col.name,
       emoji: col.emoji,
       gradient: col.gradient,
-      count: matches.length,
+      count: matchedIds.size,
     }
   })
 }
