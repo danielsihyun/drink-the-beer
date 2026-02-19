@@ -700,26 +700,8 @@ export default function DiscoverPage() {
           <div className="h-10 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse mt-1" />
         </div>
 
-        {/* Collections skeleton */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                  <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* You might enjoy skeleton */}
-        <div className="space-y-3 pb-24">
+        <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">You might enjoy</div>
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
@@ -734,6 +716,24 @@ export default function DiscoverPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Collections skeleton */}
+        <div className="space-y-3 pb-24">
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Collections</div>
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3.5 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -890,6 +890,17 @@ export default function DiscoverPage() {
             </div>
           )}
 
+          {/* ── You Might Enjoy (Recommendations) ────────────── */}
+          {recommendations.length > 0 && (
+            <div className="space-y-3">
+              <SectionHeader icon={Lightbulb} label="You might enjoy" />
+
+              {recommendations.map((d) => (
+                <RecommendationCard key={d.id} drink={d} />
+              ))}
+            </div>
+          )}
+
           {/* ── Collections ──────────────────────────────────── */}
           {collections.length > 0 && (
             <div className="space-y-3">
@@ -900,17 +911,6 @@ export default function DiscoverPage() {
                   <CollectionCard key={c.id} collection={c} />
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* ── You Might Enjoy (Recommendations) ────────────── */}
-          {recommendations.length > 0 && (
-            <div className="space-y-3">
-              <SectionHeader icon={Lightbulb} label="You might enjoy" />
-
-              {recommendations.map((d) => (
-                <RecommendationCard key={d.id} drink={d} />
-              ))}
             </div>
           )}
 
