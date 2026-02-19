@@ -15,7 +15,7 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🍺",
     gradient: "from-amber-900/40 to-yellow-600/20",
     categories: ["Beer"],
-    nameKeywords: ["ale", "lager", "ipa", "stout", "pilsner", "porter", "wheat", "amber", "draught"],
+    nameKeywords: [],
     ingredientKeywords: [],
   },
   {
@@ -24,7 +24,7 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🍷",
     gradient: "from-rose-900/40 to-rose-500/20",
     categories: ["Wine"],
-    nameKeywords: ["champagne", "prosecco", "cava", "mimosa", "bellini", "sangria", "kir", "spritz"],
+    nameKeywords: ["champagne", "prosecco", "cava", "mimosa", "bellini", "sangria", "kir royale", "spritz"],
     ingredientKeywords: ["wine", "champagne", "prosecco"],
   },
   {
@@ -33,7 +33,7 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🥃",
     gradient: "from-orange-900/40 to-orange-600/20",
     categories: ["Spirit"],
-    nameKeywords: ["whiskey", "bourbon", "scotch", "rye", "cognac", "brandy", "mezcal", "tequila", "rum", "vodka", "gin", "sake", "soju", "baijiu"],
+    nameKeywords: [],
     ingredientKeywords: [],
   },
   {
@@ -42,8 +42,8 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🧊",
     gradient: "from-sky-900/40 to-cyan-500/20",
     categories: ["Seltzer"],
-    nameKeywords: ["spritz", "mojito", "paloma", "daiquiri", "gimlet", "collins", "fizz", "cooler", "shandy", "radler", "highball", "soda", "tonic", "lemonade", "mule"],
-    ingredientKeywords: ["soda", "tonic", "lime juice", "lemon juice", "club soda", "ginger beer", "sparkling"],
+    nameKeywords: ["mojito", "paloma", "daiquiri", "gimlet", "tom collins", "gin fizz", "vodka fizz", "whiskey fizz", "cooler", "shandy", "radler", "highball", "mule", "hugo", "lemonade", "rickey"],
+    ingredientKeywords: [],
   },
   {
     id: "classic-cocktails",
@@ -51,7 +51,7 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🍸",
     gradient: "from-violet-900/40 to-violet-500/20",
     categories: [],
-    nameKeywords: ["martini", "manhattan", "old fashioned", "negroni", "margarita", "sidecar", "sazerac", "cosmopolitan", "alexander", "sour", "mai tai", "boulevardier", "aviation", "last word", "french 75", "espresso martini", "bloody mary", "caipirinha", "piña colada", "hurricane", "zombie"],
+    nameKeywords: ["martini", "manhattan", "old fashioned", "negroni", "margarita", "sidecar", "sazerac", "cosmopolitan", "alexander", "whiskey sour", "amaretto sour", "pisco sour", "mai tai", "boulevardier", "aviation", "last word", "french 75", "espresso martini", "bloody mary", "caipirinha", "piña colada", "hurricane", "zombie", "rob roy", "rusty nail", "long island", "tequila sunrise", "cuba libre", "dark and stormy", "gin and tonic", "irish coffee"],
     ingredientKeywords: [],
   },
   {
@@ -60,10 +60,20 @@ const COLLECTION_DEFINITIONS = [
     emoji: "🎉",
     gradient: "from-fuchsia-900/40 to-pink-500/20",
     categories: ["Shot"],
-    nameKeywords: ["shot", "bomb", "jäger", "fireball", "shooter", "slammer", "kamikaze", "b-52", "buttery nipple", "punch", "jungle juice"],
+    nameKeywords: ["shot", "bomb", "jägerbomb", "fireball", "shooter", "slammer", "kamikaze", "b-52", "buttery nipple", "punch", "jungle juice"],
     ingredientKeywords: [],
   },
 ]
+
+// Word-boundary-aware matching for name keywords
+function nameMatchesKeyword(drinkName: string, keyword: string): boolean {
+  const kwLower = keyword.toLowerCase()
+  if (kwLower.includes(" ") || kwLower.length > 5) {
+    return drinkName.toLowerCase().includes(kwLower)
+  }
+  const re = new RegExp(`\\b${kwLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")
+  return re.test(drinkName)
+}
 
 export async function GET(
   req: NextRequest,
@@ -110,8 +120,7 @@ export async function GET(
 
       // Match by drink name keywords
       if (!isMatch) {
-        const nameLower = (d.name ?? "").toLowerCase()
-        if (col.nameKeywords.some((kw) => nameLower.includes(kw.toLowerCase()))) {
+        if (col.nameKeywords.some((kw) => nameMatchesKeyword(d.name ?? "", kw))) {
           isMatch = true
         }
       }

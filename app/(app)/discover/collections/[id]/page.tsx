@@ -69,15 +69,17 @@ export default function CollectionDetailPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-md mx-auto px-4 py-4 space-y-5">
+      <div className="container max-w-md mx-auto px-4 py-1.5 space-y-5">
         {/* Back button */}
-        <button className="flex items-center gap-2 text-sm text-neutral-500 dark:text-white/40">
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]" aria-label="Go back">
+            <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
+          </button>
+          <div className="h-6 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+        </div>
 
         {/* Header skeleton */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <div className="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="space-y-2">
             <div className="h-5 w-40 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -104,11 +106,17 @@ export default function CollectionDetailPage() {
 
   if (error) {
     return (
-      <div className="container max-w-md mx-auto px-4 py-4">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-neutral-500 dark:text-white/40 mb-6">
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
-        </button>
+      <div className="container max-w-md mx-auto px-4 py-1.5">
+        <div className="mb-4 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
+          </button>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Collection</h2>
+        </div>
         <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
           <p className="text-neutral-500 dark:text-white/45">{error}</p>
         </div>
@@ -117,15 +125,18 @@ export default function CollectionDetailPage() {
   }
 
   return (
-    <div className="container max-w-md mx-auto px-4 py-4 pb-28">
-      {/* Back button */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-white/40 mb-5 transition-colors hover:text-neutral-700 dark:hover:text-white/60"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        <span>Back</span>
-      </button>
+    <div className="container max-w-md mx-auto px-4 py-1.5 pb-28">
+      {/* Header with back button */}
+      <div className="mb-5 flex items-center gap-3">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
+        </button>
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Collection</h2>
+      </div>
 
       {/* Collection Header */}
       {collection && (
