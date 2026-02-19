@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
     // ── Parallel batch 1: profile, logs, achievements, counts ──────
     const [
       profileRes,
-      profileMetaRes,
       logsRes,
       achievementsRes,
       userAchievementsRes,
@@ -37,14 +36,7 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       supabaseAdmin
         .from("profile_public_stats")
-        .select("id, username, display_name, avatar_path, friend_count, drink_count, showcase_achievements")
-        .eq("id", userId)
-        .maybeSingle(),
-
-      // created_at — try profiles table first, fall back to profile_public_stats
-      supabaseAdmin
-        .from("profiles")
-        .select("created_at")
+        .select("id, username, display_name, avatar_path, friend_count, drink_count, showcase_achievements, created_at")
         .eq("id", userId)
         .maybeSingle(),
 
@@ -71,26 +63,13 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.rpc("get_unseen_cheers_count", { p_user_id: userId }),
     ])
 
-    if (profileRes.error) {
-      console.error("[/api/profile/me] profileRes error:", JSON.stringify(profileRes.error))
-      throw profileRes.error
-    }
+    if (profileRes.error) throw profileRes.error
     if (!profileRes.data) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
-    if (logsRes.error) {
-      console.error("[/api/profile/me] logsRes error:", JSON.stringify(logsRes.error))
-      throw logsRes.error
-    }
-
-    if (profileMetaRes.error) {
-      console.error("[/api/profile/me] profileMetaRes error (non-fatal):", JSON.stringify(profileMetaRes.error))
-    }
+    if (logsRes.error) throw logsRes.error
 
     const profile = profileRes.data as any
-    const joinDate = (profileMetaRes.data as any)?.created_at ?? null
-
-    console.log("[/api/profile/me] profile loaded:", profile?.username, "logs:", (logsRes.data ?? []).length)
     const logs = (logsRes.data ?? []) as any[]
 
     // ── Parallel batch 2: avatar, photo URLs, drink names, cheers ──
@@ -101,22 +80,18 @@ export async function GET(req: NextRequest) {
       avatarRes,
       drinkNamesRes,
       cheersStateRes,
-      totalCheersRes,
       ...photoUrlResults
     ] = await Promise.all([
-      // Avatar signed URL
       profile.avatar_path
         ? supabaseAdmin.storage
             .from("profile-photos")
             .createSignedUrl(profile.avatar_path, 60 * 60)
         : Promise.resolve({ data: null }),
 
-      // Drink names
       drinkIds.length > 0
         ? supabaseAdmin.from("drinks").select("id, name").in("id", drinkIds)
         : Promise.resolve({ data: [] }),
 
-      // Cheers state
       logIds.length > 0
         ? supabaseAdmin.rpc("get_cheers_state", {
             post_ids: logIds,
@@ -124,15 +99,6 @@ export async function GET(req: NextRequest) {
           })
         : Promise.resolve({ data: [] }),
 
-      // Total cheers received
-      logIds.length > 0
-        ? supabaseAdmin
-            .from("drink_cheers")
-            .select("*", { count: "exact", head: true })
-            .in("drink_log_id", logIds)
-        : Promise.resolve({ count: 0 }),
-
-      // Photo signed URLs (batch all at once)
       ...logs.map((r) =>
         supabaseAdmin.storage
           .from("drink-photos")
@@ -147,12 +113,19 @@ export async function GET(req: NextRequest) {
       ((drinkNamesRes as any)?.data ?? []).map((d: any) => [d.id, d.name])
     )
 
+    const cheersRows = ((cheersStateRes as any)?.data ?? []) as any[]
     const cheersMap = new Map<string, { count: number; cheered: boolean }>(
-      ((cheersStateRes as any)?.data ?? []).map((r: any) => [
+      cheersRows.map((r: any) => [
         r.drink_log_id,
         { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) },
       ])
     )
+
+    // Sum total cheers from cheers state instead of a separate query
+    let totalCheersReceived = 0
+    for (const r of cheersRows) {
+      totalCheersReceived += Number(r.cheers_count ?? 0)
+    }
 
     const items = logs.map((r, i) => {
       const cheers = cheersMap.get(r.id)
@@ -162,7 +135,6 @@ export async function GET(req: NextRequest) {
         photoPath: r.photo_path,
         photoUrl: (photoUrlResults[i] as any)?.data?.signedUrl ?? "",
         drinkType: r.drink_type,
-        drinkId: r.drink_id,
         drinkName: r.drink_id ? drinkNameById.get(r.drink_id) ?? null : null,
         caption: r.caption ?? null,
         createdAt: r.created_at,
@@ -180,7 +152,7 @@ export async function GET(req: NextRequest) {
         avatarPath: profile.avatar_path ?? null,
         friendCount: profile.friend_count ?? 0,
         drinkCount: profile.drink_count ?? 0,
-        joinDate,
+        joinDate: profile.created_at ?? null,
         showcaseAchievements: profile.showcase_achievements ?? [],
       },
       logs: items,
@@ -188,7 +160,7 @@ export async function GET(req: NextRequest) {
       userAchievements: userAchievementsRes.data ?? [],
       pendingFriendRequests: pendingFriendsRes?.count ?? 0,
       unseenCheersCount: unseenCheersRes?.data ?? 0,
-      totalCheersReceived: (totalCheersRes as any)?.count ?? 0,
+      totalCheersReceived,
     })
   } catch (e: any) {
     console.error("[/api/profile/me]", e)
