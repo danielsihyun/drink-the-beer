@@ -86,8 +86,9 @@ export async function GET(req: Request) {
     // Fetch profiles and drink names in parallel
     const userIdsInFeed = Array.from(new Set(rows.map((r) => r.user_id)))
     const drinkIds = [...new Set(rows.map((r) => r.drink_id).filter(Boolean))] as string[]
+    const postIds = rows.map((r) => r.id)
 
-    const [profsRes, drinksRes] = await Promise.all([
+    const [profsRes, drinksRes, cheersRes] = await Promise.all([
       supabaseAdmin
         .from("profile_public_stats")
         .select("id,username,avatar_path")
@@ -98,6 +99,8 @@ export async function GET(req: Request) {
             .select("id,name")
             .in("id", drinkIds)
         : Promise.resolve({ data: [], error: null }),
+      // Cheers: counts + whether viewer cheered each post
+      supabaseAdmin.rpc("get_cheers_state", { post_ids: postIds, viewer_id: user.id }),
     ])
 
     if (profsRes.error) throw profsRes.error
@@ -110,6 +113,15 @@ export async function GET(req: Request) {
     const profileById = new Map(
       profs.map((p: { id: string; username: string; avatar_path: string | null }) => [p.id, p])
     )
+
+    // Build cheers lookup: postId -> { count, cheered }
+    const cheersById = new Map<string, { count: number; cheered: boolean }>()
+    for (const r of (cheersRes.data ?? []) as any[]) {
+      cheersById.set(r.drink_log_id, {
+        count: Number(r.cheers_count ?? 0),
+        cheered: Boolean(r.cheered),
+      })
+    }
 
     // Batch fetch all signed URLs in parallel
     const photoPaths = rows.map((r) => r.photo_path)
@@ -135,6 +147,7 @@ export async function GET(req: Request) {
       const prof = profileById.get(row.user_id)
       const username = prof?.username ?? "user"
       const avatarPath = prof?.avatar_path ?? null
+      const cheers = cheersById.get(row.id)
 
       return {
         id: row.id,
@@ -147,6 +160,8 @@ export async function GET(req: Request) {
         username,
         avatarUrl: avatarPath ? avatarUrlMap.get(avatarPath) ?? null : null,
         photoUrl: photoUrlMap.get(row.photo_path) ?? null,
+        cheersCount: cheers?.count ?? 0,
+        cheeredByMe: cheers?.cheered ?? false,
       }
     })
 

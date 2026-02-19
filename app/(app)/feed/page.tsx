@@ -24,6 +24,8 @@ type FeedApiItem = {
   username: string
   avatarUrl: string | null
   photoUrl: string | null
+  cheersCount: number
+  cheeredByMe: boolean
 }
 
 type FeedItem = {
@@ -460,20 +462,6 @@ function FeedContent() {
     }
   }, [postedBanner])
 
-  const loadCheersState = React.useCallback(async (postIds: string[], currentViewerId: string) => {
-    if (!postIds.length) return
-    const { data, error: rpcErr } = await supabase.rpc("get_cheers_state", { post_ids: postIds, viewer_id: currentViewerId })
-    if (rpcErr) throw rpcErr
-
-    const byId = new Map<string, { count: number; cheered: boolean }>()
-    ;(data ?? []).forEach((r: any) => byId.set(r.drink_log_id, { count: Number(r.cheers_count ?? 0), cheered: Boolean(r.cheered) }))
-
-    setItems((prev) => prev.map((it) => {
-      const s = byId.get(it.id)
-      return s ? { ...it, cheersCount: s.count, cheeredByMe: s.cheered } : it
-    }))
-  }, [supabase])
-
   /* ── Fetch a page of feed items ──────────────────────────────── */
 
   const fetchPage = React.useCallback(async (
@@ -498,8 +486,8 @@ function FeedContent() {
       avatarUrl: it.avatarUrl ?? null,
       isMine: it.user_id === userId,
       timestampLabel: formatCardTimestamp(it.created_at),
-      cheersCount: 0,
-      cheeredByMe: false,
+      cheersCount: it.cheersCount ?? 0,
+      cheeredByMe: it.cheeredByMe ?? false,
     }))
 
     return { mapped, nextCursor: json?.nextCursor ?? null }
@@ -510,30 +498,25 @@ function FeedContent() {
   const load = React.useCallback(async () => {
     setError(null)
     try {
-      const { data: userRes } = await supabase.auth.getUser()
-      const user = userRes.user
-      if (!user) { router.replace("/login?redirectTo=%2Ffeed"); return }
-      setViewerId(user.id)
-
       const { data: sessRes } = await supabase.auth.getSession()
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token.")
+      const session = sessRes.session
+      if (!session?.user) { router.replace("/login?redirectTo=%2Ffeed"); return }
+
+      const user = session.user
+      const token = session.access_token
+      setViewerId(user.id)
       tokenRef.current = token
 
       const { mapped, nextCursor: nc } = await fetchPage(token, user.id, null)
 
       setItems(mapped)
       setNextCursor(nc)
-
-      if (mapped.length > 0) {
-        await loadCheersState(mapped.map(m => m.id), user.id)
-      }
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, loadCheersState, fetchPage])
+  }, [router, supabase, fetchPage])
 
   React.useEffect(() => { load() }, [load])
 
@@ -560,7 +543,6 @@ function FeedContent() {
         })
         setNextCursor(nc)
         nextCursorRef.current = nc
-        await loadCheersState(mapped.map(m => m.id), viewer)
       } else {
         setNextCursor(null)
         nextCursorRef.current = null
@@ -571,7 +553,7 @@ function FeedContent() {
       setLoadingMore(false)
       loadingMoreRef.current = false
     }
-  }, [fetchPage, loadCheersState])
+  }, [fetchPage])
 
   /* ── Intersection observer for infinite scroll ───────────────── */
 
@@ -667,17 +649,28 @@ function FeedContent() {
       <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 space-y-5">
         <div className="flex items-center justify-between px-2">
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
+          <div className="h-10 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-3xl border border-neutral-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-5">
-            <div className="flex gap-3">
-              <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              <div className="space-y-2">
-                <div className="h-4 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="h-3 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div key={i} className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
               </div>
+              <div className="h-6 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            <div className="mt-4 aspect-square w-full rounded-2xl bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            {/* Photo */}
+            <div className="aspect-square w-full bg-neutral-100 dark:bg-white/[0.04] animate-pulse" />
+            {/* Actions */}
+            <div className="flex items-center gap-3 px-4 pt-4 pb-4">
+              <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-3.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
         ))}
       </div>
