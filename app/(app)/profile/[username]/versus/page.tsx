@@ -246,25 +246,28 @@ function Avatar({ name, avatarUrl }: { name: string; avatarUrl: string | null })
 }
 
 function Bar({ myVal, theirVal, animated }: { myVal: number; theirVal: number; animated: boolean }) {
+  const bothZero = myVal === 0 && theirVal === 0
   const total = myVal + theirVal || 1
-  const myPct = (myVal / total) * 100
+  const myPct = bothZero ? 50 : (myVal / total) * 100
   const tied = myVal === theirVal
+  const onlyLeft = theirVal === 0 && myVal > 0
+  const onlyRight = myVal === 0 && theirVal > 0
 
   return (
     <div className="flex h-[6px] w-full gap-[2px] rounded-full overflow-hidden">
       <div
-        className="rounded-l-full transition-all duration-700 ease-out"
+        className={cn("transition-all duration-700 ease-out", onlyLeft ? "rounded-full" : "rounded-l-full")}
         style={{
           width: animated ? `${myPct}%` : "50%",
-          minWidth: myVal > 0 ? 6 : 0,
+          minWidth: bothZero ? 0 : (myVal > 0 ? 6 : 0),
           backgroundColor: myVal > theirVal && !tied ? "#3478F6" : "#e5e5e5",
         }}
       />
       <div
-        className="rounded-r-full transition-all duration-700 ease-out"
+        className={cn("transition-all duration-700 ease-out", onlyRight ? "rounded-full" : "rounded-r-full")}
         style={{
           width: animated ? `${100 - myPct}%` : "50%",
-          minWidth: theirVal > 0 ? 6 : 0,
+          minWidth: bothZero ? 0 : (theirVal > 0 ? 6 : 0),
           backgroundColor: theirVal > myVal && !tied ? "#3478F6" : "#e5e5e5",
         }}
       />
@@ -411,7 +414,7 @@ function ChallengeModal({
 function LoadingSkeleton() {
   return (
     <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
-      <div className="px-5 pt-6 pb-2">
+      <div className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -420,8 +423,9 @@ function LoadingSkeleton() {
               <div className="h-2.5 w-8 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
-          <div className="flex items-center mx-2 -mt-6">
-            <div className="h-10 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="flex flex-col items-center mx-2">
+            <div className="-mt-6 h-10 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="mt-2.5 h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
           <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -430,10 +434,6 @@ function LoadingSkeleton() {
               <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
-        </div>
-        {/* Challenge button placeholder */}
-        <div className="flex justify-center mt-3">
-          <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
         </div>
       </div>
       <div className="mx-5 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
@@ -641,7 +641,7 @@ export default function VersusPage() {
       ) : myStats && theirStats ? (
         <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
           {/* Header: avatars + score */}
-          <div className="px-5 pt-6 pb-2">
+          <div className="px-5 pt-6 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex flex-col items-center flex-1">
                 <Avatar name={myStats.displayName} avatarUrl={myStats.avatarUrl} />
@@ -651,12 +651,23 @@ export default function VersusPage() {
                 </div>
               </div>
 
-              <div className="flex items-center mx-2 -mt-6">
-                <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
-                  <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
-                  <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
-                  <span className="text-[22px] font-bold tabular-nums" style={{ color: theirWins >= myWins ? "#3478F6" : "#a3a3a3" }}>{theirWins}</span>
+              {/* Center: score pill + challenge button */}
+              <div className="flex flex-col items-center mx-2">
+                <div className="mt-5.5">
+                  <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
+                    <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
+                    <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
+                    <span className="text-[22px] font-bold tabular-nums" style={{ color: theirWins >= myWins ? "#3478F6" : "#a3a3a3" }}>{theirWins}</span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setChallengeOpen(true)}
+                  className="mt-2.5 inline-flex items-center justify-center h-9 w-9 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.06] backdrop-blur-sm transition-all hover:bg-neutral-50 dark:hover:bg-white/[0.1] hover:scale-105 active:scale-95"
+                  aria-label="Challenge to duel"
+                >
+                  <Swords className="h-4 w-4 text-neutral-500 dark:text-white/50" />
+                </button>
               </div>
 
               <div className="flex flex-col items-center flex-1">
@@ -666,18 +677,6 @@ export default function VersusPage() {
                   <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">@{theirStats.username}</div>
                 </div>
               </div>
-            </div>
-
-            {/* Challenge button */}
-            <div className="flex justify-center mt-3">
-              <button
-                type="button"
-                onClick={() => setChallengeOpen(true)}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.06] backdrop-blur-sm transition-all hover:bg-neutral-50 dark:hover:bg-white/[0.1] hover:scale-105 active:scale-95"
-                aria-label="Challenge to duel"
-              >
-                <Swords className="h-[18px] w-[18px] text-neutral-600 dark:text-white/60" />
-              </button>
             </div>
           </div>
 
