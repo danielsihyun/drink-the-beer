@@ -2,11 +2,14 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Calendar } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 // --- Types ---
+
+type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y" | "YTD"
 
 type UserStats = {
   id: string
@@ -34,14 +37,66 @@ const ROWS: { label: string; key: keyof UserStats; suffix?: string }[] = [
   { label: "Avg / Week", key: "avgPerWeek" },
 ]
 
+const timeRangeOptions: { key: TimeRange; label: string }[] = [
+  { key: "1W", label: "1W" },
+  { key: "1M", label: "1M" },
+  { key: "3M", label: "3M" },
+  { key: "6M", label: "6M" },
+  { key: "1Y", label: "1Y" },
+  { key: "YTD", label: "YTD" },
+]
+
 // --- Helpers ---
+
+function getTimeRangeLabel(value: TimeRange): string {
+  return timeRangeOptions.find((opt) => opt.key === value)?.label ?? value
+}
+
+function getDateRangeStart(timeRange: TimeRange, now: Date): Date {
+  let startDate: Date
+
+  switch (timeRange) {
+    case "1W":
+      startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+      break
+    case "1M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+      break
+    case "3M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
+      break
+    case "6M":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
+      break
+    case "1Y":
+      startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+      break
+    case "YTD":
+      startDate = new Date(now.getFullYear(), 0, 1)
+      break
+    default:
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+  }
+  startDate.setHours(0, 0, 0, 0)
+  return startDate
+}
 
 function fmt(v: number, suffix = "") {
   if (typeof v === "number" && v % 1 !== 0) return v.toFixed(1) + suffix
   return v + suffix
 }
 
+function filterLogsByTimeRange(logs: any[], timeRange: TimeRange): any[] {
+  const now = new Date()
+  const start = getDateRangeStart(timeRange, now)
+  return logs.filter((l) => {
+    const d = new Date(l.createdAt ?? l.created_at)
+    return d >= start
+  })
+}
+
 function computeStatsFromLogs(logs: any[]): {
+  totalDrinks: number
   uniqueTypes: number
   avgPerWeek: number
   currentStreak: number
@@ -49,21 +104,20 @@ function computeStatsFromLogs(logs: any[]): {
   favDrinkCount: number
 } {
   if (!logs.length) {
-    return { uniqueTypes: 0, avgPerWeek: 0, currentStreak: 0, favDrink: null, favDrinkCount: 0 }
+    return { totalDrinks: 0, uniqueTypes: 0, avgPerWeek: 0, currentStreak: 0, favDrink: null, favDrinkCount: 0 }
   }
 
-  // Unique drink types
+  const totalDrinks = logs.length
+
   const typeSet = new Set(logs.map((l: any) => l.drinkType ?? l.drink_type))
   const uniqueTypes = typeSet.size
 
-  // Avg per week: span from first to last log
   const dates = logs.map((l: any) => new Date(l.createdAt ?? l.created_at).getTime()).filter((t) => !isNaN(t))
   const minDate = Math.min(...dates)
   const maxDate = Math.max(...dates)
   const weeks = Math.max(1, (maxDate - minDate) / (7 * 24 * 60 * 60 * 1000))
   const avgPerWeek = Math.round((logs.length / weeks) * 10) / 10
 
-  // Current streak: consecutive days with at least one log, ending today or yesterday
   const daySet = new Set<string>()
   for (const l of logs) {
     const d = new Date(l.createdAt ?? l.created_at)
@@ -92,7 +146,6 @@ function computeStatsFromLogs(logs: any[]): {
     }
   }
 
-  // Favorite drink type
   const typeCounts: Record<string, number> = {}
   for (const l of logs) {
     const t = l.drinkType ?? l.drink_type ?? "Other"
@@ -107,33 +160,92 @@ function computeStatsFromLogs(logs: any[]): {
     }
   }
 
-  return { uniqueTypes, avgPerWeek, currentStreak, favDrink, favDrinkCount }
+  return { totalDrinks, uniqueTypes, avgPerWeek, currentStreak, favDrink, favDrinkCount }
 }
 
 // --- Components ---
 
+function TimeRangeSelector({
+  value,
+  onChange,
+}: {
+  value: TimeRange
+  onChange: (value: TimeRange) => void
+}) {
+  const [showMenu, setShowMenu] = React.useState(false)
+  const menuRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+
+    if (showMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showMenu])
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setShowMenu(!showMenu)}
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
+      >
+        <Calendar className="h-4 w-4" />
+        {getTimeRangeLabel(value)}
+      </button>
+
+      {showMenu ? (
+        <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
+          {timeRangeOptions.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => {
+                onChange(opt.key)
+                setShowMenu(false)
+              }}
+              className={cn(
+                "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
+                value === opt.key ? "font-semibold" : ""
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function Avatar({
   name,
   avatarUrl,
-  gradient,
 }: {
   name: string
   avatarUrl: string | null
-  gradient: string
 }) {
   if (avatarUrl) {
     return (
-      <div className="relative h-16 w-16 overflow-hidden rounded-full shadow-sm ring-2 ring-white dark:ring-neutral-800 border border-neutral-100 dark:border-white/[0.06]">
+      <div className="relative h-20 w-20 overflow-hidden rounded-full shadow-sm ring-2 ring-white dark:ring-neutral-800 border border-neutral-100 dark:border-white/[0.06]">
         <Image src={avatarUrl} alt={name} fill className="object-cover" unoptimized />
       </div>
     )
   }
   return (
-    <div
-      className="flex h-16 w-16 items-center justify-center rounded-full text-white font-semibold text-xl shadow-sm"
-      style={{ background: gradient }}
-    >
-      {name.charAt(0).toUpperCase()}
+    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
+      <svg viewBox="0 0 24 24" fill="none" className="h-10 w-10 text-neutral-400 dark:text-white/30">
+        <circle cx="12" cy="8" r="4" fill="currentColor" />
+        <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
+      </svg>
     </div>
   )
 }
@@ -225,20 +337,20 @@ function StatRow({
 function LoadingSkeleton() {
   return (
     <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
-      <div className="px-5 pt-8 pb-7">
+      <div className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center gap-2.5 flex-1">
-            <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+          <div className="flex flex-col items-center gap-3 flex-1">
+            <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
             <div className="space-y-1.5 flex flex-col items-center">
               <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="h-9 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="flex items-center">
+            <div className="h-10 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
-          <div className="flex flex-col items-center gap-2.5 flex-1">
-            <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+          <div className="flex flex-col items-center gap-3 flex-1">
+            <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
             <div className="space-y-1.5 flex flex-col items-center">
               <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -273,9 +385,16 @@ export default function VersusPage() {
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [myStats, setMyStats] = React.useState<UserStats | null>(null)
-  const [theirStats, setTheirStats] = React.useState<UserStats | null>(null)
+  const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [animated, setAnimated] = React.useState(false)
+
+  // Raw data — fetched once, filtered reactively
+  const [myProfile, setMyProfile] = React.useState<any>(null)
+  const [theirProfile, setTheirProfile] = React.useState<any>(null)
+  const [myLogs, setMyLogs] = React.useState<any[]>([])
+  const [theirLogs, setTheirLogs] = React.useState<any[]>([])
+  const [myAchievements, setMyAchievements] = React.useState<any[]>([])
+  const [theirAchievements, setTheirAchievements] = React.useState<any[]>([])
 
   React.useEffect(() => {
     async function load() {
@@ -291,7 +410,6 @@ export default function VersusPage() {
           return
         }
 
-        // Fetch both profiles in parallel
         const [myProfileRes, theirProfileRes] = await Promise.all([
           fetch("/api/profile/me", {
             headers: { Authorization: `Bearer ${token}` },
@@ -307,47 +425,12 @@ export default function VersusPage() {
         const myJson = await myProfileRes.json()
         const theirJson = await theirProfileRes.json()
 
-        const myP = myJson.profile
-        const theirP = theirJson.profile
-
-        // Compute stats from logs and achievements already in the API response
-        const myComputed = computeStatsFromLogs(myJson.logs ?? [])
-        const theirComputed = computeStatsFromLogs(theirJson.logs ?? [])
-
-        const myMedals = (myJson.userAchievements ?? []).length
-        const theirMedals = (theirJson.userAchievements ?? []).length
-
-        setMyStats({
-          id: myP.id,
-          username: myP.username,
-          displayName: myP.displayName,
-          avatarUrl: myP.avatarUrl,
-          totalDrinks: myP.drinkCount ?? 0,
-          totalCheers: myP.totalCheersReceived ?? 0,
-          friends: myP.friendCount ?? 0,
-          medals: myMedals,
-          currentStreak: myComputed.currentStreak,
-          uniqueTypes: myComputed.uniqueTypes,
-          avgPerWeek: myComputed.avgPerWeek,
-          favDrink: myComputed.favDrink,
-          favDrinkCount: myComputed.favDrinkCount,
-        })
-
-        setTheirStats({
-          id: theirP.id,
-          username: theirP.username,
-          displayName: theirP.displayName,
-          avatarUrl: theirP.avatarUrl,
-          totalDrinks: theirP.drinkCount ?? 0,
-          totalCheers: theirP.totalCheersReceived ?? 0,
-          friends: theirP.friendCount ?? 0,
-          medals: theirMedals,
-          currentStreak: theirComputed.currentStreak,
-          uniqueTypes: theirComputed.uniqueTypes,
-          avgPerWeek: theirComputed.avgPerWeek,
-          favDrink: theirComputed.favDrink,
-          favDrinkCount: theirComputed.favDrinkCount,
-        })
+        setMyProfile(myJson.profile)
+        setTheirProfile(theirJson.profile)
+        setMyLogs(myJson.logs ?? [])
+        setTheirLogs(theirJson.logs ?? [])
+        setMyAchievements(myJson.userAchievements ?? [])
+        setTheirAchievements(theirJson.userAchievements ?? [])
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
       } finally {
@@ -358,15 +441,62 @@ export default function VersusPage() {
     load()
   }, [router, supabase, username])
 
-  // Trigger bar animations after data loads
+  // Compute stats reactively based on time range
+  const myStats = React.useMemo<UserStats | null>(() => {
+    if (!myProfile) return null
+
+    const filtered = filterLogsByTimeRange(myLogs, timeRange)
+    const computed = computeStatsFromLogs(filtered)
+
+    return {
+      id: myProfile.id,
+      username: myProfile.username,
+      displayName: myProfile.displayName,
+      avatarUrl: myProfile.avatarUrl,
+      totalDrinks: computed.totalDrinks,
+      totalCheers: myProfile.totalCheersReceived ?? 0,
+      friends: myProfile.friendCount ?? 0,
+      medals: myAchievements.length,
+      currentStreak: computed.currentStreak,
+      uniqueTypes: computed.uniqueTypes,
+      avgPerWeek: computed.avgPerWeek,
+      favDrink: computed.favDrink,
+      favDrinkCount: computed.favDrinkCount,
+    }
+  }, [myProfile, myLogs, myAchievements, timeRange])
+
+  const theirStats = React.useMemo<UserStats | null>(() => {
+    if (!theirProfile) return null
+
+    const filtered = filterLogsByTimeRange(theirLogs, timeRange)
+    const computed = computeStatsFromLogs(filtered)
+
+    return {
+      id: theirProfile.id,
+      username: theirProfile.username,
+      displayName: theirProfile.displayName,
+      avatarUrl: theirProfile.avatarUrl,
+      totalDrinks: computed.totalDrinks,
+      totalCheers: theirProfile.totalCheersReceived ?? 0,
+      friends: theirProfile.friendCount ?? 0,
+      medals: theirAchievements.length,
+      currentStreak: computed.currentStreak,
+      uniqueTypes: computed.uniqueTypes,
+      avgPerWeek: computed.avgPerWeek,
+      favDrink: computed.favDrink,
+      favDrinkCount: computed.favDrinkCount,
+    }
+  }, [theirProfile, theirLogs, theirAchievements, timeRange])
+
+  // Re-trigger bar animations when time range changes
   React.useEffect(() => {
+    setAnimated(false)
     if (!loading && myStats && theirStats) {
       const t = setTimeout(() => setAnimated(true), 150)
       return () => clearTimeout(t)
     }
-  }, [loading, myStats, theirStats])
+  }, [loading, myStats, theirStats, timeRange])
 
-  // Calculate score
   let myWins = 0
   let theirWins = 0
   if (myStats && theirStats) {
@@ -381,16 +511,19 @@ export default function VersusPage() {
   return (
     <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
-        </button>
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Versus</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
+          </button>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Versus</h2>
+        </div>
+        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
       {error && (
@@ -404,16 +537,15 @@ export default function VersusPage() {
       ) : myStats && theirStats ? (
         <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
           {/* Header: avatars + score */}
-          <div className="px-5 pt-8 pb-7">
+          <div className="px-5 pt-6 pb-4">
             <div className="flex items-center justify-between">
               {/* Me */}
-              <div className="flex flex-col items-center gap-2 flex-1">
+              <div className="flex flex-col items-center flex-1">
                 <Avatar
                   name={myStats.displayName}
                   avatarUrl={myStats.avatarUrl}
-                  gradient="linear-gradient(135deg, #3b82f6, #6366f1)"
                 />
-                <div className="text-center">
+                <div className="text-center mt-3">
                   <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
                     {myStats.displayName}
                   </div>
@@ -422,7 +554,7 @@ export default function VersusPage() {
               </div>
 
               {/* Score pill */}
-              <div className="flex items-center mx-2">
+              <div className="flex items-center mx-2 -mt-6">
                 <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                   <span
                     className="text-[22px] font-bold tabular-nums"
@@ -441,13 +573,12 @@ export default function VersusPage() {
               </div>
 
               {/* Them */}
-              <div className="flex flex-col items-center gap-2 flex-1">
+              <div className="flex flex-col items-center flex-1">
                 <Avatar
                   name={theirStats.displayName}
                   avatarUrl={theirStats.avatarUrl}
-                  gradient="linear-gradient(135deg, #f97316, #ef4444)"
                 />
-                <div className="text-center">
+                <div className="text-center mt-3">
                   <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
                     {theirStats.displayName}
                   </div>
@@ -499,14 +630,14 @@ export default function VersusPage() {
                     Favorite
                   </span>
                   <div className="flex items-baseline gap-1">
+                    <span className="text-[13px] font-semibold text-orange-500">
+                      {theirStats.favDrink ?? "—"}
+                    </span>
                     {theirStats.favDrinkCount > 0 && (
                       <span className="text-[11px] text-neutral-300 dark:text-white/20">
                         ×{theirStats.favDrinkCount}
                       </span>
                     )}
-                    <span className="text-[13px] font-semibold text-orange-500">
-                      {theirStats.favDrink ?? "—"}
-                    </span>
                   </div>
                 </div>
               </div>
