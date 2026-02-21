@@ -22,7 +22,7 @@ type UserStats = {
   medals: number
   currentStreak: number
   uniqueTypes: number
-  avgPerWeek: number
+  avgPerDay: number
   favDrink: string | null
   favDrinkCount: number
 }
@@ -34,7 +34,7 @@ const ROWS: { label: string; key: keyof UserStats; suffix?: string }[] = [
   { label: "Medals", key: "medals" },
   { label: "Streak", key: "currentStreak", suffix: "d" },
   { label: "Drink Types", key: "uniqueTypes" },
-  { label: "Avg / Week", key: "avgPerWeek" },
+  { label: "Avg / Day", key: "avgPerDay" },
 ]
 
 const timeRangeOptions: { key: TimeRange; label: string }[] = [
@@ -98,13 +98,13 @@ function filterLogsByTimeRange(logs: any[], timeRange: TimeRange): any[] {
 function computeStatsFromLogs(logs: any[]): {
   totalDrinks: number
   uniqueTypes: number
-  avgPerWeek: number
+  avgPerDay: number
   currentStreak: number
   favDrink: string | null
   favDrinkCount: number
 } {
   if (!logs.length) {
-    return { totalDrinks: 0, uniqueTypes: 0, avgPerWeek: 0, currentStreak: 0, favDrink: null, favDrinkCount: 0 }
+    return { totalDrinks: 0, uniqueTypes: 0, avgPerDay: 0, currentStreak: 0, favDrink: null, favDrinkCount: 0 }
   }
 
   const totalDrinks = logs.length
@@ -115,8 +115,8 @@ function computeStatsFromLogs(logs: any[]): {
   const dates = logs.map((l: any) => new Date(l.createdAt ?? l.created_at).getTime()).filter((t) => !isNaN(t))
   const minDate = Math.min(...dates)
   const maxDate = Math.max(...dates)
-  const weeks = Math.max(1, (maxDate - minDate) / (7 * 24 * 60 * 60 * 1000))
-  const avgPerWeek = Math.round((logs.length / weeks) * 10) / 10
+  const days = Math.max(1, (maxDate - minDate) / (24 * 60 * 60 * 1000))
+  const avgPerDay = Math.round((logs.length / days) * 100) / 100
 
   const daySet = new Set<string>()
   for (const l of logs) {
@@ -160,7 +160,7 @@ function computeStatsFromLogs(logs: any[]): {
     }
   }
 
-  return { totalDrinks, uniqueTypes, avgPerWeek, currentStreak, favDrink, favDrinkCount }
+  return { totalDrinks, uniqueTypes, avgPerDay, currentStreak, favDrink, favDrinkCount }
 }
 
 // --- Components ---
@@ -395,7 +395,8 @@ export default function VersusPage() {
   const [theirLogs, setTheirLogs] = React.useState<any[]>([])
   const [myAchievements, setMyAchievements] = React.useState<any[]>([])
   const [theirAchievements, setTheirAchievements] = React.useState<any[]>([])
-
+  const [myRawJson, setMyRawJson] = React.useState<any>(null)
+  const [theirRawJson, setTheirRawJson] = React.useState<any>(null)
   React.useEffect(() => {
     async function load() {
       setError(null)
@@ -427,6 +428,22 @@ export default function VersusPage() {
 
         setMyProfile(myJson.profile)
         setTheirProfile(theirJson.profile)
+        setMyRawJson(myJson)
+        setTheirRawJson(theirJson)
+
+        // Debug: check what cheers fields exist
+        console.log("[Versus] myProfile keys:", Object.keys(myJson.profile))
+        console.log("[Versus] myProfile cheers fields:", {
+          totalCheersReceived: myJson.profile.totalCheersReceived,
+          cheersReceived: myJson.profile.cheersReceived,
+          totalCheers: myJson.profile.totalCheers,
+        })
+        console.log("[Versus] theirProfile cheers fields:", {
+          totalCheersReceived: theirJson.profile.totalCheersReceived,
+          cheersReceived: theirJson.profile.cheersReceived,
+          totalCheers: theirJson.profile.totalCheers,
+        })
+
         setMyLogs(myJson.logs ?? [])
         setTheirLogs(theirJson.logs ?? [])
         setMyAchievements(myJson.userAchievements ?? [])
@@ -448,22 +465,30 @@ export default function VersusPage() {
     const filtered = filterLogsByTimeRange(myLogs, timeRange)
     const computed = computeStatsFromLogs(filtered)
 
+    // Cheers count can live at different levels depending on the API endpoint
+    const cheers = myProfile.totalCheersReceived
+      ?? myProfile.cheersReceived
+      ?? myProfile.totalCheers
+      ?? myRawJson?.totalCheersReceived
+      ?? myRawJson?.cheersReceived
+      ?? 0
+
     return {
       id: myProfile.id,
       username: myProfile.username,
       displayName: myProfile.displayName,
       avatarUrl: myProfile.avatarUrl,
       totalDrinks: computed.totalDrinks,
-      totalCheers: myProfile.totalCheersReceived ?? 0,
+      totalCheers: cheers,
       friends: myProfile.friendCount ?? 0,
       medals: myAchievements.length,
       currentStreak: computed.currentStreak,
       uniqueTypes: computed.uniqueTypes,
-      avgPerWeek: computed.avgPerWeek,
+      avgPerDay: computed.avgPerDay,
       favDrink: computed.favDrink,
       favDrinkCount: computed.favDrinkCount,
     }
-  }, [myProfile, myLogs, myAchievements, timeRange])
+  }, [myProfile, myLogs, myAchievements, myRawJson, timeRange])
 
   const theirStats = React.useMemo<UserStats | null>(() => {
     if (!theirProfile) return null
@@ -471,22 +496,29 @@ export default function VersusPage() {
     const filtered = filterLogsByTimeRange(theirLogs, timeRange)
     const computed = computeStatsFromLogs(filtered)
 
+    const cheers = theirProfile.totalCheersReceived
+      ?? theirProfile.cheersReceived
+      ?? theirProfile.totalCheers
+      ?? theirRawJson?.totalCheersReceived
+      ?? theirRawJson?.cheersReceived
+      ?? 0
+
     return {
       id: theirProfile.id,
       username: theirProfile.username,
       displayName: theirProfile.displayName,
       avatarUrl: theirProfile.avatarUrl,
       totalDrinks: computed.totalDrinks,
-      totalCheers: theirProfile.totalCheersReceived ?? 0,
+      totalCheers: cheers,
       friends: theirProfile.friendCount ?? 0,
       medals: theirAchievements.length,
       currentStreak: computed.currentStreak,
       uniqueTypes: computed.uniqueTypes,
-      avgPerWeek: computed.avgPerWeek,
+      avgPerDay: computed.avgPerDay,
       favDrink: computed.favDrink,
       favDrinkCount: computed.favDrinkCount,
     }
-  }, [theirProfile, theirLogs, theirAchievements, timeRange])
+  }, [theirProfile, theirLogs, theirAchievements, theirRawJson, timeRange])
 
   // Re-trigger bar animations when time range changes
   React.useEffect(() => {
