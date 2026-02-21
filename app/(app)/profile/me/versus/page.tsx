@@ -429,15 +429,15 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
           {tabs.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
               className={cn(
-                "flex-1 rounded-lg py-2 text-[13px] font-medium transition-all text-center",
+                "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-[13px] font-medium transition-all",
                 tab === t.key
                   ? "bg-white dark:bg-white/[0.12] text-neutral-900 dark:text-white shadow-sm"
                   : "text-neutral-500 dark:text-white/40 hover:text-neutral-700 dark:hover:text-white/60"
               )}>
-              {t.label}
+              <span>{t.label}</span>
               {t.count > 0 && (
                 <span className={cn(
-                  "ml-1.5 inline-flex items-center justify-center h-[18px] min-w-[18px] px-1 rounded-full text-[10px] font-bold",
+                  "inline-flex items-center justify-center h-[18px] min-w-[18px] px-1 rounded-full text-[10px] font-bold",
                   tab === t.key ? "bg-[#3478F6] text-white" : "bg-neutral-200 dark:bg-white/[0.08] text-neutral-500 dark:text-white/30"
                 )}>{t.count}</span>
               )}
