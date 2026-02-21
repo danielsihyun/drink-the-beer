@@ -392,11 +392,20 @@ function ChallengeModal({ open, onClose, opponentName, onSend, sending }: { open
 function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecline, accepting }: {
   open: boolean; onClose: () => void; duels: Duel[]; userId: string; loading: boolean; onAccept: (id: string) => void; onDecline: (id: string) => void; accepting: string | null
 }) {
+  const [tab, setTab] = React.useState<"active" | "wins" | "completed">("active")
   const backdropRef = React.useRef<HTMLDivElement>(null)
+
   const pendingIncoming = duels.filter((d) => d.status === "pending" && !d.amChallenger)
   const pendingOutgoing = duels.filter((d) => d.status === "pending" && d.amChallenger)
   const active = duels.filter((d) => d.status === "active")
-  const completed = duels.filter((d) => d.status === "completed").slice(0, 10)
+  const completed = duels.filter((d) => d.status === "completed")
+  const wins = completed.filter((d) => d.winner_id === userId)
+
+  const tabs = [
+    { key: "active" as const, label: "Active", count: active.length + pendingIncoming.length + pendingOutgoing.length },
+    { key: "wins" as const, label: "Wins", count: wins.length },
+    { key: "completed" as const, label: "Completed", count: completed.length },
+  ]
 
   if (!open) return null
 
@@ -404,6 +413,7 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={(e) => { if (e.target === backdropRef.current) onClose() }}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative w-full max-w-md mx-4 mb-4 sm:mb-0 max-h-[80vh] rounded-[1.5rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
             <Swords className="h-5 w-5 text-neutral-600 dark:text-white/60" />
@@ -412,6 +422,28 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
           <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-neutral-100 dark:hover:bg-white/[0.08] transition-colors"><X className="h-5 w-5 text-neutral-400" /></button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex mx-5 mb-3 rounded-xl bg-neutral-100 dark:bg-white/[0.06] p-1 shrink-0">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" onClick={() => setTab(t.key)}
+              className={cn(
+                "flex-1 rounded-lg py-2 text-[13px] font-medium transition-all text-center",
+                tab === t.key
+                  ? "bg-white dark:bg-white/[0.12] text-neutral-900 dark:text-white shadow-sm"
+                  : "text-neutral-500 dark:text-white/40 hover:text-neutral-700 dark:hover:text-white/60"
+              )}>
+              {t.label}
+              {t.count > 0 && (
+                <span className={cn(
+                  "ml-1.5 inline-flex items-center justify-center h-[18px] min-w-[18px] px-1 rounded-full text-[10px] font-bold",
+                  tab === t.key ? "bg-[#3478F6] text-white" : "bg-neutral-200 dark:bg-white/[0.08] text-neutral-500 dark:text-white/30"
+                )}>{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
         <div className="overflow-y-auto px-5 pb-5 flex-1">
           {loading ? (
             <div className="space-y-3">
@@ -427,39 +459,69 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                 </div>
               ))}
             </div>
-          ) : duels.length === 0 ? (
-            <div className="text-center py-12">
-              <Swords className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
-              <p className="text-sm text-neutral-400 dark:text-white/30">No duels yet</p>
-              <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Challenge a friend from the comparison view!</p>
-            </div>
           ) : (
-            <div className="space-y-5">
-              {pendingIncoming.length > 0 && (
-                <div>
-                  <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Incoming Challenges ({pendingIncoming.length})</p>
-                  <div className="space-y-2.5">{pendingIncoming.map((d) => <DuelCard key={d.id} duel={d} userId={userId} onAccept={onAccept} onDecline={onDecline} accepting={accepting} />)}</div>
+            <>
+              {/* Active tab */}
+              {tab === "active" && (
+                <div className="space-y-4">
+                  {pendingIncoming.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Incoming ({pendingIncoming.length})</p>
+                      <div className="space-y-2.5">{pendingIncoming.map((d) => <DuelCard key={d.id} duel={d} userId={userId} onAccept={onAccept} onDecline={onDecline} accepting={accepting} />)}</div>
+                    </div>
+                  )}
+                  {active.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">In Progress ({active.length})</p>
+                      <div className="space-y-2.5">{active.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                    </div>
+                  )}
+                  {pendingOutgoing.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Sent ({pendingOutgoing.length})</p>
+                      <div className="space-y-2.5">{pendingOutgoing.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                    </div>
+                  )}
+                  {active.length === 0 && pendingIncoming.length === 0 && pendingOutgoing.length === 0 && (
+                    <div className="text-center py-10">
+                      <Swords className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
+                      <p className="text-sm text-neutral-400 dark:text-white/30">No active duels</p>
+                      <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Challenge a friend to get started!</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {active.length > 0 && (
+
+              {/* Wins tab */}
+              {tab === "wins" && (
                 <div>
-                  <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Active ({active.length})</p>
-                  <div className="space-y-2.5">{active.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                  {wins.length > 0 ? (
+                    <div className="space-y-2.5">{wins.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                  ) : (
+                    <div className="text-center py-10">
+                      <Trophy className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
+                      <p className="text-sm text-neutral-400 dark:text-white/30">No wins yet</p>
+                      <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Win a duel to see it here!</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {pendingOutgoing.length > 0 && (
+
+              {/* Completed tab */}
+              {tab === "completed" && (
                 <div>
-                  <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Sent ({pendingOutgoing.length})</p>
-                  <div className="space-y-2.5">{pendingOutgoing.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                  {completed.length > 0 ? (
+                    <div className="space-y-2.5">{completed.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
+                  ) : (
+                    <div className="text-center py-10">
+                      <Swords className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
+                      <p className="text-sm text-neutral-400 dark:text-white/30">No completed duels</p>
+                      <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Finished duels will appear here</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {completed.length > 0 && (
-                <div>
-                  <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Completed</p>
-                  <div className="space-y-2.5">{completed.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -925,7 +987,7 @@ export default function MyVersusPage() {
               <div className="flex flex-col items-center mx-2">
                 {hasOpponent ? (
                   <>
-                    <div className="mt-5.5">
+                    <div className="-mt-6">
                       <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                         <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
                         <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
