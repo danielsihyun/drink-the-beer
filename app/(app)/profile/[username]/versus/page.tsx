@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -41,6 +41,75 @@ function fmt(v: number, suffix = "") {
   return v + suffix
 }
 
+function computeStatsFromLogs(logs: any[]): {
+  uniqueTypes: number
+  avgPerWeek: number
+  currentStreak: number
+  favDrink: string | null
+  favDrinkCount: number
+} {
+  if (!logs.length) {
+    return { uniqueTypes: 0, avgPerWeek: 0, currentStreak: 0, favDrink: null, favDrinkCount: 0 }
+  }
+
+  // Unique drink types
+  const typeSet = new Set(logs.map((l: any) => l.drinkType ?? l.drink_type))
+  const uniqueTypes = typeSet.size
+
+  // Avg per week: span from first to last log
+  const dates = logs.map((l: any) => new Date(l.createdAt ?? l.created_at).getTime()).filter((t) => !isNaN(t))
+  const minDate = Math.min(...dates)
+  const maxDate = Math.max(...dates)
+  const weeks = Math.max(1, (maxDate - minDate) / (7 * 24 * 60 * 60 * 1000))
+  const avgPerWeek = Math.round((logs.length / weeks) * 10) / 10
+
+  // Current streak: consecutive days with at least one log, ending today or yesterday
+  const daySet = new Set<string>()
+  for (const l of logs) {
+    const d = new Date(l.createdAt ?? l.created_at)
+    if (!isNaN(d.getTime())) {
+      daySet.add(d.toISOString().slice(0, 10))
+    }
+  }
+  const sortedDays = [...daySet].sort().reverse()
+  let currentStreak = 0
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const todayStr = today.toISOString().slice(0, 10)
+  const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+  if (sortedDays[0] === todayStr || sortedDays[0] === yesterdayStr) {
+    let checkDate = new Date(sortedDays[0])
+    for (const day of sortedDays) {
+      const expected = checkDate.toISOString().slice(0, 10)
+      if (day === expected) {
+        currentStreak++
+        checkDate.setDate(checkDate.getDate() - 1)
+      } else {
+        break
+      }
+    }
+  }
+
+  // Favorite drink type
+  const typeCounts: Record<string, number> = {}
+  for (const l of logs) {
+    const t = l.drinkType ?? l.drink_type ?? "Other"
+    typeCounts[t] = (typeCounts[t] ?? 0) + 1
+  }
+  let favDrink: string | null = null
+  let favDrinkCount = 0
+  for (const [type, count] of Object.entries(typeCounts)) {
+    if (count > favDrinkCount) {
+      favDrink = type
+      favDrinkCount = count
+    }
+  }
+
+  return { uniqueTypes, avgPerWeek, currentStreak, favDrink, favDrinkCount }
+}
+
 // --- Components ---
 
 function Avatar({
@@ -54,14 +123,14 @@ function Avatar({
 }) {
   if (avatarUrl) {
     return (
-      <div className="relative h-12 w-12 overflow-hidden rounded-full shadow-sm ring-2 ring-white dark:ring-neutral-800 border border-neutral-100 dark:border-white/[0.06]">
+      <div className="relative h-16 w-16 overflow-hidden rounded-full shadow-sm ring-2 ring-white dark:ring-neutral-800 border border-neutral-100 dark:border-white/[0.06]">
         <Image src={avatarUrl} alt={name} fill className="object-cover" unoptimized />
       </div>
     )
   }
   return (
     <div
-      className="flex h-12 w-12 items-center justify-center rounded-full text-white font-semibold text-base shadow-sm"
+      className="flex h-16 w-16 items-center justify-center rounded-full text-white font-semibold text-xl shadow-sm"
       style={{ background: gradient }}
     >
       {name.charAt(0).toUpperCase()}
@@ -156,26 +225,29 @@ function StatRow({
 function LoadingSkeleton() {
   return (
     <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
-      {/* Header */}
-      <div className="px-5 pt-6 pb-5">
+      <div className="px-5 pt-8 pb-7">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center gap-2 flex-1">
-            <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="h-3 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="flex flex-col items-center gap-2.5 flex-1">
+            <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="space-y-1.5 flex flex-col items-center">
+              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
           <div className="flex flex-col items-center gap-1.5">
-            <div className="h-8 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            <div className="h-2 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="h-9 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
-          <div className="flex flex-col items-center gap-2 flex-1">
-            <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="h-3 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="flex flex-col items-center gap-2.5 flex-1">
+            <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="space-y-1.5 flex flex-col items-center">
+              <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
         </div>
       </div>
       <div className="mx-5 h-px bg-black/5 dark:bg-white/[0.04]" />
-      {/* Rows */}
-      <div className="px-5 py-4 space-y-5">
+      <div className="px-5 py-5 space-y-6">
         {[1, 2, 3, 4, 5, 6, 7].map((i) => (
           <div key={i} className="space-y-2">
             <div className="flex justify-between">
@@ -235,19 +307,15 @@ export default function VersusPage() {
         const myJson = await myProfileRes.json()
         const theirJson = await theirProfileRes.json()
 
-        // Fetch versus-specific stats (streak, unique types, avg/week, fav drink)
-        const versusRes = await fetch(
-          `/api/profile/${encodeURIComponent(username)}/versus`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-
-        let versusData: any = {}
-        if (versusRes.ok) {
-          versusData = await versusRes.json()
-        }
-
         const myP = myJson.profile
         const theirP = theirJson.profile
+
+        // Compute stats from logs and achievements already in the API response
+        const myComputed = computeStatsFromLogs(myJson.logs ?? [])
+        const theirComputed = computeStatsFromLogs(theirJson.logs ?? [])
+
+        const myMedals = (myJson.userAchievements ?? []).length
+        const theirMedals = (theirJson.userAchievements ?? []).length
 
         setMyStats({
           id: myP.id,
@@ -257,12 +325,12 @@ export default function VersusPage() {
           totalDrinks: myP.drinkCount ?? 0,
           totalCheers: myP.totalCheersReceived ?? 0,
           friends: myP.friendCount ?? 0,
-          medals: versusData.myMedals ?? 0,
-          currentStreak: versusData.myStreak ?? 0,
-          uniqueTypes: versusData.myUniqueTypes ?? 0,
-          avgPerWeek: versusData.myAvgPerWeek ?? 0,
-          favDrink: versusData.myFavDrink ?? null,
-          favDrinkCount: versusData.myFavDrinkCount ?? 0,
+          medals: myMedals,
+          currentStreak: myComputed.currentStreak,
+          uniqueTypes: myComputed.uniqueTypes,
+          avgPerWeek: myComputed.avgPerWeek,
+          favDrink: myComputed.favDrink,
+          favDrinkCount: myComputed.favDrinkCount,
         })
 
         setTheirStats({
@@ -273,12 +341,12 @@ export default function VersusPage() {
           totalDrinks: theirP.drinkCount ?? 0,
           totalCheers: theirP.totalCheersReceived ?? 0,
           friends: theirP.friendCount ?? 0,
-          medals: versusData.theirMedals ?? 0,
-          currentStreak: versusData.theirStreak ?? 0,
-          uniqueTypes: versusData.theirUniqueTypes ?? 0,
-          avgPerWeek: versusData.theirAvgPerWeek ?? 0,
-          favDrink: versusData.theirFavDrink ?? null,
-          favDrinkCount: versusData.theirFavDrinkCount ?? 0,
+          medals: theirMedals,
+          currentStreak: theirComputed.currentStreak,
+          uniqueTypes: theirComputed.uniqueTypes,
+          avgPerWeek: theirComputed.avgPerWeek,
+          favDrink: theirComputed.favDrink,
+          favDrinkCount: theirComputed.favDrinkCount,
         })
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
@@ -336,57 +404,54 @@ export default function VersusPage() {
       ) : myStats && theirStats ? (
         <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
           {/* Header: avatars + score */}
-          <div className="px-5 pt-6 pb-5">
+          <div className="px-5 pt-8 pb-7">
             <div className="flex items-center justify-between">
               {/* Me */}
-              <div className="flex flex-col items-center gap-1.5 flex-1">
+              <div className="flex flex-col items-center gap-2 flex-1">
                 <Avatar
                   name={myStats.displayName}
                   avatarUrl={myStats.avatarUrl}
                   gradient="linear-gradient(135deg, #3b82f6, #6366f1)"
                 />
                 <div className="text-center">
-                  <div className="text-[13px] font-semibold text-neutral-900 dark:text-white leading-tight">
+                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
                     {myStats.displayName}
                   </div>
-                  <div className="text-[11px] text-neutral-400 dark:text-white/30">You</div>
+                  <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">You</div>
                 </div>
               </div>
 
               {/* Score pill */}
-              <div className="flex flex-col items-center mx-2 -mt-1">
-                <div className="flex items-center gap-2 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-3.5 py-1.5 mb-1">
+              <div className="flex items-center mx-2">
+                <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                   <span
-                    className="text-[18px] font-bold tabular-nums"
+                    className="text-[22px] font-bold tabular-nums"
                     style={{ color: myWins >= theirWins ? "#3b82f6" : "#a3a3a3" }}
                   >
                     {myWins}
                   </span>
-                  <span className="text-[11px] font-medium text-neutral-300 dark:text-white/20">–</span>
+                  <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
                   <span
-                    className="text-[18px] font-bold tabular-nums"
+                    className="text-[22px] font-bold tabular-nums"
                     style={{ color: theirWins >= myWins ? "#f97316" : "#a3a3a3" }}
                   >
                     {theirWins}
                   </span>
                 </div>
-                <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-white/30">
-                  Head to Head
-                </span>
               </div>
 
               {/* Them */}
-              <div className="flex flex-col items-center gap-1.5 flex-1">
+              <div className="flex flex-col items-center gap-2 flex-1">
                 <Avatar
                   name={theirStats.displayName}
                   avatarUrl={theirStats.avatarUrl}
                   gradient="linear-gradient(135deg, #f97316, #ef4444)"
                 />
                 <div className="text-center">
-                  <div className="text-[13px] font-semibold text-neutral-900 dark:text-white leading-tight">
+                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
                     {theirStats.displayName}
                   </div>
-                  <div className="text-[11px] text-neutral-400 dark:text-white/30">
+                  <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">
                     @{theirStats.username}
                   </div>
                 </div>
@@ -397,7 +462,7 @@ export default function VersusPage() {
           <div className="mx-5 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
 
           {/* Stat rows */}
-          <div className="px-5 py-4 flex flex-col gap-4">
+          <div className="px-5 py-5 flex flex-col gap-5">
             {ROWS.map((row, i) => (
               <StatRow
                 key={row.key}
