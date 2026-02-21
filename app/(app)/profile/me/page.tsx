@@ -527,9 +527,9 @@ function LoadingSkeleton() {
       <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-5 pt-5 pb-5.75">
         {/* Showcase medals placeholder (top-right) */}
         <div className="absolute top-4 right-4 flex gap-1.5">
-          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
         </div>
 
         <div className="flex items-center gap-4 mt-0.75">
