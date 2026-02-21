@@ -686,41 +686,37 @@ export default function MyVersusPage() {
         // Fallback: query Supabase directly with multiple table name attempts
         if (friendsList.length === 0) {
           console.log("[Versus] Trying Supabase direct friends query...")
-          const tableNames = ["friendships", "friends", "friend_requests"]
-          for (const table of tableNames) {
-            try {
-              const { data, error: qErr } = await supabase
-                .from(table)
-                .select("*")
-                .or(`user_id.eq.${uid},friend_id.eq.${uid}`)
-                .eq("status", "accepted")
-                .limit(50)
+          try {
+            const { data, error: qErr } = await supabase
+              .from("friendships")
+              .select("*")
+              .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)
+              .eq("status", "accepted")
+              .limit(50)
 
-              console.log(`[Versus] ${table} query:`, { count: data?.length, error: qErr?.message })
+            console.log(`[Versus] friendships query:`, { count: data?.length, error: qErr?.message })
 
-              if (data && data.length > 0) {
-                const friendIds = data.map((f: any) => f.user_id === uid ? f.friend_id : f.user_id)
-                const { data: profiles } = await supabase
-                  .from("profiles")
-                  .select("id, username, display_name, avatar_path")
-                  .in("id", friendIds)
+            if (data && data.length > 0) {
+              const friendIds = data.map((f: any) => f.requester_id === uid ? f.addressee_id : f.requester_id)
+              const { data: profiles } = await supabase
+                .from("profiles")
+                .select("id, username, display_name, avatar_path")
+                .in("id", friendIds)
 
-                if (profiles) {
-                  for (const p of profiles) {
-                    let avatarUrl = null
-                    if (p.avatar_path) {
-                      const { data: urlData } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 3600)
-                      avatarUrl = urlData?.signedUrl ?? null
-                    }
-                    friendsList.push({ id: p.id, username: p.username, displayName: p.display_name || p.username, avatarUrl })
+              if (profiles) {
+                for (const p of profiles) {
+                  let avatarUrl = null
+                  if (p.avatar_path) {
+                    const { data: urlData } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 3600)
+                    avatarUrl = urlData?.signedUrl ?? null
                   }
+                  friendsList.push({ id: p.id, username: p.username, displayName: p.display_name || p.username, avatarUrl })
                 }
-                console.log(`[Versus] Got ${friendsList.length} friends from ${table}`)
-                break // Found the right table
               }
-            } catch (e) {
-              console.log(`[Versus] ${table} table failed:`, e)
+              console.log(`[Versus] Got ${friendsList.length} friends from friendships`)
             }
+          } catch (e) {
+            console.error("[Versus] friendships query failed:", e)
           }
         }
 
