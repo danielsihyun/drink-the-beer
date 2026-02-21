@@ -203,7 +203,7 @@ export function BottomNav() {
                   <div className="relative">
                     <Icon className={cn("h-5 w-5", isActive && "fill-primary/20")} />
                     {showProfileBadge && (
-                      <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      <span className="absolute -right-3.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#3478F6] text-[10px] font-bold text-white">
                         {profileBadgeCount > 9 ? "9+" : profileBadgeCount}
                       </span>
                     )}

@@ -1053,7 +1053,19 @@ export default function ProfilePage() {
       setUserAchievements((json.userAchievements ?? []) as UserAchievement[])
       setPendingFriendRequests(json.pendingFriendRequests ?? 0)
       setUnseenCheersCount(json.unseenCheersCount ?? 0)
-      setPendingDuelRequests(json.pendingDuelRequests ?? 0)
+
+      // Fetch pending duel requests directly (API may not include this yet)
+      const uid = sessRes.session!.user.id
+      try {
+        const { count: duelCount } = await supabase
+          .from("duels")
+          .select("*", { count: "exact", head: true })
+          .eq("challenged_id", uid)
+          .eq("status", "pending")
+        setPendingDuelRequests(duelCount ?? 0)
+      } catch {
+        setPendingDuelRequests(json.pendingDuelRequests ?? 0)
+      }
 
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
