@@ -529,6 +529,7 @@ function LoadingSkeleton() {
         <div className="absolute top-4 right-4 flex gap-1.5">
           <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
         </div>
 
         <div className="flex items-center gap-4 mt-0.75">
@@ -1220,7 +1221,7 @@ export default function ProfilePage() {
         newShowcase = currentShowcase.filter((_, idx) => idx !== slotIndex)
       }
 
-      newShowcase = newShowcase.slice(0, 2)
+      newShowcase = newShowcase.slice(0, 3)
 
       const { error } = await supabase
         .from("profiles")

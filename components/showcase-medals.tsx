@@ -285,7 +285,7 @@ export function MedalDetailModal({
   )
 }
 
-// Showcase display for profile card (2 medals max) - always clickable, draggable
+// Showcase display for profile card (3 medals max) - always clickable, draggable
 export function ProfileShowcase({
   showcaseIds,
   achievements,
@@ -306,8 +306,8 @@ export function ProfileShowcase({
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null)
 
-  // Get the actual achievements (filter out empty strings), limit to 2
-  const filledIds = showcaseIds.filter(id => id && id !== "").slice(0, 2)
+  // Get the actual achievements (filter out empty strings), limit to 3
+  const filledIds = showcaseIds.filter(id => id && id !== "").slice(0, 3)
   
   // Map to achievements
   const filledAchievements = filledIds
@@ -315,7 +315,7 @@ export function ProfileShowcase({
     .filter(Boolean) as Achievement[]
 
   // Build display array: empty slots on left, medals on right
-  const emptySlotCount = Math.max(0, 2 - filledAchievements.length)
+  const emptySlotCount = Math.max(0, 3 - filledAchievements.length)
   const displaySlots: (Achievement | null)[] = [
     ...Array(emptySlotCount).fill(null),
     ...filledAchievements
