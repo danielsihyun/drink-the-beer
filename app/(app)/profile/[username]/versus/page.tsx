@@ -309,14 +309,14 @@ function StatRow({
         transition: `all 0.35s ease-out ${delay}ms`,
       }}
     >
-      <div className="flex items-center justify-between mb-1.5">
+      <div className="relative flex items-center justify-between mb-1.5">
         <span
           className="text-[13px] font-semibold tabular-nums"
           style={{ color: myVal > theirVal && !tied ? "#3478F6" : "#a3a3a3" }}
         >
           {fmt(myVal, suffix)}
         </span>
-        <span className="text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
+        <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
           {label}
         </span>
         <span
@@ -644,9 +644,9 @@ export default function VersusPage() {
                   transition: `all 0.35s ease-out ${200 + ROWS.length * 70}ms`,
                 }}
               >
-                <div className="flex items-center justify-between">
+                <div className="relative flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold" style={{ color: "#3478F6" }}>
+                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">
                       {myStats.favDrink ?? "—"}
                     </span>
                     {myStats.favDrinkCount > 0 && (
@@ -655,11 +655,11 @@ export default function VersusPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
+                  <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
                     Favorite
                   </span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold" style={{ color: "#3478F6" }}>
+                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">
                       {theirStats.favDrink ?? "—"}
                     </span>
                     {theirStats.favDrinkCount > 0 && (
