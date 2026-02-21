@@ -334,39 +334,66 @@ function StatRow({
 function LoadingSkeleton() {
   return (
     <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
+      {/* Header: avatars + score */}
       <div className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center gap-3 flex-1">
+          {/* Me */}
+          <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="space-y-1.5 flex flex-col items-center">
+            <div className="text-center mt-3 flex flex-col items-center gap-1.5">
               <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-2.5 w-8 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
-          <div className="flex items-center">
+
+          {/* Score pill */}
+          <div className="flex items-center mx-2 -mt-6">
             <div className="h-10 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
-          <div className="flex flex-col items-center gap-3 flex-1">
+
+          {/* Them */}
+          <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="space-y-1.5 flex flex-col items-center">
+            <div className="text-center mt-3 flex flex-col items-center gap-1.5">
               <div className="h-3.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-2.5 w-10 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
         </div>
       </div>
-      <div className="mx-5 h-px bg-black/5 dark:bg-white/[0.04]" />
-      <div className="px-5 py-5 space-y-6">
+
+      <div className="mx-5 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
+
+      {/* Stat rows */}
+      <div className="px-5 py-5 flex flex-col gap-5">
         {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="space-y-2">
-            <div className="flex justify-between">
+          <div key={i}>
+            <div className="relative flex items-center justify-between mb-1.5">
               <div className="h-3 w-8 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-              <div className="h-3 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="absolute left-1/2 -translate-x-1/2 h-2.5 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-3 w-8 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            <div className="h-[6px] w-full rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="flex h-[6px] w-full gap-[2px] rounded-full overflow-hidden">
+              <div className="flex-1 rounded-l-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="flex-1 rounded-r-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
           </div>
         ))}
+
+        {/* Favorite row */}
+        <div>
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-baseline gap-1">
+              <div className="h-3 w-14 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-2.5 w-5 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 h-2.5 w-14 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="flex items-baseline gap-1">
+              <div className="h-3 w-14 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="h-2.5 w-5 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
