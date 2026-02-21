@@ -925,7 +925,7 @@ export default function MyVersusPage() {
               <div className="flex flex-col items-center mx-2">
                 {hasOpponent ? (
                   <>
-                    <div className="-mt-6">
+                    <div className="mt-5.5">
                       <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                         <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
                         <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
