@@ -965,6 +965,7 @@ export default function ProfilePage() {
   const [pendingFriendRequests, setPendingFriendRequests] = React.useState(0)
   const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
   const [pendingDuelRequests, setPendingDuelRequests] = React.useState(0)
+  const [unseenAcceptedFriends, setUnseenAcceptedFriends] = React.useState(0)
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1054,17 +1055,29 @@ export default function ProfilePage() {
       setPendingFriendRequests(json.pendingFriendRequests ?? 0)
       setUnseenCheersCount(json.unseenCheersCount ?? 0)
 
-      // Fetch pending duel requests directly (API may not include this yet)
       const uid = sessRes.session!.user.id
       try {
-        const { count: duelCount } = await supabase
-          .from("duels")
-          .select("*", { count: "exact", head: true })
-          .eq("challenged_id", uid)
-          .eq("status", "pending")
-        setPendingDuelRequests(duelCount ?? 0)
+        // Pending duels sent TO me + duels I sent that got accepted (unseen)
+        const [{ count: pendingDuels }, { count: unseenAcceptedDuels }] = await Promise.all([
+          supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenged_id", uid).eq("status", "pending"),
+          supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenger_id", uid).eq("status", "active").eq("challenger_seen_active", false),
+        ])
+        setPendingDuelRequests((pendingDuels ?? 0) + (unseenAcceptedDuels ?? 0))
       } catch {
-        setPendingDuelRequests(json.pendingDuelRequests ?? 0)
+        setPendingDuelRequests(0)
+      }
+
+      try {
+        // Friend requests I sent that got accepted (unseen)
+        const { count: acceptedUnseen } = await supabase
+          .from("friendships")
+          .select("*", { count: "exact", head: true })
+          .eq("requester_id", uid)
+          .eq("status", "accepted")
+          .eq("requester_seen_accepted", false)
+        setUnseenAcceptedFriends(acceptedUnseen ?? 0)
+      } catch {
+        setUnseenAcceptedFriends(0)
       }
 
       const ui: UiProfile = {
@@ -1450,9 +1463,9 @@ export default function ProfilePage() {
                     <Link href="/friends" className="relative hover:opacity-70 transition-opacity">
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Friends</span>
-                      {pendingFriendRequests > 0 && (
+                      {(pendingFriendRequests + unseenAcceptedFriends) > 0 && (
                         <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#3478F6] px-1 text-[10px] font-bold text-white">
-                          {pendingFriendRequests > 9 ? "9+" : pendingFriendRequests}
+                          {(pendingFriendRequests + unseenAcceptedFriends) > 9 ? "9+" : (pendingFriendRequests + unseenAcceptedFriends)}
                         </span>
                       )}
                     </Link>

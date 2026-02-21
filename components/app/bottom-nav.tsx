@@ -42,6 +42,8 @@ export function BottomNav() {
   const [userId, setUserId] = React.useState<string | null>(null)
   const [pendingRequestCount, setPendingRequestCount] = React.useState(0)
   const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
+  const [unseenDuelCount, setUnseenDuelCount] = React.useState(0)
+  const [unseenAcceptedFriends, setUnseenAcceptedFriends] = React.useState(0)
   const prevPathnameRef = React.useRef(pathname)
 
   // Load pending friend requests count
@@ -84,11 +86,50 @@ export function BottomNav() {
     }
   }, [supabase])
 
+  // Load unseen duel notifications (pending incoming + accepted duels I sent)
+  const loadUnseenDuels = React.useCallback(async () => {
+    try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !userRes.user) return
+      const uid = userRes.user.id
+
+      const [{ count: pending }, { count: accepted }] = await Promise.all([
+        supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenged_id", uid).eq("status", "pending"),
+        supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenger_id", uid).eq("status", "active").eq("challenger_seen_active", false),
+      ])
+
+      setUnseenDuelCount((pending ?? 0) + (accepted ?? 0))
+    } catch (e) {
+      console.error("Failed to load unseen duels:", e)
+    }
+  }, [supabase])
+
+  // Load unseen accepted friend requests (ones I sent that got accepted)
+  const loadUnseenAcceptedFriends = React.useCallback(async () => {
+    try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !userRes.user) return
+
+      const { count } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("requester_id", userRes.user.id)
+        .eq("status", "accepted")
+        .eq("requester_seen_accepted", false)
+
+      setUnseenAcceptedFriends(count ?? 0)
+    } catch (e) {
+      console.error("Failed to load unseen accepted friends:", e)
+    }
+  }, [supabase])
+
   // Load counts on mount
   React.useEffect(() => {
     loadPendingRequests()
     loadUnseenCheers()
-  }, [loadPendingRequests, loadUnseenCheers])
+    loadUnseenDuels()
+    loadUnseenAcceptedFriends()
+  }, [loadPendingRequests, loadUnseenCheers, loadUnseenDuels, loadUnseenAcceptedFriends])
 
   // Handle pathname changes — mark as seen when LEAVING profile, then refresh
   React.useEffect(() => {
@@ -109,24 +150,54 @@ export function BottomNav() {
         })
     }
 
+    // Mark accepted friend requests as seen when visiting /friends
+    if (pathname === "/friends" && userId) {
+      supabase
+        .from("friendships")
+        .update({ requester_seen_accepted: true })
+        .eq("requester_id", userId)
+        .eq("status", "accepted")
+        .eq("requester_seen_accepted", false)
+        .then(() => {
+          setUnseenAcceptedFriends(0)
+        })
+    }
+
+    // Mark accepted duels as seen when visiting versus page
+    if (pathname === "/profile/me/versus" && userId) {
+      supabase
+        .from("duels")
+        .update({ challenger_seen_active: true })
+        .eq("challenger_id", userId)
+        .eq("status", "active")
+        .eq("challenger_seen_active", false)
+        .then(() => {
+          loadUnseenDuels()
+        })
+    }
+
     loadPendingRequests()
+    loadUnseenDuels()
+    loadUnseenAcceptedFriends()
 
     // Only refresh cheers if NOT arriving at profile (preserve the count for display)
     if (!isOnProfile && !wasOnProfile) {
       loadUnseenCheers()
     }
-  }, [pathname, userId, supabase, loadPendingRequests, loadUnseenCheers])
+  }, [pathname, userId, supabase, loadPendingRequests, loadUnseenCheers, loadUnseenDuels, loadUnseenAcceptedFriends])
 
   // Expose a way for other components to trigger a refresh
   React.useEffect(() => {
     const handleRefreshNav = () => {
       loadPendingRequests()
       loadUnseenCheers()
+      loadUnseenDuels()
+      loadUnseenAcceptedFriends()
     }
 
     window.addEventListener("refresh-nav-badges", handleRefreshNav)
     return () => window.removeEventListener("refresh-nav-badges", handleRefreshNav)
-  }, [loadPendingRequests, loadUnseenCheers])
+  }, [loadPendingRequests, loadUnseenCheers, loadUnseenDuels, loadUnseenAcceptedFriends])
 
   // Realtime subscription for friend requests
   React.useEffect(() => {
@@ -178,8 +249,57 @@ export function BottomNav() {
     }
   }, [userId, supabase, loadUnseenCheers, pathname])
 
-  // Profile badge = pending friends + unseen cheers
-  const profileBadgeCount = pendingRequestCount + unseenCheersCount
+  // Realtime subscription for duels
+  React.useEffect(() => {
+    if (!userId) return
+
+    const duelsChannel = supabase
+      .channel("duels-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "duels",
+        },
+        () => {
+          loadUnseenDuels()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(duelsChannel)
+    }
+  }, [userId, supabase, loadUnseenDuels])
+
+  // Realtime subscription for accepted friend requests (where I'm the requester)
+  React.useEffect(() => {
+    if (!userId) return
+
+    const acceptedFriendsChannel = supabase
+      .channel("friendships-requester-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "friendships",
+          filter: `requester_id=eq.${userId}`,
+        },
+        () => {
+          loadUnseenAcceptedFriends()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(acceptedFriendsChannel)
+    }
+  }, [userId, supabase, loadUnseenAcceptedFriends])
+
+  // Profile badge = pending friends + unseen accepted friends + unseen cheers + unseen duels
+  const profileBadgeCount = pendingRequestCount + unseenAcceptedFriends + unseenCheersCount + unseenDuelCount
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">

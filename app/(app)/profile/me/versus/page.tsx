@@ -47,6 +47,7 @@ type Duel = {
   challenged_score: number
   winner_id: string | null
   created_at: string
+  challenger_seen_active: boolean
   opponent: Friend
   amChallenger: boolean
 }
@@ -725,7 +726,12 @@ export default function MyVersusPage() {
   const [duels, setDuels] = React.useState<Duel[]>([])
   const [duelsLoading, setDuelsLoading] = React.useState(true)
   const [accepting, setAccepting] = React.useState<string | null>(null)
-  const pendingCount = duels.filter((d) => d.status === "pending" && !d.amChallenger).length
+  const pendingCount = duels.filter((d) =>
+    // Incoming challenges waiting for my response
+    (d.status === "pending" && !d.amChallenger) ||
+    // Duels I sent that got accepted (unseen)
+    (d.status === "active" && d.amChallenger && d.challenger_seen_active === false)
+  ).length
 
   // --- Load my profile + friends ---
   React.useEffect(() => {
@@ -963,7 +969,17 @@ export default function MyVersusPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setDuelsOpen(true)}
+          <button type="button" onClick={async () => {
+              setDuelsOpen(true)
+              // Mark unseen accepted duels as seen
+              if (userId) {
+                await supabase.from("duels").update({ challenger_seen_active: true }).eq("challenger_id", userId).eq("status", "active").eq("challenger_seen_active", false)
+                setDuels((prev) => prev.map((d) =>
+                  d.amChallenger && d.status === "active" && !d.challenger_seen_active
+                    ? { ...d, challenger_seen_active: true } : d
+                ))
+              }
+            }}
             className="relative inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors hover:bg-foreground/5">
             <Swords className="h-4 w-4" />
             My Duels
@@ -1004,7 +1020,7 @@ export default function MyVersusPage() {
               <div className="flex flex-col items-center mx-2">
                 {hasOpponent ? (
                   <>
-                    <div className="-mt-6">
+                    <div className="mt-5.5">
                       <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                         <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
                         <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
