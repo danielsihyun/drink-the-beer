@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, Calendar } from "lucide-react"
+import { ArrowLeft, Calendar, X, Swords } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -45,6 +45,17 @@ const timeRangeOptions: { key: TimeRange; label: string }[] = [
   { key: "1Y", label: "1Y" },
   { key: "YTD", label: "YTD" },
 ]
+
+const DUEL_CATEGORIES = [
+  { key: "total_drinks", label: "Total Drinks", icon: "🍺" },
+  { key: "drink_types", label: "Drink Types", icon: "🎨" },
+] as const
+
+const DUEL_DURATIONS = [
+  { key: "1D", label: "1 Day" },
+  { key: "3D", label: "3 Days" },
+  { key: "1W", label: "1 Week" },
+] as const
 
 // --- Helpers ---
 
@@ -163,7 +174,7 @@ function computeStatsFromLogs(logs: any[]): {
   return { totalDrinks, uniqueTypes, avgPerDay, currentStreak, favDrink, favDrinkCount }
 }
 
-// --- Components ---
+// --- Shared Components ---
 
 function TimeRangeSelector({
   value,
@@ -181,14 +192,8 @@ function TimeRangeSelector({
         setShowMenu(false)
       }
     }
-
-    if (showMenu) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    if (showMenu) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showMenu])
 
   return (
@@ -201,17 +206,13 @@ function TimeRangeSelector({
         <Calendar className="h-4 w-4" />
         {getTimeRangeLabel(value)}
       </button>
-
-      {showMenu ? (
+      {showMenu && (
         <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
           {timeRangeOptions.map((opt) => (
             <button
               key={opt.key}
               type="button"
-              onClick={() => {
-                onChange(opt.key)
-                setShowMenu(false)
-              }}
+              onClick={() => { onChange(opt.key); setShowMenu(false) }}
               className={cn(
                 "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
                 value === opt.key ? "font-semibold" : ""
@@ -221,18 +222,12 @@ function TimeRangeSelector({
             </button>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
 
-function Avatar({
-  name,
-  avatarUrl,
-}: {
-  name: string
-  avatarUrl: string | null
-}) {
+function Avatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   if (avatarUrl) {
     return (
       <div className="relative h-20 w-20 overflow-hidden rounded-full shadow-sm ring-2 ring-white dark:ring-neutral-800 border border-neutral-100 dark:border-white/[0.06]">
@@ -249,15 +244,8 @@ function Avatar({
     </div>
   )
 }
-function Bar({
-  myVal,
-  theirVal,
-  animated,
-}: {
-  myVal: number
-  theirVal: number
-  animated: boolean
-}) {
+
+function Bar({ myVal, theirVal, animated }: { myVal: number; theirVal: number; animated: boolean }) {
   const total = myVal + theirVal || 1
   const myPct = (myVal / total) * 100
   const tied = myVal === theirVal
@@ -285,19 +273,9 @@ function Bar({
 }
 
 function StatRow({
-  label,
-  myVal,
-  theirVal,
-  suffix = "",
-  animated,
-  delay,
+  label, myVal, theirVal, suffix = "", animated, delay,
 }: {
-  label: string
-  myVal: number
-  theirVal: number
-  suffix?: string
-  animated: boolean
-  delay: number
+  label: string; myVal: number; theirVal: number; suffix?: string; animated: boolean; delay: number
 }) {
   const tied = myVal === theirVal
 
@@ -310,19 +288,13 @@ function StatRow({
       }}
     >
       <div className="relative flex items-center justify-between mb-1.5">
-        <span
-          className="text-[13px] font-semibold tabular-nums"
-          style={{ color: myVal > theirVal && !tied ? "#3478F6" : "#a3a3a3" }}
-        >
+        <span className="text-[13px] font-semibold tabular-nums" style={{ color: myVal > theirVal && !tied ? "#3478F6" : "#a3a3a3" }}>
           {fmt(myVal, suffix)}
         </span>
         <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
           {label}
         </span>
-        <span
-          className="text-[13px] font-semibold tabular-nums"
-          style={{ color: theirVal > myVal && !tied ? "#3478F6" : "#a3a3a3" }}
-        >
+        <span className="text-[13px] font-semibold tabular-nums" style={{ color: theirVal > myVal && !tied ? "#3478F6" : "#a3a3a3" }}>
           {fmt(theirVal, suffix)}
         </span>
       </div>
@@ -331,13 +303,116 @@ function StatRow({
   )
 }
 
+// --- Challenge Modal ---
+
+function ChallengeModal({
+  open,
+  onClose,
+  opponentName,
+  onSend,
+  sending,
+}: {
+  open: boolean
+  onClose: () => void
+  opponentName: string
+  onSend: (category: string, duration: string) => void
+  sending: boolean
+}) {
+  const [category, setCategory] = React.useState<string>("total_drinks")
+  const [duration, setDuration] = React.useState<string>("1D")
+  const backdropRef = React.useRef<HTMLDivElement>(null)
+
+  if (!open) return null
+
+  return (
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-[1.5rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h3 className="text-[17px] font-bold text-neutral-900 dark:text-white">Challenge {opponentName}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 hover:bg-neutral-100 dark:hover:bg-white/[0.08] transition-colors"
+          >
+            <X className="h-5 w-5 text-neutral-400" />
+          </button>
+        </div>
+
+        {/* Category */}
+        <div className="px-5 pb-4">
+          <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Category</p>
+          <div className="flex gap-2">
+            {DUEL_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => setCategory(cat.key)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-all border",
+                  category === cat.key
+                    ? "border-[#3478F6] bg-[#3478F6]/10 text-[#3478F6]"
+                    : "border-neutral-200 dark:border-white/[0.08] text-neutral-500 dark:text-white/40 hover:bg-neutral-50 dark:hover:bg-white/[0.04]"
+                )}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Duration */}
+        <div className="px-5 pb-5">
+          <p className="text-[12px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide mb-2.5">Timeframe</p>
+          <div className="flex gap-2">
+            {DUEL_DURATIONS.map((dur) => (
+              <button
+                key={dur.key}
+                type="button"
+                onClick={() => setDuration(dur.key)}
+                className={cn(
+                  "flex-1 rounded-xl px-3 py-3 text-sm font-medium transition-all border text-center",
+                  duration === dur.key
+                    ? "border-[#3478F6] bg-[#3478F6]/10 text-[#3478F6]"
+                    : "border-neutral-200 dark:border-white/[0.08] text-neutral-500 dark:text-white/40 hover:bg-neutral-50 dark:hover:bg-white/[0.04]"
+                )}
+              >
+                {dur.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Send button */}
+        <div className="px-5 pb-5">
+          <button
+            type="button"
+            onClick={() => onSend(category, duration)}
+            disabled={sending}
+            className="w-full rounded-xl py-3.5 text-[15px] font-semibold text-white transition-all disabled:opacity-50"
+            style={{ backgroundColor: "#3478F6" }}
+          >
+            {sending ? "Sending…" : "Send Challenge"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Loading Skeleton ---
+
 function LoadingSkeleton() {
   return (
     <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
-      {/* Header: avatars + score */}
-      <div className="px-5 pt-6 pb-4">
+      <div className="px-5 pt-6 pb-2">
         <div className="flex items-center justify-between">
-          {/* Me */}
           <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
             <div className="text-center mt-3 flex flex-col items-center gap-1.5">
@@ -345,13 +420,9 @@ function LoadingSkeleton() {
               <div className="h-2.5 w-8 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
           </div>
-
-          {/* Score pill */}
           <div className="flex items-center mx-2 -mt-6">
             <div className="h-10 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           </div>
-
-          {/* Them */}
           <div className="flex flex-col items-center flex-1">
             <div className="h-20 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
             <div className="text-center mt-3 flex flex-col items-center gap-1.5">
@@ -360,11 +431,12 @@ function LoadingSkeleton() {
             </div>
           </div>
         </div>
+        {/* Challenge button placeholder */}
+        <div className="flex justify-center mt-3">
+          <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+        </div>
       </div>
-
       <div className="mx-5 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
-
-      {/* Stat rows */}
       <div className="px-5 py-5 flex flex-col gap-5">
         {[1, 2, 3, 4, 5, 6, 7].map((i) => (
           <div key={i}>
@@ -379,8 +451,6 @@ function LoadingSkeleton() {
             </div>
           </div>
         ))}
-
-        {/* Favorite row */}
         <div>
           <div className="relative flex items-center justify-between">
             <div className="flex items-baseline gap-1">
@@ -411,8 +481,10 @@ export default function VersusPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [animated, setAnimated] = React.useState(false)
+  const [challengeOpen, setChallengeOpen] = React.useState(false)
+  const [sending, setSending] = React.useState(false)
+  const [challengeSent, setChallengeSent] = React.useState(false)
 
-  // Raw data — fetched once, filtered reactively
   const [myProfile, setMyProfile] = React.useState<any>(null)
   const [theirProfile, setTheirProfile] = React.useState<any>(null)
   const [myLogs, setMyLogs] = React.useState<any[]>([])
@@ -421,6 +493,7 @@ export default function VersusPage() {
   const [theirAchievements, setTheirAchievements] = React.useState<any[]>([])
   const [myRawJson, setMyRawJson] = React.useState<any>(null)
   const [theirRawJson, setTheirRawJson] = React.useState<any>(null)
+
   React.useEffect(() => {
     async function load() {
       setError(null)
@@ -430,18 +503,11 @@ export default function VersusPage() {
         const { data: sessRes } = await supabase.auth.getSession()
         const token = sessRes.session?.access_token
         const viewerId = sessRes.session?.user.id
-        if (!token || !viewerId) {
-          router.replace("/login")
-          return
-        }
+        if (!token || !viewerId) { router.replace("/login"); return }
 
         const [myProfileRes, theirProfileRes] = await Promise.all([
-          fetch("/api/profile/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`/api/profile/${encodeURIComponent(username)}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          fetch("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`/api/profile/${encodeURIComponent(username)}`, { headers: { Authorization: `Bearer ${token}` } }),
         ])
 
         if (!myProfileRes.ok) throw new Error("Failed to load your profile")
@@ -455,17 +521,11 @@ export default function VersusPage() {
         setMyRawJson(myJson)
         setTheirRawJson(theirJson)
 
-        // Debug: check what cheers fields exist
         console.log("[Versus] myProfile keys:", Object.keys(myJson.profile))
         console.log("[Versus] myProfile cheers fields:", {
           totalCheersReceived: myJson.profile.totalCheersReceived,
           cheersReceived: myJson.profile.cheersReceived,
           totalCheers: myJson.profile.totalCheers,
-        })
-        console.log("[Versus] theirProfile cheers fields:", {
-          totalCheersReceived: theirJson.profile.totalCheersReceived,
-          cheersReceived: theirJson.profile.cheersReceived,
-          totalCheers: theirJson.profile.totalCheers,
         })
 
         setMyLogs(myJson.logs ?? [])
@@ -478,73 +538,35 @@ export default function VersusPage() {
         setLoading(false)
       }
     }
-
     load()
   }, [router, supabase, username])
 
-  // Compute stats reactively based on time range
   const myStats = React.useMemo<UserStats | null>(() => {
     if (!myProfile) return null
-
     const filtered = filterLogsByTimeRange(myLogs, timeRange)
     const computed = computeStatsFromLogs(filtered)
-
-    // Cheers count can live at different levels depending on the API endpoint
-    const cheers = myProfile.totalCheersReceived
-      ?? myProfile.cheersReceived
-      ?? myProfile.totalCheers
-      ?? myRawJson?.totalCheersReceived
-      ?? myRawJson?.cheersReceived
-      ?? 0
-
+    const cheers = myProfile.totalCheersReceived ?? myProfile.cheersReceived ?? myProfile.totalCheers ?? myRawJson?.totalCheersReceived ?? myRawJson?.cheersReceived ?? 0
     return {
-      id: myProfile.id,
-      username: myProfile.username,
-      displayName: myProfile.displayName,
-      avatarUrl: myProfile.avatarUrl,
-      totalDrinks: computed.totalDrinks,
-      totalCheers: cheers,
-      friends: myProfile.friendCount ?? 0,
-      medals: myAchievements.length,
-      currentStreak: computed.currentStreak,
-      uniqueTypes: computed.uniqueTypes,
-      avgPerDay: computed.avgPerDay,
-      favDrink: computed.favDrink,
-      favDrinkCount: computed.favDrinkCount,
+      id: myProfile.id, username: myProfile.username, displayName: myProfile.displayName, avatarUrl: myProfile.avatarUrl,
+      totalDrinks: computed.totalDrinks, totalCheers: cheers, friends: myProfile.friendCount ?? 0, medals: myAchievements.length,
+      currentStreak: computed.currentStreak, uniqueTypes: computed.uniqueTypes, avgPerDay: computed.avgPerDay,
+      favDrink: computed.favDrink, favDrinkCount: computed.favDrinkCount,
     }
   }, [myProfile, myLogs, myAchievements, myRawJson, timeRange])
 
   const theirStats = React.useMemo<UserStats | null>(() => {
     if (!theirProfile) return null
-
     const filtered = filterLogsByTimeRange(theirLogs, timeRange)
     const computed = computeStatsFromLogs(filtered)
-
-    const cheers = theirProfile.totalCheersReceived
-      ?? theirProfile.cheersReceived
-      ?? theirProfile.totalCheers
-      ?? theirRawJson?.totalCheersReceived
-      ?? theirRawJson?.cheersReceived
-      ?? 0
-
+    const cheers = theirProfile.totalCheersReceived ?? theirProfile.cheersReceived ?? theirProfile.totalCheers ?? theirRawJson?.totalCheersReceived ?? theirRawJson?.cheersReceived ?? 0
     return {
-      id: theirProfile.id,
-      username: theirProfile.username,
-      displayName: theirProfile.displayName,
-      avatarUrl: theirProfile.avatarUrl,
-      totalDrinks: computed.totalDrinks,
-      totalCheers: cheers,
-      friends: theirProfile.friendCount ?? 0,
-      medals: theirAchievements.length,
-      currentStreak: computed.currentStreak,
-      uniqueTypes: computed.uniqueTypes,
-      avgPerDay: computed.avgPerDay,
-      favDrink: computed.favDrink,
-      favDrinkCount: computed.favDrinkCount,
+      id: theirProfile.id, username: theirProfile.username, displayName: theirProfile.displayName, avatarUrl: theirProfile.avatarUrl,
+      totalDrinks: computed.totalDrinks, totalCheers: cheers, friends: theirProfile.friendCount ?? 0, medals: theirAchievements.length,
+      currentStreak: computed.currentStreak, uniqueTypes: computed.uniqueTypes, avgPerDay: computed.avgPerDay,
+      favDrink: computed.favDrink, favDrinkCount: computed.favDrinkCount,
     }
   }, [theirProfile, theirLogs, theirAchievements, theirRawJson, timeRange])
 
-  // Re-trigger bar animations when time range changes
   React.useEffect(() => {
     setAnimated(false)
     if (!loading && myStats && theirStats) {
@@ -553,8 +575,29 @@ export default function VersusPage() {
     }
   }, [loading, myStats, theirStats, timeRange])
 
-  let myWins = 0
-  let theirWins = 0
+  async function handleSendChallenge(category: string, duration: string) {
+    if (!myStats || !theirStats) return
+    setSending(true)
+    try {
+      const { error: err } = await supabase.from("duels").insert({
+        challenger_id: myStats.id,
+        challenged_id: theirStats.id,
+        category,
+        duration,
+        status: "pending",
+      })
+      if (err) throw err
+      setChallengeOpen(false)
+      setChallengeSent(true)
+      setTimeout(() => setChallengeSent(false), 3000)
+    } catch (e: any) {
+      console.error("Failed to send challenge:", e)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  let myWins = 0, theirWins = 0
   if (myStats && theirStats) {
     ROWS.forEach(({ key }) => {
       const myVal = myStats[key] as number
@@ -566,7 +609,6 @@ export default function VersusPage() {
 
   return (
     <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
@@ -588,61 +630,54 @@ export default function VersusPage() {
         </div>
       )}
 
+      {challengeSent && (
+        <div className="mb-4 rounded-2xl border border-green-500/20 bg-green-50/50 dark:bg-green-500/10 backdrop-blur-md px-4 py-3 text-sm text-green-600 dark:text-green-400">
+          Challenge sent to {theirStats?.displayName}!
+        </div>
+      )}
+
       {loading ? (
         <LoadingSkeleton />
       ) : myStats && theirStats ? (
         <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
           {/* Header: avatars + score */}
-          <div className="px-5 pt-6 pb-4">
+          <div className="px-5 pt-6 pb-2">
             <div className="flex items-center justify-between">
-              {/* Me */}
               <div className="flex flex-col items-center flex-1">
-                <Avatar
-                  name={myStats.displayName}
-                  avatarUrl={myStats.avatarUrl}
-                />
+                <Avatar name={myStats.displayName} avatarUrl={myStats.avatarUrl} />
                 <div className="text-center mt-3">
-                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
-                    {myStats.displayName}
-                  </div>
+                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">{myStats.displayName}</div>
                   <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">You</div>
                 </div>
               </div>
 
-              {/* Score pill */}
               <div className="flex items-center mx-2 -mt-6">
                 <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
-                  <span
-                    className="text-[22px] font-bold tabular-nums"
-                    style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}
-                  >
-                    {myWins}
-                  </span>
+                  <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
                   <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
-                  <span
-                    className="text-[22px] font-bold tabular-nums"
-                    style={{ color: theirWins >= myWins ? "#3478F6" : "#a3a3a3" }}
-                  >
-                    {theirWins}
-                  </span>
+                  <span className="text-[22px] font-bold tabular-nums" style={{ color: theirWins >= myWins ? "#3478F6" : "#a3a3a3" }}>{theirWins}</span>
                 </div>
               </div>
 
-              {/* Them */}
               <div className="flex flex-col items-center flex-1">
-                <Avatar
-                  name={theirStats.displayName}
-                  avatarUrl={theirStats.avatarUrl}
-                />
+                <Avatar name={theirStats.displayName} avatarUrl={theirStats.avatarUrl} />
                 <div className="text-center mt-3">
-                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">
-                    {theirStats.displayName}
-                  </div>
-                  <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">
-                    @{theirStats.username}
-                  </div>
+                  <div className="text-[14px] font-semibold text-neutral-900 dark:text-white leading-tight">{theirStats.displayName}</div>
+                  <div className="text-[11px] text-neutral-400 dark:text-white/30 mt-0.5">@{theirStats.username}</div>
                 </div>
               </div>
+            </div>
+
+            {/* Challenge button */}
+            <div className="flex justify-center mt-3">
+              <button
+                type="button"
+                onClick={() => setChallengeOpen(true)}
+                className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.06] backdrop-blur-sm transition-all hover:bg-neutral-50 dark:hover:bg-white/[0.1] hover:scale-105 active:scale-95"
+                aria-label="Challenge to duel"
+              >
+                <Swords className="h-[18px] w-[18px] text-neutral-600 dark:text-white/60" />
+              </button>
             </div>
           </div>
 
@@ -652,48 +687,27 @@ export default function VersusPage() {
           <div className="px-5 py-5 flex flex-col gap-5">
             {ROWS.map((row, i) => (
               <StatRow
-                key={row.key}
-                label={row.label}
-                myVal={myStats[row.key] as number}
-                theirVal={theirStats[row.key] as number}
-                suffix={row.suffix ?? ""}
-                animated={animated}
-                delay={200 + i * 70}
+                key={row.key} label={row.label}
+                myVal={myStats[row.key] as number} theirVal={theirStats[row.key] as number}
+                suffix={row.suffix ?? ""} animated={animated} delay={200 + i * 70}
               />
             ))}
 
-            {/* Favorite drink row */}
             {(myStats.favDrink || theirStats.favDrink) && (
-              <div
-                style={{
-                  opacity: animated ? 1 : 0,
-                  transform: animated ? "translateY(0)" : "translateY(6px)",
-                  transition: `all 0.35s ease-out ${200 + ROWS.length * 70}ms`,
-                }}
-              >
+              <div style={{
+                opacity: animated ? 1 : 0,
+                transform: animated ? "translateY(0)" : "translateY(6px)",
+                transition: `all 0.35s ease-out ${200 + ROWS.length * 70}ms`,
+              }}>
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">
-                      {myStats.favDrink ?? "—"}
-                    </span>
-                    {myStats.favDrinkCount > 0 && (
-                      <span className="text-[11px] text-neutral-300 dark:text-white/20">
-                        ×{myStats.favDrinkCount}
-                      </span>
-                    )}
+                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">{myStats.favDrink ?? "—"}</span>
+                    {myStats.favDrinkCount > 0 && <span className="text-[11px] text-neutral-300 dark:text-white/20">×{myStats.favDrinkCount}</span>}
                   </div>
-                  <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">
-                    Favorite
-                  </span>
+                  <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-neutral-400 dark:text-white/30 uppercase tracking-wide">Favorite</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">
-                      {theirStats.favDrink ?? "—"}
-                    </span>
-                    {theirStats.favDrinkCount > 0 && (
-                      <span className="text-[11px] text-neutral-300 dark:text-white/20">
-                        ×{theirStats.favDrinkCount}
-                      </span>
-                    )}
+                    <span className="text-[13px] font-semibold text-neutral-900 dark:text-white">{theirStats.favDrink ?? "—"}</span>
+                    {theirStats.favDrinkCount > 0 && <span className="text-[11px] text-neutral-300 dark:text-white/20">×{theirStats.favDrinkCount}</span>}
                   </div>
                 </div>
               </div>
@@ -701,6 +715,14 @@ export default function VersusPage() {
           </div>
         </div>
       ) : null}
+
+      <ChallengeModal
+        open={challengeOpen}
+        onClose={() => setChallengeOpen(false)}
+        opponentName={theirStats?.displayName ?? username}
+        onSend={handleSendChallenge}
+        sending={sending}
+      />
     </div>
   )
 }
