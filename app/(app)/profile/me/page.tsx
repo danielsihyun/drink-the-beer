@@ -1,6 +1,6 @@
 "use client"
 
-import { Medal, BarChart3 } from "lucide-react"
+import { Medal, BarChart3, Swords } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -551,8 +551,9 @@ function LoadingSkeleton() {
         </div>
       </div>
 
-      {/* Action Buttons: Medals + Analytics */}
+      {/* Action Buttons: Medals + Versus + Analytics */}
       <div className="flex gap-3">
+        <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
@@ -1467,6 +1468,13 @@ export default function ProfilePage() {
               >
                 <Medal className="h-4 w-4" />
                 Medals
+              </Link>
+              <Link
+                href="/profile/me/versus"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+              >
+                <Swords className="h-4 w-4" />
+                Versus
               </Link>
               <Link
                 href="/analytics"
