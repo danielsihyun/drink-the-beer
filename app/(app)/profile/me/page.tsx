@@ -964,6 +964,7 @@ export default function ProfilePage() {
 
   const [pendingFriendRequests, setPendingFriendRequests] = React.useState(0)
   const [unseenCheersCount, setUnseenCheersCount] = React.useState(0)
+  const [pendingDuelRequests, setPendingDuelRequests] = React.useState(0)
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1052,6 +1053,7 @@ export default function ProfilePage() {
       setUserAchievements((json.userAchievements ?? []) as UserAchievement[])
       setPendingFriendRequests(json.pendingFriendRequests ?? 0)
       setUnseenCheersCount(json.unseenCheersCount ?? 0)
+      setPendingDuelRequests(json.pendingDuelRequests ?? 0)
 
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
@@ -1437,7 +1439,7 @@ export default function ProfilePage() {
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Friends</span>
                       {pendingFriendRequests > 0 && (
-                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#3478F6] px-1 text-[10px] font-bold text-white">
                           {pendingFriendRequests > 9 ? "9+" : pendingFriendRequests}
                         </span>
                       )}
@@ -1450,7 +1452,7 @@ export default function ProfilePage() {
                       <span className="font-bold text-neutral-900 dark:text-white">{profile.totalCheersReceived}</span>{" "}
                       <span className="text-neutral-500 dark:text-white/40">Cheers</span>
                       {unseenCheersCount > 0 && (
-                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        <span className="absolute -top-2 -right-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#3478F6] px-1 text-[10px] font-bold text-white">
                           {unseenCheersCount > 9 ? "9+" : unseenCheersCount}
                         </span>
                       )}
@@ -1471,10 +1473,15 @@ export default function ProfilePage() {
               </Link>
               <Link
                 href="/profile/me/versus"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
+                className="relative inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
                 <Swords className="h-4 w-4" />
                 Versus
+                {pendingDuelRequests > 0 && (
+                  <span className="absolute -top-1.5 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#3478F6] px-1 text-[10px] font-bold text-white">
+                    {pendingDuelRequests > 9 ? "9+" : pendingDuelRequests}
+                  </span>
+                )}
               </Link>
               <Link
                 href="/analytics"
