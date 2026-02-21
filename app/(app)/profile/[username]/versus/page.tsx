@@ -249,7 +249,6 @@ function Avatar({
     </div>
   )
 }
-
 function Bar({
   myVal,
   theirVal,
@@ -261,7 +260,6 @@ function Bar({
 }) {
   const total = myVal + theirVal || 1
   const myPct = (myVal / total) * 100
-  const iWin = myVal > theirVal
   const tied = myVal === theirVal
 
   return (
@@ -271,7 +269,7 @@ function Bar({
         style={{
           width: animated ? `${myPct}%` : "50%",
           minWidth: myVal > 0 ? 6 : 0,
-          backgroundColor: iWin && !tied ? "#3b82f6" : "#e5e5e5",
+          backgroundColor: myVal > theirVal && !tied ? "#3478F6" : "#e5e5e5",
         }}
       />
       <div
@@ -279,7 +277,7 @@ function Bar({
         style={{
           width: animated ? `${100 - myPct}%` : "50%",
           minWidth: theirVal > 0 ? 6 : 0,
-          backgroundColor: !iWin && !tied ? "#f97316" : "#e5e5e5",
+          backgroundColor: theirVal > myVal && !tied ? "#3478F6" : "#e5e5e5",
         }}
       />
     </div>
@@ -301,7 +299,6 @@ function StatRow({
   animated: boolean
   delay: number
 }) {
-  const iWin = myVal > theirVal
   const tied = myVal === theirVal
 
   return (
@@ -315,7 +312,7 @@ function StatRow({
       <div className="flex items-center justify-between mb-1.5">
         <span
           className="text-[13px] font-semibold tabular-nums"
-          style={{ color: iWin && !tied ? "#3b82f6" : "#a3a3a3" }}
+          style={{ color: myVal > theirVal && !tied ? "#3478F6" : "#a3a3a3" }}
         >
           {fmt(myVal, suffix)}
         </span>
@@ -324,7 +321,7 @@ function StatRow({
         </span>
         <span
           className="text-[13px] font-semibold tabular-nums"
-          style={{ color: !iWin && !tied ? "#f97316" : "#a3a3a3" }}
+          style={{ color: theirVal > myVal && !tied ? "#3478F6" : "#a3a3a3" }}
         >
           {fmt(theirVal, suffix)}
         </span>
@@ -590,14 +587,14 @@ export default function VersusPage() {
                 <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                   <span
                     className="text-[22px] font-bold tabular-nums"
-                    style={{ color: myWins >= theirWins ? "#3b82f6" : "#a3a3a3" }}
+                    style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}
                   >
                     {myWins}
                   </span>
                   <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
                   <span
                     className="text-[22px] font-bold tabular-nums"
-                    style={{ color: theirWins >= myWins ? "#f97316" : "#a3a3a3" }}
+                    style={{ color: theirWins >= myWins ? "#3478F6" : "#a3a3a3" }}
                   >
                     {theirWins}
                   </span>
@@ -649,7 +646,7 @@ export default function VersusPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold text-blue-500">
+                    <span className="text-[13px] font-semibold" style={{ color: "#3478F6" }}>
                       {myStats.favDrink ?? "—"}
                     </span>
                     {myStats.favDrinkCount > 0 && (
@@ -662,7 +659,7 @@ export default function VersusPage() {
                     Favorite
                   </span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[13px] font-semibold text-orange-500">
+                    <span className="text-[13px] font-semibold" style={{ color: "#3478F6" }}>
                       {theirStats.favDrink ?? "—"}
                     </span>
                     {theirStats.favDrinkCount > 0 && (
