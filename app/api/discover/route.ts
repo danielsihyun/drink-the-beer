@@ -8,6 +8,18 @@ const supabaseAdmin = createClient(
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/** Get today's date in EST as a unique integer (YYYYMMDD). */
+function getEstDayIndex(): number {
+  const estNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+  )
+  return (
+    estNow.getFullYear() * 10000 +
+    (estNow.getMonth() + 1) * 100 +
+    estNow.getDate()
+  )
+}
+
 const COLLECTION_DEFINITIONS = [
   {
     id: "beer-brews",
@@ -242,12 +254,11 @@ async function loadTrending() {
   return items.slice(0, 6)
 }
 
-// ── Drink of the Day: seeded deterministic pick from popular drinks ──
+// ── Drink of the Day: seeded deterministic pick, resets at midnight EST ──
 
 async function loadDrinkOfTheDay() {
-  // Use today's date as seed for deterministic daily pick
-  const today = new Date()
-  const dayIndex = Math.floor(today.getTime() / (24 * 60 * 60 * 1000))
+  // Use EST calendar day as seed so it resets at midnight Eastern
+  const dayIndex = getEstDayIndex()
 
   // Get cocktails with images (better for display)
   const { data: drinks } = await supabaseAdmin
@@ -448,8 +459,8 @@ async function loadRecommendations(userId: string) {
       (d: any) => !loggedDrinkIds.has(d.id) && !scoredIds.has(d.id)
     )
 
-    // Deterministic daily shuffle so results don't change on every page load
-    const daySeed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+    // Deterministic daily shuffle using EST day so results are stable until midnight EST
+    const daySeed = getEstDayIndex()
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = (daySeed * (i + 1) * 2654435761) % (i + 1)
       const abs = Math.abs(j)
