@@ -8,6 +8,9 @@ import { Check, ChevronDown, FilePenLine, Loader2, Plus, Trash2, X } from "lucid
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { TonightsQuestCard } from "@/components/tonights-quest-card"
+
+// NOTE: Quest system uses midnight EST for daily reset — matches Drink of the Day in /api/discover
 
 // --- Types ---
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
@@ -445,6 +448,9 @@ function FeedContent() {
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<FeedItem | null>(null)
 
+  // Quest progress — placeholder: 0 for now (wire to real data later)
+  const [questProgress] = React.useState(0)
+
   // Stable ref for token so we can use it in fetchPage without re-renders
   const tokenRef = React.useRef<string | null>(null)
 
@@ -651,9 +657,27 @@ function FeedContent() {
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
           <div className="h-10 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         </div>
+
+        {/* Quest skeleton */}
+        <div className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-start gap-3">
+              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-4 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+                <div className="h-4 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-3 w-48 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <div className="h-[5px] w-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+        </div>
+
         {[1, 2, 3].map((i) => (
           <div key={i} className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
-            {/* Header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-4">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 animate-pulse" />
@@ -664,9 +688,7 @@ function FeedContent() {
               </div>
               <div className="h-6 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             </div>
-            {/* Photo */}
             <div className="aspect-square w-full bg-neutral-100 dark:bg-white/[0.04] animate-pulse" />
-            {/* Actions */}
             <div className="flex items-center gap-3 px-4 pt-4 pb-4">
               <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-3.5 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -703,6 +725,11 @@ function FeedContent() {
             {error}
           </div>
         )}
+
+        {/* Tonight's Quest — always visible at top of feed */}
+        <div className="mb-5">
+          <TonightsQuestCard progress={questProgress} />
+        </div>
 
         {items.length === 0 ? (
           <div className="mt-20 flex flex-col items-center text-center">
