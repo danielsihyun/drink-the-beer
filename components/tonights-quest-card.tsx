@@ -83,7 +83,7 @@ export function TonightsQuestCard({
       )}
     >
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           {/* Emoji avatar */}
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-xl">
             {q.emoji}
@@ -91,7 +91,7 @@ export function TonightsQuestCard({
 
           <div className="flex-1 min-w-0">
             {/* Top row */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-18">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3478F6]">
                   Tonight&apos;s Quest
