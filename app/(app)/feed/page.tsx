@@ -9,6 +9,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { TonightsQuestCard } from "@/components/tonights-quest-card"
+import { QuestCompleteModal } from "@/components/quest-complete-modal"
+import type { Quest } from "@/components/tonights-quest-card"
 
 // NOTE: Quest system uses midnight EST for daily reset — matches Drink of the Day in /api/discover
 
@@ -448,8 +450,95 @@ function FeedContent() {
   const [cheersAnimating, setCheersAnimating] = React.useState<Record<string, boolean>>({})
   const [cheersListPost, setCheersListPost] = React.useState<FeedItem | null>(null)
 
-  // Quest progress — placeholder: 0 for now (wire to real data later)
-  const [questProgress] = React.useState(0)
+  // ── Quest state ──
+  const [questData, setQuestData] = React.useState<{
+    quest: Quest
+    userQuest: { id: string; progress: number; completed: boolean; xpAwarded: boolean; honorCompleted: boolean }
+    xp: { total: number; level: number; currentLevelXp: number; xpToNextLevel: number; questsCompleted: number }
+  } | null>(null)
+  const [questLoading, setQuestLoading] = React.useState(true)
+  const [honorLoading, setHonorLoading] = React.useState(false)
+  const [questModal, setQuestModal] = React.useState<{
+    questTitle: string
+    questEmoji: string
+    xpEarned: number
+    totalXp: number
+    level: number
+    currentLevelXp: number
+    xpToNextLevel: number
+    leveledUp: boolean
+  } | null>(null)
+
+
+  const fetchQuest = React.useCallback(async () => {
+    const token = tokenRef.current
+    if (!token) return
+    try {
+      const res = await fetch("/api/quest", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setQuestData((prev) => {
+        // Detect transition from incomplete → complete for auto-tracked quests
+        const wasComplete = prev?.userQuest?.completed || prev?.userQuest?.xpAwarded || false
+        const isNowComplete = data.userQuest.completed || data.userQuest.xpAwarded
+        if (!wasComplete && isNowComplete && prev !== null) {
+          // Show celebration modal
+          setQuestModal({
+            questTitle: data.quest.title,
+            questEmoji: data.quest.emoji,
+            xpEarned: data.quest.xp,
+            totalXp: data.xp.total,
+            level: data.xp.level,
+            currentLevelXp: data.xp.currentLevelXp,
+            xpToNextLevel: data.xp.xpToNextLevel,
+            leveledUp: false, // can't detect from GET alone, but close enough
+          })
+        }
+        return data
+      })
+    } catch (e) {
+      console.error("Failed to fetch quest:", e)
+    } finally {
+      setQuestLoading(false)
+    }
+  }, [])
+
+  const handleHonorComplete = React.useCallback(async () => {
+    const token = tokenRef.current
+    if (!token || !questData) return
+    setHonorLoading(true)
+    try {
+      const res = await fetch("/api/quest", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "honor_complete" }),
+      })
+      if (!res.ok) return
+      const result = await res.json()
+      // Show celebration modal
+      setQuestModal({
+        questTitle: questData.quest.title,
+        questEmoji: questData.quest.emoji,
+        xpEarned: questData.quest.xp,
+        totalXp: result.xp.total,
+        level: result.xp.level,
+        currentLevelXp: result.xp.total - (result.xp.level <= 1 ? 0 : result.xp.level === 2 ? 25 : 75 + (result.xp.level - 3) * 100),
+        xpToNextLevel: result.xp.level === 1 ? 25 : result.xp.level === 2 ? 50 : 100,
+        leveledUp: result.xp.leveledUp,
+      })
+      // Re-fetch quest data to update UI
+      await fetchQuest()
+    } catch (e) {
+      console.error("Failed to honor-complete quest:", e)
+    } finally {
+      setHonorLoading(false)
+    }
+  }, [questData, fetchQuest])
 
   // Stable ref for token so we can use it in fetchPage without re-renders
   const tokenRef = React.useRef<string | null>(null)
@@ -458,8 +547,10 @@ function FeedContent() {
     if (searchParams.get("posted") === "1") {
       setPostedBanner(true)
       router.replace("/feed")
+      // Re-check quest progress after logging a drink
+      fetchQuest()
     }
-  }, [searchParams, router])
+  }, [searchParams, router, fetchQuest])
 
   React.useEffect(() => {
     if (postedBanner) {
@@ -517,12 +608,15 @@ function FeedContent() {
 
       setItems(mapped)
       setNextCursor(nc)
+
+      // Fetch today's quest
+      fetchQuest()
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
     } finally {
       setLoading(false)
     }
-  }, [router, supabase, fetchPage])
+  }, [router, supabase, fetchPage, fetchQuest])
 
   React.useEffect(() => { load() }, [load])
 
@@ -646,6 +740,8 @@ function FeedContent() {
       setItems(prev => prev.map(p => p.id === it.id ? { ...p, cheeredByMe: it.cheeredByMe, cheersCount: it.cheersCount } : p))
     } finally {
       setCheersBusy(p => ({ ...p, [it.id]: false }))
+      // Re-check quest progress (for cheers_given quests)
+      fetchQuest()
     }
   }
 
@@ -726,10 +822,36 @@ function FeedContent() {
           </div>
         )}
 
-        {/* Tonight's Quest — always visible at top of feed */}
-        <div className="mb-5">
-          <TonightsQuestCard progress={questProgress} />
-        </div>
+        {/* Tonight's Quest */}
+        {questData && (
+          <div className="mb-5">
+            <TonightsQuestCard
+              quest={questData.quest}
+              progress={questData.userQuest.progress}
+              completed={questData.userQuest.completed || questData.userQuest.xpAwarded}
+              onHonorComplete={handleHonorComplete}
+              honorLoading={honorLoading}
+            />
+          </div>
+        )}
+        {questLoading && !questData && (
+          <div className="mb-5 overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+            <div className="px-4 pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                    <div className="h-4 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  </div>
+                  <div className="h-4 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                  <div className="h-3 w-48 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <div className="h-[5px] w-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+          </div>
+        )}
 
         {items.length === 0 ? (
           <div className="mt-20 flex flex-col items-center text-center">
@@ -930,6 +1052,21 @@ function FeedContent() {
             <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
           </div>
         </OverlayPage>
+      )}
+
+      {/* Quest Complete Modal */}
+      {questModal && (
+        <QuestCompleteModal
+          questTitle={questModal.questTitle}
+          questEmoji={questModal.questEmoji}
+          xpEarned={questModal.xpEarned}
+          totalXp={questModal.totalXp}
+          level={questModal.level}
+          currentLevelXp={questModal.currentLevelXp}
+          xpToNextLevel={questModal.xpToNextLevel}
+          leveledUp={questModal.leveledUp}
+          onClose={() => setQuestModal(null)}
+        />
       )}
     </>
   )

@@ -12,17 +12,8 @@ export type Quest = {
   description: string
   target: number
   xp: number
-}
-
-// ── Static placeholder (remove once wired to DB) ──
-
-const PLACEHOLDER_QUEST: Quest = {
-  id: "quest_001",
-  emoji: "🍹",
-  title: "Tequila Tuesday",
-  description: "Order 2 tequila-based drinks tonight",
-  target: 2,
-  xp: 50,
+  difficulty: "easy" | "moderate" | "hard"
+  detectionType: string
 }
 
 // ── Time helper ──
@@ -50,13 +41,20 @@ function getTimeLeftLabel(): string {
 export function TonightsQuestCard({
   quest,
   progress = 0,
+  completed = false,
+  onHonorComplete,
+  honorLoading = false,
   className,
 }: {
-  quest?: Quest
+  quest: Quest
   progress?: number
+  completed?: boolean
+  onHonorComplete?: () => void
+  honorLoading?: boolean
   className?: string
 }) {
-  const q = quest ?? PLACEHOLDER_QUEST
+  const q = quest
+  const isHonor = q.detectionType === "honor"
   const [timeLeft, setTimeLeft] = React.useState(getTimeLeftLabel)
   const [animated, setAnimated] = React.useState(false)
 
@@ -70,10 +68,10 @@ export function TonightsQuestCard({
     setAnimated(false)
     const t = setTimeout(() => setAnimated(true), 300)
     return () => clearTimeout(t)
-  }, [progress])
+  }, [progress, completed])
 
-  const pct = Math.min((progress / q.target) * 100, 100)
-  const isComplete = progress >= q.target
+  const pct = completed ? 100 : Math.min((progress / q.target) * 100, 100)
+  const isComplete = completed || progress >= q.target
 
   return (
     <article
@@ -91,7 +89,7 @@ export function TonightsQuestCard({
 
           <div className="flex-1 min-w-0">
             {/* Top row */}
-            <div className="flex items-center gap-18">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3478F6]">
                   Tonight&apos;s Quest
@@ -120,6 +118,22 @@ export function TonightsQuestCard({
             </p>
           </div>
         </div>
+
+        {/* Honor quest: Mark Complete button */}
+        {isHonor && !isComplete && (
+          <button
+            onClick={onHonorComplete}
+            disabled={honorLoading}
+            className={cn(
+              "mt-3 w-full rounded-xl py-2 text-[13px] font-semibold transition-all duration-200 active:scale-[0.98]",
+              honorLoading
+                ? "bg-black/[0.04] dark:bg-white/[0.06] text-neutral-400 dark:text-white/30 cursor-not-allowed"
+                : "bg-[#3478F6]/10 dark:bg-[#3478F6]/15 text-[#3478F6] hover:bg-[#3478F6]/20 dark:hover:bg-[#3478F6]/25"
+            )}
+          >
+            {honorLoading ? "Completing..." : "Mark Complete"}
+          </button>
+        )}
       </div>
 
       {/* Full-width progress bar at the bottom of the card */}
