@@ -463,10 +463,6 @@ function FeedContent() {
     questEmoji: string
     xpEarned: number
     totalXp: number
-    level: number
-    currentLevelXp: number
-    xpToNextLevel: number
-    leveledUp: boolean
   } | null>(null)
 
 
@@ -490,10 +486,6 @@ function FeedContent() {
             questEmoji: data.quest.emoji,
             xpEarned: data.quest.xp,
             totalXp: data.xp.total,
-            level: data.xp.level,
-            currentLevelXp: data.xp.currentLevelXp,
-            xpToNextLevel: data.xp.xpToNextLevel,
-            leveledUp: false, // can't detect from GET alone, but close enough
           })
         }
         return data
@@ -526,10 +518,6 @@ function FeedContent() {
         questEmoji: questData.quest.emoji,
         xpEarned: questData.quest.xp,
         totalXp: result.xp.total,
-        level: result.xp.level,
-        currentLevelXp: result.xp.total - (result.xp.level <= 1 ? 0 : result.xp.level === 2 ? 25 : 75 + (result.xp.level - 3) * 100),
-        xpToNextLevel: result.xp.level === 1 ? 25 : result.xp.level === 2 ? 50 : 100,
-        leveledUp: result.xp.leveledUp,
       })
       // Re-fetch quest data to update UI
       await fetchQuest()
@@ -755,10 +743,11 @@ function FeedContent() {
         </div>
 
         {/* Quest skeleton */}
-        <div className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
           <div className="px-4 pt-4 pb-3">
-            <div className="flex items-start gap-3">
-              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="absolute top-4 right-4 h-3 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="flex items-center gap-3 pr-14">
+              <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -835,10 +824,12 @@ function FeedContent() {
           </div>
         )}
         {questLoading && !questData && (
-          <div className="mb-5 overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
+          <div className="mb-5 relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
             <div className="px-4 pt-4 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              {/* Time skeleton — top right */}
+              <div className="absolute top-4 right-4 h-3 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+              <div className="flex items-center gap-3 pr-14">
+                <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -1061,10 +1052,6 @@ function FeedContent() {
           questEmoji={questModal.questEmoji}
           xpEarned={questModal.xpEarned}
           totalXp={questModal.totalXp}
-          level={questModal.level}
-          currentLevelXp={questModal.currentLevelXp}
-          xpToNextLevel={questModal.xpToNextLevel}
-          leveledUp={questModal.leveledUp}
           onClose={() => setQuestModal(null)}
         />
       )}
