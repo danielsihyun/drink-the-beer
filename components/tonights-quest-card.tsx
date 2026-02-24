@@ -81,31 +81,35 @@ export function TonightsQuestCard({
       )}
     >
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-3">
+        {/* Time label — pinned top right */}
+        <span className="absolute top-4 right-4 text-[11px] text-neutral-400 dark:text-white/30">
+          {isComplete ? (
+            <span className="text-emerald-500 dark:text-emerald-400 font-medium">✓ Complete</span>
+          ) : (
+            timeLeft
+          )}
+        </span>
+
+        <div className="flex items-center gap-3 pr-14">
           {/* Emoji avatar */}
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-xl">
             {q.emoji}
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Top row */}
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3478F6]">
-                  Tonight&apos;s Quest
-                </span>
-                <span
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums"
-                  style={{
-                    background: "rgba(255, 214, 10, 0.15)",
-                    color: "#B8860B",
-                  }}
-                >
-                  +{q.xp} XP
-                </span>
-              </div>
-              <span className="text-[11px] text-neutral-400 dark:text-white/30 shrink-0 ml-2">
-                {isComplete ? "✓ Complete" : timeLeft}
+            {/* Label row */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3478F6]">
+                Tonight&apos;s Quest
+              </span>
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums"
+                style={{
+                  background: "rgba(255, 214, 10, 0.15)",
+                  color: "#B8860B",
+                }}
+              >
+                +{q.xp} XP
               </span>
             </div>
 
