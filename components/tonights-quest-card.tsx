@@ -89,7 +89,7 @@ export function TonightsQuestCard({
 
           <div className="flex-1 min-w-0">
             {/* Top row */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3478F6]">
                   Tonight&apos;s Quest
