@@ -483,6 +483,7 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                   <div className="text-center py-10">
                     <Swords className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
                     <p className="text-sm text-neutral-400 dark:text-white/30">No pending requests</p>
+                    <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Duel requests will appear here</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -535,6 +536,7 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                   <div className="text-center py-10">
                     <Trophy className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
                     <p className="text-sm text-neutral-400 dark:text-white/30">No completed duels yet</p>
+                    <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Finished duels will appear here</p>
                   </div>
                 )
               )}
