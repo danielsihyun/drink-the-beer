@@ -68,7 +68,7 @@ export function TonightsQuestCard({
       const overflows = el.scrollWidth > el.parentElement!.clientWidth
       setDescOverflows(overflows)
       if (overflows) {
-        setMarqueeDistance(el.scrollWidth - el.parentElement!.clientWidth + 24)
+        setMarqueeDistance(el.scrollWidth - el.parentElement!.clientWidth)
       }
     }
     check()
@@ -95,8 +95,8 @@ export function TonightsQuestCard({
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes quest-marquee {
-          0%, 15% { transform: translateX(0); }
-          85%, 100% { transform: translateX(var(--md)); }
+          0%, 10% { transform: translateX(0); }
+          80%, 100% { transform: translateX(var(--md)); }
         }
       `}} />
       <article
@@ -148,8 +148,12 @@ export function TonightsQuestCard({
                 className="text-[13px] text-neutral-500 dark:text-white/40 inline-block"
                 style={descOverflows ? {
                   ["--md" as string]: `-${marqueeDistance}px`,
-                  animation: `quest-marquee ${Math.max(3, marqueeDistance / 25)}s linear infinite alternate`,
+                  animationName: "quest-marquee",
+                  animationDuration: `${Math.max(3, marqueeDistance / 25)}s`,
+                  animationTimingFunction: "linear",
+                  animationIterationCount: "infinite",
                   animationDelay: "1.5s",
+                  animationFillMode: "both",
                 } : undefined}
               >
                 {q.description}
