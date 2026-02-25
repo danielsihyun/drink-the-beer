@@ -57,6 +57,24 @@ export function TonightsQuestCard({
   const isHonor = q.detectionType === "honor"
   const [timeLeft, setTimeLeft] = React.useState(getTimeLeftLabel)
   const [animated, setAnimated] = React.useState(false)
+  const descRef = React.useRef<HTMLParagraphElement>(null)
+  const [descOverflows, setDescOverflows] = React.useState(false)
+  const [marqueeDistance, setMarqueeDistance] = React.useState(0)
+
+  React.useEffect(() => {
+    const el = descRef.current
+    if (!el) return
+    const check = () => {
+      const overflows = el.scrollWidth > el.parentElement!.clientWidth
+      setDescOverflows(overflows)
+      if (overflows) {
+        setMarqueeDistance(el.scrollWidth - el.parentElement!.clientWidth + 24)
+      }
+    }
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [quest.description])
 
   React.useEffect(() => {
     setTimeLeft(getTimeLeftLabel())
@@ -74,7 +92,14 @@ export function TonightsQuestCard({
   const isComplete = completed || progress >= q.target
 
   return (
-    <article
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes quest-marquee {
+          0%, 15% { transform: translateX(0); }
+          85%, 100% { transform: translateX(var(--md)); }
+        }
+      `}} />
+      <article
       className={cn(
         "group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300",
         className
@@ -117,9 +142,19 @@ export function TonightsQuestCard({
             <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight mt-1">
               {q.title}
             </h3>
-            <p className="text-[13px] text-neutral-500 dark:text-white/40 mt-0.5">
-              {q.description}
-            </p>
+            <div className="mt-0.5 overflow-hidden whitespace-nowrap relative">
+              <p
+                ref={descRef}
+                className="text-[13px] text-neutral-500 dark:text-white/40 inline-block"
+                style={descOverflows ? {
+                  ["--md" as string]: `-${marqueeDistance}px`,
+                  animation: `quest-marquee ${Math.max(3, marqueeDistance / 25)}s linear infinite alternate`,
+                  animationDelay: "1.5s",
+                } : undefined}
+              >
+                {q.description}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -151,5 +186,6 @@ export function TonightsQuestCard({
         />
       </div>
     </article>
+    </>
   )
 }
