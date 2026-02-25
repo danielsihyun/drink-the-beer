@@ -12,7 +12,7 @@ import { TonightsQuestCard } from "@/components/tonights-quest-card"
 import { QuestCompleteModal } from "@/components/quest-complete-modal"
 import type { Quest } from "@/components/tonights-quest-card"
 
-// NOTE: Quest system uses midnight EST for daily reset — matches Drink of the Day in /api/discover
+// NOTE: Quest system uses midnight EST for daily reset - matches Drink of the Day in /api/discover
 
 // --- Types ---
 type DrinkType = "Beer" | "Seltzer" | "Wine" | "Cocktail" | "Shot" | "Spirit" | "Other"
@@ -428,13 +428,16 @@ function FeedContent() {
   const nextCursorRef = React.useRef<string | null>(null)
   const loadingMoreRef = React.useRef(false)
   const viewerIdRef = React.useRef<string | null>(null)
+  const viewerAvatarRef = React.useRef<string | null>(null)
 
   const [viewerId, setViewerId] = React.useState<string | null>(null)
+  const [viewerAvatar, setViewerAvatar] = React.useState<string | null>(null)
 
   // Keep refs in sync with state
   React.useEffect(() => { nextCursorRef.current = nextCursor }, [nextCursor])
   React.useEffect(() => { loadingMoreRef.current = loadingMore }, [loadingMore])
   React.useEffect(() => { viewerIdRef.current = viewerId }, [viewerId])
+  React.useEffect(() => { viewerAvatarRef.current = viewerAvatar }, [viewerAvatar])
   const [postedBanner, setPostedBanner] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
@@ -463,6 +466,7 @@ function FeedContent() {
     questEmoji: string
     xpEarned: number
     totalXp: number
+    avatarUrl: string | null
   } | null>(null)
 
 
@@ -486,6 +490,7 @@ function FeedContent() {
             questEmoji: data.quest.emoji,
             xpEarned: data.quest.xp,
             totalXp: data.xp.total,
+            avatarUrl: viewerAvatarRef.current,
           })
         }
         return data
@@ -518,6 +523,7 @@ function FeedContent() {
         questEmoji: questData.quest.emoji,
         xpEarned: questData.quest.xp,
         totalXp: result.xp.total,
+        avatarUrl: viewerAvatarRef.current,
       })
       // Re-fetch quest data to update UI
       await fetchQuest()
@@ -591,6 +597,19 @@ function FeedContent() {
       const token = session.access_token
       setViewerId(user.id)
       tokenRef.current = token
+
+      // Fetch viewer avatar
+      const { data: profileRow } = await supabase
+        .from("profile_public_stats")
+        .select("avatar_path")
+        .eq("id", user.id)
+        .single()
+      if (profileRow?.avatar_path) {
+        const { data: signedUrl } = await supabase.storage
+          .from("profile-photos")
+          .createSignedUrl(profileRow.avatar_path, 60 * 60)
+        setViewerAvatar(signedUrl?.signedUrl ?? null)
+      }
 
       const { mapped, nextCursor: nc } = await fetchPage(token, user.id, null)
 
@@ -1052,6 +1071,7 @@ function FeedContent() {
           questEmoji={questModal.questEmoji}
           xpEarned={questModal.xpEarned}
           totalXp={questModal.totalXp}
+          avatarUrl={questModal.avatarUrl}
           onClose={() => setQuestModal(null)}
         />
       )}
