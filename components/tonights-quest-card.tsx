@@ -149,7 +149,7 @@ export function TonightsQuestCard({
                 style={descOverflows ? {
                   ["--md" as string]: `-${marqueeDistance}px`,
                   animationName: "quest-marquee",
-                  animationDuration: `${Math.max(3, marqueeDistance / 25)}s`,
+                  animationDuration: `${Math.max(1.5, marqueeDistance / 75)}s`,
                   animationTimingFunction: "linear",
                   animationIterationCount: "infinite",
                   animationDelay: "1.5s",
