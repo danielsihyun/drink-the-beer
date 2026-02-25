@@ -535,7 +535,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                   <div className="text-center py-10">
                     <Trophy className="h-10 w-10 text-neutral-200 dark:text-white/10 mx-auto mb-3" />
                     <p className="text-sm text-neutral-400 dark:text-white/30">No completed duels yet</p>
-                    <p className="text-xs text-neutral-300 dark:text-white/20 mt-1">Finished duels will appear here</p>
                   </div>
                 )
               )}
@@ -847,6 +846,10 @@ export default function MyVersusPage() {
   async function loadDuels(uid: string) {
     setDuelsLoading(true)
     try {
+      // Complete any expired duels and recompute active scores
+      await supabase.rpc("complete_expired_duels")
+      await supabase.rpc("update_user_duel_scores", { p_user_id: uid })
+
       const { data, error: err } = await supabase.from("duels").select("*").or(`challenger_id.eq.${uid},challenged_id.eq.${uid}`).order("created_at", { ascending: false })
       if (err) throw err
       const raw = data ?? []
@@ -1020,7 +1023,7 @@ export default function MyVersusPage() {
               <div className="flex flex-col items-center mx-2">
                 {hasOpponent ? (
                   <>
-                    <div className="mt-5.5">
+                    <div className="-mt-6">
                       <div className="flex items-center gap-2.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] px-4 py-2">
                         <span className="text-[22px] font-bold tabular-nums" style={{ color: myWins >= theirWins ? "#3478F6" : "#a3a3a3" }}>{myWins}</span>
                         <span className="text-[13px] font-medium text-neutral-300 dark:text-white/20">–</span>
