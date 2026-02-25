@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -33,12 +34,110 @@ function progressInLevel(xp: number): { pct: number; current: number; needed: nu
 
 // ── Props ──
 
-interface QuestCompleteModalProps {
+export interface QuestCompleteModalProps {
   questTitle: string
   questEmoji: string
   xpEarned: number
   totalXp: number
+  avatarUrl: string | null
   onClose: () => void
+}
+
+// ── Circular progress ring ──
+
+const RING_SIZE = 140
+const STROKE_WIDTH = 6
+const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+
+function CircularProgress({
+  pct,
+  avatarUrl,
+  level,
+  animate,
+}: {
+  pct: number
+  avatarUrl: string | null
+  level: number
+  animate: boolean
+}) {
+  const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE
+  const clipId = React.useId()
+
+  return (
+    <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
+      <svg
+        width={RING_SIZE}
+        height={RING_SIZE}
+        className="-rotate-90"
+      >
+        {/* Background track */}
+        <circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RADIUS}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={STROKE_WIDTH}
+          className="text-black/[0.06] dark:text-white/[0.08]"
+        />
+        {/* Gradient definition */}
+        <defs>
+          <linearGradient id={`ring-grad-${clipId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3478F6" />
+            <stop offset="100%" stopColor="#34C759" />
+          </linearGradient>
+        </defs>
+        {/* Progress arc */}
+        <circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RADIUS}
+          fill="none"
+          stroke={`url(#ring-grad-${clipId})`}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+          strokeDasharray={CIRCUMFERENCE}
+          strokeDashoffset={offset}
+          style={{
+            transition: animate
+              ? "stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)"
+              : "none",
+          }}
+        />
+      </svg>
+
+      {/* Avatar in center */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="overflow-hidden rounded-full bg-neutral-100 dark:bg-white/[0.08]"
+          style={{ width: RING_SIZE - STROKE_WIDTH * 2 - 8, height: RING_SIZE - STROKE_WIDTH * 2 - 8 }}
+        >
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt="You"
+              width={RING_SIZE - STROKE_WIDTH * 2 - 8}
+              height={RING_SIZE - STROKE_WIDTH * 2 - 8}
+              className="object-cover w-full h-full"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl text-neutral-300 dark:text-white/20">
+              👤
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Level badge */}
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-white dark:bg-neutral-800 border border-neutral-200/60 dark:border-white/[0.08] shadow-sm px-2.5 py-0.5">
+        <span className="text-[11px] font-bold tabular-nums text-neutral-700 dark:text-white/70">
+          Lv. {level}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 // ── Component ──
@@ -48,34 +147,28 @@ export function QuestCompleteModal({
   questEmoji,
   xpEarned,
   totalXp,
+  avatarUrl,
   onClose,
 }: QuestCompleteModalProps) {
   const previousXp = totalXp - xpEarned
   const previousLevel = computeLevel(previousXp)
   const newLevel = computeLevel(totalXp)
   const leveledUp = newLevel > previousLevel
-  // Could have leveled up multiple times (unlikely but handle it)
-  const levelsGained = newLevel - previousLevel
 
   const prevProgress = progressInLevel(previousXp)
   const newProgress = progressInLevel(totalXp)
 
-  // ── Animation state machine ──
-  // Phases: "enter" → "fill_old" → "level_up" (if leveled) → "fill_new" → "done"
-  const [phase, setPhase] = React.useState<
-    "enter" | "show_xp" | "fill_old" | "level_up" | "fill_new" | "done"
-  >("enter")
-  const [barPct, setBarPct] = React.useState(prevProgress.pct)
-  const [barLevel, setBarLevel] = React.useState(previousLevel)
-  const [showLevelBanner, setShowLevelBanner] = React.useState(false)
-  const [displayedXpCurrent, setDisplayedXpCurrent] = React.useState(prevProgress.current)
-  const [displayedXpNeeded, setDisplayedXpNeeded] = React.useState(prevProgress.needed)
+  // ── Animation phases ──
+  const [phase, setPhase] = React.useState<"enter" | "show_xp" | "fill" | "done">("enter")
+  const [ringPct, setRingPct] = React.useState(prevProgress.pct)
+  const [ringLevel, setRingLevel] = React.useState(previousLevel)
+  const [ringAnimate, setRingAnimate] = React.useState(false)
+  const [displayedCurrent, setDisplayedCurrent] = React.useState(prevProgress.current)
+  const [displayedNeeded, setDisplayedNeeded] = React.useState(prevProgress.needed)
 
   React.useEffect(() => {
     document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = ""
-    }
+    return () => { document.body.style.overflow = "" }
   }, [])
 
   React.useEffect(() => {
@@ -84,52 +177,45 @@ export function QuestCompleteModal({
     // Phase 1: entrance
     timers.push(setTimeout(() => setPhase("show_xp"), 100))
 
-    // Phase 2: show XP badge
-    timers.push(setTimeout(() => setPhase("fill_old"), 600))
+    // Phase 2: start filling
+    timers.push(setTimeout(() => {
+      setPhase("fill")
+      setRingAnimate(true)
+    }, 600))
 
     if (leveledUp) {
-      // Phase 3: fill bar to 100%
-      timers.push(
-        setTimeout(() => {
-          setBarPct(100)
-          setDisplayedXpCurrent(xpNeededForLevel(previousLevel))
-          setDisplayedXpNeeded(xpNeededForLevel(previousLevel))
-        }, 800)
-      )
+      // Fill ring to 100% first
+      timers.push(setTimeout(() => {
+        setRingPct(100)
+        setDisplayedCurrent(xpNeededForLevel(previousLevel))
+        setDisplayedNeeded(xpNeededForLevel(previousLevel))
+      }, 800))
 
-      // Phase 4: flash level up, reset bar
-      timers.push(
-        setTimeout(() => {
-          setPhase("level_up")
-          setShowLevelBanner(true)
-          setBarLevel(newLevel)
-          setBarPct(0)
-          setDisplayedXpCurrent(0)
-          setDisplayedXpNeeded(newProgress.needed)
-        }, 1800)
-      )
+      // Reset ring for new level, then fill to new position
+      timers.push(setTimeout(() => {
+        setRingAnimate(false)
+        setRingPct(0)
+        setRingLevel(newLevel)
+        setDisplayedCurrent(0)
+        setDisplayedNeeded(newProgress.needed)
+      }, 2100))
 
-      // Phase 5: fill to new position
-      timers.push(
-        setTimeout(() => {
-          setPhase("fill_new")
-          setBarPct(newProgress.pct)
-          setDisplayedXpCurrent(newProgress.current)
-        }, 2400)
-      )
+      timers.push(setTimeout(() => {
+        setRingAnimate(true)
+        setRingPct(newProgress.pct)
+        setDisplayedCurrent(newProgress.current)
+      }, 2300))
 
-      timers.push(setTimeout(() => setPhase("done"), 3200))
+      timers.push(setTimeout(() => setPhase("done"), 3500))
     } else {
-      // No level up: just fill from old → new
-      timers.push(
-        setTimeout(() => {
-          setBarPct(newProgress.pct)
-          setDisplayedXpCurrent(newProgress.current)
-          setDisplayedXpNeeded(newProgress.needed)
-        }, 800)
-      )
+      // Just fill to new position
+      timers.push(setTimeout(() => {
+        setRingPct(newProgress.pct)
+        setDisplayedCurrent(newProgress.current)
+        setDisplayedNeeded(newProgress.needed)
+      }, 800))
 
-      timers.push(setTimeout(() => setPhase("done"), 1800))
+      timers.push(setTimeout(() => setPhase("done"), 2200))
     }
 
     return () => timers.forEach(clearTimeout)
@@ -155,7 +241,7 @@ export function QuestCompleteModal({
             : "opacity-0 scale-90 translate-y-8"
         )}
       >
-        {/* Header */}
+        {/* Header + close */}
         <div className="relative flex flex-col items-center pt-8 pb-2 px-6">
           <button
             onClick={onClose}
@@ -164,21 +250,36 @@ export function QuestCompleteModal({
             <X className="h-3.5 w-3.5" />
           </button>
 
-          {/* Emoji — scales in */}
+          {/* Circular progress with avatar */}
           <div
             className={cn(
-              "flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-4xl transition-all duration-700",
-              entered ? "scale-100" : "scale-0"
+              "transition-all duration-700",
+              entered ? "scale-100 opacity-100" : "scale-75 opacity-0"
             )}
           >
-            {questEmoji}
+            <CircularProgress
+              pct={ringPct}
+              avatarUrl={avatarUrl}
+              level={ringLevel}
+              animate={ringAnimate}
+            />
           </div>
+
+          {/* XP counter below ring */}
+          <p
+            className={cn(
+              "mt-3 text-[12px] tabular-nums text-neutral-400 dark:text-white/30 transition-all duration-500",
+              phase !== "enter" ? "opacity-100" : "opacity-0"
+            )}
+          >
+            {displayedCurrent} / {displayedNeeded} XP
+          </p>
 
           <h2 className="mt-4 text-xl font-bold tracking-tight text-neutral-900 dark:text-white text-center">
             Quest Complete!
           </h2>
           <p className="mt-1 text-[13px] text-neutral-500 dark:text-white/40 text-center">
-            {questTitle}
+            {questEmoji} {questTitle}
           </p>
         </div>
 
@@ -202,57 +303,6 @@ export function QuestCompleteModal({
               +{xpEarned} XP
             </span>
           </div>
-
-          {/* Level progress bar */}
-          <div
-            className={cn(
-              "mt-4 transition-all duration-500",
-              phase !== "enter" && phase !== "show_xp"
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-            )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-semibold text-neutral-600 dark:text-white/50">
-                Level {barLevel}
-              </span>
-              <span className="text-[11px] tabular-nums text-neutral-400 dark:text-white/30">
-                {displayedXpCurrent} / {displayedXpNeeded} XP
-              </span>
-            </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${barPct}%`,
-                  background: "linear-gradient(90deg, #3478F6, #34C759)",
-                  transition:
-                    phase === "level_up"
-                      ? "none" // instant reset on level-up
-                      : "width 1s cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Level up banner */}
-          {showLevelBanner && (
-            <div
-              className={cn(
-                "mt-4 flex items-center justify-center gap-2 rounded-2xl py-3 transition-all duration-500",
-                "bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-500/10 dark:to-indigo-500/10",
-                "border border-violet-200/40 dark:border-violet-500/15",
-                showLevelBanner
-                  ? "opacity-100 translate-y-0 scale-100"
-                  : "opacity-0 translate-y-4 scale-95"
-              )}
-            >
-              <span className="text-lg">🎉</span>
-              <span className="text-[14px] font-bold text-violet-700 dark:text-violet-300">
-                Level Up! You&apos;re now Level {newLevel}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Done button */}
