@@ -1123,7 +1123,7 @@ export default function ProfilePage() {
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.displayName}</h3>
                   <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
-                  <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Lv. {levelInfo.level} · Joined {profile.joinDate}</p>
+                  <p className="mt-0.5 text-sm"><span className="font-bold text-neutral-900 dark:text-white">Lv. {levelInfo.level}</span> <span className="text-neutral-500 dark:text-white/40">· Joined {profile.joinDate}</span></p>
 
                   <div className="mt-2 -mb-0.5 flex gap-4 text-sm">
                     <Link href="/friends" className="relative hover:opacity-70 transition-opacity">
