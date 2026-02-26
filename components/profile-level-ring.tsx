@@ -49,7 +49,6 @@ export function ProfileLevelRing({
   pct: number
 }) {
   const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE
-  const clipId = React.useId()
 
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
@@ -68,20 +67,13 @@ export function ProfileLevelRing({
           strokeWidth={STROKE_WIDTH}
           className="text-black/[0.06] dark:text-white/[0.08]"
         />
-        {/* Gradient */}
-        <defs>
-          <linearGradient id={`profile-ring-${clipId}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3478F6" />
-            <stop offset="100%" stopColor="#34C759" />
-          </linearGradient>
-        </defs>
         {/* Progress arc */}
         <circle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke={`url(#profile-ring-${clipId})`}
+          stroke="#3478F6"
           strokeWidth={STROKE_WIDTH}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
