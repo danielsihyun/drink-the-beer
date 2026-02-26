@@ -8,6 +8,7 @@ import { useRouter, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { ProfileShowcase, MedalDetailModal } from "@/components/showcase-medals"
+import { ProfileLevelRing, getLevelInfo } from "@/components/profile-level-ring"
 
 // --- Types ---
 
@@ -96,7 +97,7 @@ function formatJoinDate(isoOrNull: string | null) {
   if (!isoOrNull) return "—"
   const d = new Date(isoOrNull)
   if (Number.isNaN(d.getTime())) return "—"
-  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d)
+  return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(d)
 }
 
 function formatGroupLabel(iso: string, granularity: Exclude<Granularity, "Drink">) {
@@ -375,17 +376,11 @@ function LoadingSkeleton() {
         </div>
 
         <div className="flex items-center gap-4 mt-0.75">
-          <div className="relative">
-            <div className="h-20 w-20 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 animate-pulse" />
-          </div>
+          <div className="h-[88px] w-[88px] shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-1.5">
-            {/* Display name */}
             <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            {/* @username */}
             <div className="h-3.5 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            {/* Joined date */}
             <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            {/* Stats: Friends / Drinks / Cheers */}
             <div className="flex gap-4 pt-1">
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -395,7 +390,7 @@ function LoadingSkeleton() {
         </div>
       </div>
 
-      {/* Action Buttons: Medals + Versus + Analytics */}
+      {/* Action Buttons */}
       <div className="flex gap-3">
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
@@ -762,6 +757,7 @@ export default function UserProfilePage() {
   const [viewerId, setViewerId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<UiProfile | null>(null)
   const [logs, setLogs] = React.useState<DrinkLog[]>([])
+  const [levelInfo, setLevelInfo] = React.useState({ level: 1, pct: 0, current: 0, needed: 50 })
   const [friendshipStatus, setFriendshipStatus] = React.useState<FriendshipStatus>("none")
 
   const [granularity, setGranularity] = React.useState<Granularity>("Day")
@@ -818,7 +814,6 @@ export default function UserProfilePage() {
     }
   }, [selectedMedal])
 
-  // Keep loadCheersState for realtime subscription refreshes
   const loadCheersState = React.useCallback(
     async (postIds: string[], currentViewerId: string) => {
       if (!postIds.length) return
@@ -857,7 +852,6 @@ export default function UserProfilePage() {
     setLoading(true)
 
     try {
-      // Single auth call to get token
       const { data: sessRes } = await supabase.auth.getSession()
       const token = sessRes.session?.access_token
       if (!token) {
@@ -867,7 +861,6 @@ export default function UserProfilePage() {
 
       setViewerId(sessRes.session!.user.id)
 
-      // Single API call replaces 9-13 sequential Supabase calls
       const res = await fetch(`/api/profile/${encodeURIComponent(username)}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -892,6 +885,16 @@ export default function UserProfilePage() {
 
       const p = json.profile
       setFriendshipStatus(json.friendshipStatus ?? "none")
+
+      // Fetch XP/level for this user
+      const { data: xpRow } = await supabase
+        .from("user_xp")
+        .select("total_xp")
+        .eq("user_id", p.id)
+        .single()
+      if (xpRow) {
+        setLevelInfo(getLevelInfo(xpRow.total_xp ?? 0))
+      }
 
       const mapped: DrinkLog[] = (json.logs ?? []).map((r: any) => ({
         id: r.id,
@@ -1194,25 +1197,20 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex items-center gap-4">
-              {profile.avatarUrl ? (
-                <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-white dark:ring-neutral-800 shadow-sm border border-neutral-100 dark:border-white/[0.06]">
-                  <Image src={profile.avatarUrl} alt="Profile" fill className="object-cover" unoptimized />
-                </div>
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-2 ring-white dark:ring-neutral-800 shadow-sm">
-                  <svg viewBox="0 0 24 24" fill="none" className="h-10 w-10 text-neutral-400 dark:text-white/30">
-                    <circle cx="12" cy="8" r="4" fill="currentColor" />
-                    <path d="M4 21c0-4.418 3.582-7 8-7s8 2.582 8 7" fill="currentColor" />
-                  </svg>
-                </div>
-              )}
+              <div className="relative shrink-0">
+                <ProfileLevelRing
+                  avatarUrl={profile.avatarUrl}
+                  displayName={profile.displayName}
+                  pct={levelInfo.pct}
+                />
+              </div>
 
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.displayName}</h3>
                 <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
-                <p className="mt-0.5 text-xs text-neutral-400 dark:text-white/30">Joined {profile.joinDate}</p>
+                <p className="mt-0.5 text-sm flex items-baseline gap-1"><span className="font-bold text-neutral-900 dark:text-white">Lv. {levelInfo.level}</span> <span className="text-neutral-500 dark:text-white/40">· Joined {profile.joinDate}</span></p>
 
-                <div className="mt-2 -mb-0.5 flex gap-4 text-sm">
+                <div className="mt-2 -mb-0.5 flex items-baseline gap-4 text-sm">
                   <Link href={`/profile/${profile.username}/friends`} className="hover:opacity-70 transition-opacity">
                     <span className="font-bold text-neutral-900 dark:text-white">{profile.friendCount}</span>{" "}
                     <span className="text-neutral-500 dark:text-white/40">Friends</span>
