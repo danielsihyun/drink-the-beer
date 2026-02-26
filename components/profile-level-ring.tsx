@@ -6,16 +6,16 @@ import Image from "next/image"
 // ── Level math (mirrors DB functions) ──
 
 function computeLevel(xp: number): number {
-  if (xp < 25) return 1
-  if (xp < 75) return 2
-  return 3 + Math.floor((xp - 75) / 100)
+  if (xp < 50) return 1
+  if (xp < 100) return 2
+  return 3 + Math.floor((xp - 100) / 200)
 }
 
 function xpForLevel(lvl: number): number {
   if (lvl <= 1) return 0
-  if (lvl === 2) return 25
-  if (lvl === 3) return 75
-  return 75 + (lvl - 3) * 100
+  if (lvl === 2) return 50
+  if (lvl === 3) return 100
+  return 100 + (lvl - 3) * 200
 }
 
 function xpNeededForLevel(lvl: number): number {
