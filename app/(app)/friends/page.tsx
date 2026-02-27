@@ -503,8 +503,7 @@ export default function FriendsPage() {
   if (loading) {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+        <div className="flex items-center justify-end">
           <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortLabel(sort)}
@@ -570,8 +569,7 @@ export default function FriendsPage() {
     <>
       <div className="container max-w-md mx-auto px-0 py-4 pb-24">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Friends</h2>
+        <div className="mb-6 flex items-center justify-end">
 
           <div ref={sortMenuRef} className="relative">
             <button
