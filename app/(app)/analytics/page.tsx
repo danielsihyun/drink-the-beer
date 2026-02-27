@@ -2001,7 +2001,6 @@ export default function AnalyticsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold">Analytics</h2>
           </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
@@ -2035,7 +2034,6 @@ export default function AnalyticsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold">Analytics</h2>
           </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
@@ -2059,7 +2057,6 @@ export default function AnalyticsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold">Analytics</h2>
           </div>
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
