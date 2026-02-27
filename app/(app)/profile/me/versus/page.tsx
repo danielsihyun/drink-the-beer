@@ -970,7 +970,6 @@ export default function MyVersusPage() {
             className="inline-flex items-center justify-center rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm p-2 transition-all hover:bg-white dark:hover:bg-white/[0.1]" aria-label="Go back">
             <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
           </button>
-          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Versus</h2>
         </div>
 
         <div className="flex items-center gap-2">
