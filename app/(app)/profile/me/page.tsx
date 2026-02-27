@@ -1079,7 +1079,7 @@ export default function ProfilePage() {
   return (
     <>
       <div className="container max-w-2xl px-0 sm:px-4 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-end">
           <div className="flex items-center gap-2">
             <Link href="/profile/edit" className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-2 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]">
               <Edit2 className="h-4 w-4" /> Edit Profile
