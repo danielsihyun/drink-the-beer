@@ -526,7 +526,6 @@ export default function AwardsPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h2 className="text-2xl font-bold">Medals</h2>
         </div>
 
         <div className="relative" data-filter-menu>
