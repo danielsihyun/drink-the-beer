@@ -488,8 +488,7 @@ export default function LeaderboardPage() {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Leaderboard</h2>
+        <div className="flex items-center justify-end">
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
 
@@ -560,8 +559,7 @@ export default function LeaderboardPage() {
   return (
     <div className="container max-w-md mx-auto px-0 py-4 pb-24">
       {/* Header */}
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Leaderboard</h2>
+      <div className="mb-5 flex items-center justify-end">
         <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
