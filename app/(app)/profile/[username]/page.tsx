@@ -1171,7 +1171,6 @@ export default function UserProfilePage() {
         >
           <ArrowLeft className="h-5 w-5 text-neutral-700 dark:text-white/70" />
         </button>
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Profile</h2>
       </div>
 
       {error && (
