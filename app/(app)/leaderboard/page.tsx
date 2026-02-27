@@ -487,13 +487,9 @@ export default function LeaderboardPage() {
   if (loading) {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-end">
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-        </div>
-
-        <div className="flex justify-center">
+        <div className="flex items-center justify-between">
           <ScopeToggle value={scope} onChange={setScope} />
+          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
 
         {/* Combined skeleton */}
@@ -558,14 +554,9 @@ export default function LeaderboardPage() {
 
   return (
     <div className="container max-w-md mx-auto px-0 py-4 pb-24">
-      {/* Header */}
-      <div className="mb-5 flex items-center justify-end">
-        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-      </div>
-
-      {/* Scope Toggle */}
-      <div className="mb-5 flex justify-center">
+      <div className="mb-5 flex items-center justify-between">
         <ScopeToggle value={scope} onChange={setScope} />
+        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* Error */}
