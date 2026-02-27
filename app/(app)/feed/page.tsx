@@ -756,8 +756,7 @@ function FeedContent() {
   if (loading) {
     return (
       <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 space-y-5">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
+        <div className="flex items-center justify-end px-2">
           <div className="h-10 w-28 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         </div>
 
@@ -807,8 +806,7 @@ function FeedContent() {
     <>
       <div className="container max-w-md mx-auto px-0 sm:px-4 py-4 pb-24">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between px-2">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Feed</h2>
+        <div className="mb-6 flex items-center justify-end px-2">
           <Link
             href="/log"
             className="group flex h-9 items-center gap-2 rounded-full bg-black dark:bg-white px-4 text-sm font-medium text-white dark:text-black shadow-sm transition-all duration-200 active:scale-95 hover:bg-neutral-800 dark:hover:bg-neutral-100 hover:shadow-md"
