@@ -662,7 +662,6 @@ export default function DiscoverPage() {
   if (loading) {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-6">
-        <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Discover</h2>
 
         {/* Search skeleton */}
         <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
@@ -761,7 +760,6 @@ export default function DiscoverPage() {
 
   return (
     <div className="container max-w-md mx-auto px-0 py-4 pb-24">
-      <h2 className="mb-6 text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Discover</h2>
 
       {/* Toast */}
       {toastMsg && (
