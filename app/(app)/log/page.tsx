@@ -602,7 +602,6 @@ function LogDrinkContent() {
   return (
     <>
       <div className="container max-w-2xl px-3 py-1.5">
-        <h2 className="mb-4 text-2xl font-bold">Log a drink</h2>
 
         {error ? (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
