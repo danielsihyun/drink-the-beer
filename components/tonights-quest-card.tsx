@@ -105,7 +105,7 @@ export function TonightsQuestCard({
         className
       )}
     >
-      <div className="px-4 pt-4 pb-3">
+      <div className="px-4 pt-3 pb-2">
         {/* Time label — pinned top right */}
         <span className="absolute top-4 right-4 text-[11px] text-neutral-400 dark:text-white/30">
           {isComplete ? (
