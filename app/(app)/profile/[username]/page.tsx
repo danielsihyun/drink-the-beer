@@ -378,9 +378,9 @@ function LoadingSkeleton() {
         <div className="flex items-center gap-4 mt-0.75">
           <div className="h-[88px] w-[88px] shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-1.5">
-            <div className="h-5 w-32 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            <div className="h-3.5 w-24 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="h-5 w-24 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+            <div className="h-3.5 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+            <div className="h-3 w-38 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
             <div className="flex gap-4 pt-1">
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
