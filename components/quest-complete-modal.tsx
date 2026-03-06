@@ -62,7 +62,6 @@ function CircularProgress({
   animate: boolean
 }) {
   const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE
-  const clipId = React.useId()
 
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
@@ -81,20 +80,13 @@ function CircularProgress({
           strokeWidth={STROKE_WIDTH}
           className="text-black/[0.06] dark:text-white/[0.08]"
         />
-        {/* Gradient definition */}
-        <defs>
-          <linearGradient id={`ring-grad-${clipId}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3478F6" />
-            <stop offset="100%" stopColor="#34C759" />
-          </linearGradient>
-        </defs>
         {/* Progress arc */}
         <circle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke={`url(#ring-grad-${clipId})`}
+          stroke="#3478F6"
           strokeWidth={STROKE_WIDTH}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
@@ -283,30 +275,8 @@ export function QuestCompleteModal({
           </p>
         </div>
 
-        {/* XP earned card */}
-        <div className="px-6 py-4">
-          <div
-            className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl py-4 transition-all duration-500",
-              "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-500/10 dark:to-yellow-500/10",
-              "border border-amber-200/40 dark:border-amber-500/15",
-              phase !== "enter"
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-            )}
-          >
-            <span className="text-2xl">✨</span>
-            <span
-              className="text-2xl font-bold tabular-nums"
-              style={{ color: "#B8860B" }}
-            >
-              +{xpEarned} XP
-            </span>
-          </div>
-        </div>
-
         {/* Done button */}
-        <div className="px-6 pb-6">
+        <div className="px-6 py-6">
           <button
             onClick={onClose}
             className="w-full rounded-2xl bg-black dark:bg-white py-3.5 text-[15px] font-semibold text-white dark:text-black transition-all duration-200 active:scale-[0.98] hover:bg-neutral-800 dark:hover:bg-neutral-100"
