@@ -366,9 +366,7 @@ function CheersListModal({
 function LoadingSkeleton() {
   return (
     <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
-      {/* Profile Card */}
       <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-5 pt-5 pb-5.75">
-        {/* Showcase medals placeholder (top-right) */}
         <div className="absolute top-4 right-4 flex gap-1.5">
           <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -390,20 +388,17 @@ function LoadingSkeleton() {
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="flex gap-3">
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
-      {/* Timeline Header */}
       <div className="flex items-center justify-between">
         <div className="h-6 w-36 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         <div className="h-[34px] w-20 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
-      {/* Drink Log Cards */}
       <div className="space-y-5">
         {[1, 2].map((i) => (
           <div key={i} className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
@@ -622,12 +617,7 @@ function GroupedDrinkCard({
   const scrollToIndex = (index: number) => {
     const container = scrollContainerRef.current
     if (!container) return
-    
-    const itemWidth = container.offsetWidth
-    container.scrollTo({
-      left: itemWidth * index,
-      behavior: 'smooth'
-    })
+    container.scrollTo({ left: container.offsetWidth * index, behavior: 'smooth' })
   }
 
   if (!currentDrink) return null
@@ -688,15 +678,10 @@ function GroupedDrinkCard({
               <button
                 key={index}
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  scrollToIndex(index)
-                }}
+                onClick={(e) => { e.stopPropagation(); scrollToIndex(index) }}
                 className={cn(
                   "h-2 rounded-full transition-all duration-200",
-                  index === currentIndex
-                    ? "bg-white w-4"
-                    : "bg-white/50 hover:bg-white/70 w-2"
+                  index === currentIndex ? "bg-white w-4" : "bg-white/50 hover:bg-white/70 w-2"
                 )}
                 aria-label={`Go to drink ${index + 1}`}
               />
@@ -886,15 +871,8 @@ export default function UserProfilePage() {
       const p = json.profile
       setFriendshipStatus(json.friendshipStatus ?? "none")
 
-      // Fetch XP/level for this user
-      const { data: xpRow } = await supabase
-        .from("user_xp")
-        .select("total_xp")
-        .eq("user_id", p.id)
-        .single()
-      if (xpRow) {
-        setLevelInfo(getLevelInfo(xpRow.total_xp ?? 0))
-      }
+      // XP now comes from the API — no separate DB call needed
+      setLevelInfo(getLevelInfo(json.totalXp ?? 0))
 
       const mapped: DrinkLog[] = (json.logs ?? []).map((r: any) => ({
         id: r.id,
@@ -941,7 +919,6 @@ export default function UserProfilePage() {
     if (!viewerId || !profile?.id) return
 
     const profileUserId = profile.id
-
     let friendshipId: string | null = null
 
     const fetchFriendshipId = async () => {
@@ -952,7 +929,6 @@ export default function UserProfilePage() {
           `and(requester_id.eq.${viewerId},addressee_id.eq.${profileUserId}),and(requester_id.eq.${profileUserId},addressee_id.eq.${viewerId})`
         )
         .maybeSingle()
-
       friendshipId = data?.id ?? null
     }
 
@@ -962,11 +938,7 @@ export default function UserProfilePage() {
       .channel(`profile-friendships-${profileUserId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "friendships",
-        },
+        { event: "*", schema: "public", table: "friendships" },
         (payload) => {
           const newRow = payload.new as any
           const oldRow = payload.old as any
@@ -974,10 +946,7 @@ export default function UserProfilePage() {
           let shouldReload = false
 
           if (payload.eventType === "DELETE") {
-            const deletedId = oldRow?.id
-            if (deletedId && deletedId === friendshipId) {
-              shouldReload = true
-            }
+            if (oldRow?.id && oldRow.id === friendshipId) shouldReload = true
           } else {
             const involvesViewerAndProfile =
               (newRow?.requester_id === viewerId && newRow?.addressee_id === profileUserId) ||
@@ -987,24 +956,16 @@ export default function UserProfilePage() {
 
             if (involvesViewerAndProfile) {
               shouldReload = true
-              if (payload.eventType === "INSERT" && newRow?.id) {
-                friendshipId = newRow.id
-              }
+              if (payload.eventType === "INSERT" && newRow?.id) friendshipId = newRow.id
             }
           }
 
-          if (shouldReload) {
-            load().then(() => {
-              fetchFriendshipId()
-            })
-          }
+          if (shouldReload) load().then(() => fetchFriendshipId())
         }
       )
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(friendshipsChannel)
-    }
+    return () => { supabase.removeChannel(friendshipsChannel) }
   }, [viewerId, profile?.id, supabase, load])
 
   async function sendFriendRequest() {
@@ -1030,7 +991,6 @@ export default function UserProfilePage() {
       if (!res.ok) throw new Error(json?.error ?? "Could not send request.")
 
       await load()
-
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not send friend request.")
@@ -1040,8 +1000,7 @@ export default function UserProfilePage() {
   }
 
   async function toggleCheers(log: DrinkLog) {
-    if (!viewerId) return
-    if (cheersBusy[log.id]) return
+    if (!viewerId || cheersBusy[log.id]) return
 
     const nextCheered = !log.cheeredByMe
     const nextCount = Math.max(0, log.cheersCount + (nextCheered ? 1 : -1))
@@ -1053,9 +1012,7 @@ export default function UserProfilePage() {
 
     setCheersBusy((p) => ({ ...p, [log.id]: true }))
     setLogs((prev) =>
-      prev.map((p) =>
-        p.id === log.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p,
-      ),
+      prev.map((p) => p.id === log.id ? { ...p, cheeredByMe: nextCheered, cheersCount: nextCount } : p)
     )
 
     try {
@@ -1066,19 +1023,16 @@ export default function UserProfilePage() {
       if (rpcErr) throw rpcErr
 
       const row = Array.isArray(data) ? data[0] : data
-      const cheered = Boolean(row?.cheered)
-      const cheers_count = Number(row?.cheers_count ?? nextCount)
-
       setLogs((prev) =>
         prev.map((p) =>
-          p.id === log.id ? { ...p, cheeredByMe: cheered, cheersCount: cheers_count } : p,
-        ),
+          p.id === log.id
+            ? { ...p, cheeredByMe: Boolean(row?.cheered), cheersCount: Number(row?.cheers_count ?? nextCount) }
+            : p
+        )
       )
     } catch {
       setLogs((prev) =>
-        prev.map((p) =>
-          p.id === log.id ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount } : p,
-        ),
+        prev.map((p) => p.id === log.id ? { ...p, cheeredByMe: log.cheeredByMe, cheersCount: log.cheersCount } : p)
       )
     } finally {
       setCheersBusy((p) => ({ ...p, [log.id]: false }))
@@ -1088,13 +1042,11 @@ export default function UserProfilePage() {
   const getGroupedDrinks = (): GroupedDrinks[] => {
     if (granularity === "Drink") return []
     const groups: Record<string, DrinkLog[]> = {}
-
     for (const log of logs) {
       const label = formatGroupLabel(log.createdAt, granularity)
       if (!groups[label]) groups[label] = []
       groups[label].push(log)
     }
-
     return Object.entries(groups).map(([label, drinks]) => ({
       label,
       drinks: [...drinks].reverse(),
@@ -1125,9 +1077,7 @@ export default function UserProfilePage() {
       )
     }
 
-    if (logs.length === 0) {
-      return <EmptyState />
-    }
+    if (logs.length === 0) return <EmptyState />
 
     return (
       <div className="space-y-5">
@@ -1144,8 +1094,8 @@ export default function UserProfilePage() {
               />
             ))
           : groupedDrinks.map((group, index) => (
-              <GroupedDrinkCard 
-                key={`${group.label}-${index}`} 
+              <GroupedDrinkCard
+                key={`${group.label}-${index}`}
                 group={group}
                 profile={profile!}
                 onToggleCheers={toggleCheers}
@@ -1207,7 +1157,10 @@ export default function UserProfilePage() {
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{profile.displayName}</h3>
                 <p className="-mt-0.5 text-sm text-neutral-500 dark:text-white/40">@{profile.username}</p>
-                <p className="mt-0.5 text-sm flex items-baseline gap-1"><span className="font-bold text-neutral-900 dark:text-white">Lv. {levelInfo.level}</span> <span className="text-neutral-500 dark:text-white/40">· Joined {profile.joinDate}</span></p>
+                <p className="mt-0.5 text-sm flex items-baseline gap-1">
+                  <span className="font-bold text-neutral-900 dark:text-white">Lv. {levelInfo.level}</span>{" "}
+                  <span className="text-neutral-500 dark:text-white/40">· Joined {profile.joinDate}</span>
+                </p>
 
                 <div className="mt-2 -mb-0.5 flex items-baseline gap-4 text-sm">
                   <Link href={`/profile/${profile.username}/friends`} className="hover:opacity-70 transition-opacity">
@@ -1233,22 +1186,19 @@ export default function UserProfilePage() {
                 href={`/profile/${profile.username}/awards`}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
-                <Medal className="h-4 w-4" />
-                Medals
+                <Medal className="h-4 w-4" /> Medals
               </Link>
               <Link
                 href={`/profile/${profile.username}/versus`}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
-                <Swords className="h-4 w-4" />
-                Versus
+                <Swords className="h-4 w-4" /> Versus
               </Link>
               <Link
                 href={`/profile/${profile.username}/analytics`}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
               >
-                <BarChart3 className="h-4 w-4" />
-                Analytics
+                <BarChart3 className="h-4 w-4" /> Analytics
               </Link>
             </div>
           )}
@@ -1264,8 +1214,7 @@ export default function UserProfilePage() {
                     onClick={() => setShowSortMenu(!showSortMenu)}
                     className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] backdrop-blur-sm px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-white/70 transition-all hover:bg-white dark:hover:bg-white/[0.1]"
                   >
-                    <ArrowUpDown className="h-4 w-4" />
-                    {granularity}
+                    <ArrowUpDown className="h-4 w-4" /> {granularity}
                   </button>
 
                   {showSortMenu && (
@@ -1274,10 +1223,7 @@ export default function UserProfilePage() {
                         <button
                           key={option}
                           type="button"
-                          onClick={() => {
-                            setGranularity(option)
-                            setShowSortMenu(false)
-                          }}
+                          onClick={() => { setGranularity(option); setShowSortMenu(false) }}
                           className={cn(
                             "w-full px-4 py-3 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/[0.08]",
                             granularity === option
