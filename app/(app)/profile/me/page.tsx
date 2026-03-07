@@ -526,7 +526,6 @@ function LoadingSkeleton() {
     <div className="space-y-4 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)]">
       {/* Profile Card */}
       <div className="relative rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-5 pt-5 pb-5.75">
-        {/* Showcase medals placeholder (top-right) */}
         <div className="absolute top-4 right-4 flex gap-1.5">
           <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
           <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -536,13 +535,9 @@ function LoadingSkeleton() {
         <div className="flex items-center gap-4 mt-0.75">
           <div className="h-[88px] w-[88px] shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-1.5">
-            {/* Display name */}
             <div className="h-5 w-24 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-            {/* @username */}
             <div className="h-3.5 w-20 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            {/* Joined date */}
             <div className="h-3 w-38 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-            {/* Stats: Friends / Drinks / Cheers */}
             <div className="flex gap-4 pt-1">
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="h-4 w-16 rounded bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
@@ -552,20 +547,17 @@ function LoadingSkeleton() {
         </div>
       </div>
 
-      {/* Action Buttons: Medals + Versus + Analytics */}
       <div className="flex gap-3">
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
         <div className="flex-1 h-[42px] rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
-      {/* Timeline Header */}
       <div className="flex items-center justify-between">
         <div className="h-6 w-28 rounded bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
         <div className="h-[34px] w-20 rounded-full border border-neutral-200 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.06] animate-pulse" />
       </div>
 
-      {/* Drink Log Cards */}
       <div className="space-y-5">
         {[1, 2].map((i) => (
           <div key={i} className="overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
@@ -896,16 +888,7 @@ export default function ProfilePage() {
       const uid = sessRes.session!.user.id
       setUserId(uid)
 
-      // Fetch XP/level
-      const { data: xpRow } = await supabase
-        .from("user_xp")
-        .select("total_xp")
-        .eq("user_id", uid)
-        .single()
-      if (xpRow) {
-        setLevelInfo(getLevelInfo(xpRow.total_xp ?? 0))
-      }
-
+      // Single API call — now includes XP, duel badges, and friend badges
       const res = await fetch("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Failed to load profile")
@@ -930,19 +913,9 @@ export default function ProfilePage() {
       setUserAchievements((json.userAchievements ?? []) as UserAchievement[])
       setPendingFriendRequests(json.pendingFriendRequests ?? 0)
       setUnseenCheersCount(json.unseenCheersCount ?? 0)
-
-      try {
-        const [{ count: pendingDuels }, { count: unseenAcceptedDuels }] = await Promise.all([
-          supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenged_id", uid).eq("status", "pending"),
-          supabase.from("duels").select("*", { count: "exact", head: true }).eq("challenger_id", uid).eq("status", "active").eq("challenger_seen_active", false),
-        ])
-        setPendingDuelRequests((pendingDuels ?? 0) + (unseenAcceptedDuels ?? 0))
-      } catch { setPendingDuelRequests(0) }
-
-      try {
-        const { count: acceptedUnseen } = await supabase.from("friendships").select("*", { count: "exact", head: true }).eq("requester_id", uid).eq("status", "accepted").eq("requester_seen_accepted", false)
-        setUnseenAcceptedFriends(acceptedUnseen ?? 0)
-      } catch { setUnseenAcceptedFriends(0) }
+      setPendingDuelRequests(json.pendingDuelRequests ?? 0)
+      setUnseenAcceptedFriends(json.unseenAcceptedFriends ?? 0)
+      setLevelInfo(getLevelInfo(json.totalXp ?? 0))
 
       const ui: UiProfile = {
         ...DEFAULT_PROFILE,
