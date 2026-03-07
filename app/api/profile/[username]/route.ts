@@ -9,9 +9,11 @@ const supabaseAdmin = createClient(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { username: string } }
+  context: { params: Promise<{ username: string }> }
 ) {
   try {
+    const { username } = await context.params
+
     const authHeader = req.headers.get("authorization")
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -27,7 +29,6 @@ export async function GET(
     }
 
     const viewerId = viewer.id
-    const username = params.username
 
     // If viewing own profile, redirect to /profile/me equivalent
     const { data: targetProfile, error: profileErr } = await supabaseAdmin
