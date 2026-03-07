@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     const userId = user.id
 
-    // ── Parallel batch 1: profile, logs, achievements, counts ──────
+    // ── Single parallel batch: everything the profile page needs ──
     const [
       profileRes,
       logsRes,
@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
       userAchievementsRes,
       pendingFriendsRes,
       unseenCheersRes,
+      userXpRes,
+      pendingDuelsRes,
+      unseenAcceptedDuelsRes,
+      unseenAcceptedFriendsRes,
     ] = await Promise.all([
       supabaseAdmin
         .from("profile_public_stats")
@@ -54,13 +58,45 @@ export async function GET(req: NextRequest) {
         .select("achievement_id, unlocked_at")
         .eq("user_id", userId),
 
+      // Pending incoming friend requests (badge on Friends link)
       supabaseAdmin
         .from("friendships")
         .select("*", { count: "exact", head: true })
         .eq("addressee_id", userId)
         .eq("status", "pending"),
 
+      // Unseen cheers count
       supabaseAdmin.rpc("get_unseen_cheers_count", { p_user_id: userId }),
+
+      // XP / level
+      supabaseAdmin
+        .from("user_xp")
+        .select("total_xp")
+        .eq("user_id", userId)
+        .maybeSingle(),
+
+      // Pending duel challenges (badge on Versus link)
+      supabaseAdmin
+        .from("duels")
+        .select("*", { count: "exact", head: true })
+        .eq("challenged_id", userId)
+        .eq("status", "pending"),
+
+      // Duels challenger accepted but not yet seen (also badge on Versus)
+      supabaseAdmin
+        .from("duels")
+        .select("*", { count: "exact", head: true })
+        .eq("challenger_id", userId)
+        .eq("status", "active")
+        .eq("challenger_seen_active", false),
+
+      // Friend requests the user sent that were accepted but not yet seen
+      supabaseAdmin
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("requester_id", userId)
+        .eq("status", "accepted")
+        .eq("requester_seen_accepted", false),
     ])
 
     if (profileRes.error) throw profileRes.error
@@ -72,7 +108,7 @@ export async function GET(req: NextRequest) {
     const profile = profileRes.data as any
     const logs = (logsRes.data ?? []) as any[]
 
-    // ── Parallel batch 2: avatar, photo URLs, drink names, cheers ──
+    // ── Parallel batch 2: signed URLs, drink names, cheers state ──
     const drinkIds = [...new Set(logs.map((r) => r.drink_id).filter(Boolean))] as string[]
     const logIds = logs.map((r) => r.id)
 
@@ -121,7 +157,6 @@ export async function GET(req: NextRequest) {
       ])
     )
 
-    // Sum total cheers from cheers state instead of a separate query
     let totalCheersReceived = 0
     for (const r of cheersRows) {
       totalCheersReceived += Number(r.cheers_count ?? 0)
@@ -161,6 +196,10 @@ export async function GET(req: NextRequest) {
       pendingFriendRequests: pendingFriendsRes?.count ?? 0,
       unseenCheersCount: unseenCheersRes?.data ?? 0,
       totalCheersReceived,
+      // Formerly separate client-side calls — now included here
+      totalXp: userXpRes.data?.total_xp ?? 0,
+      pendingDuelRequests: (pendingDuelsRes?.count ?? 0) + (unseenAcceptedDuelsRes?.count ?? 0),
+      unseenAcceptedFriends: unseenAcceptedFriendsRes?.count ?? 0,
     })
   } catch (e: any) {
     console.error("[/api/profile/me]", e)
