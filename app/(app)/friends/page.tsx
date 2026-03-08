@@ -367,10 +367,10 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        {/* Search bar — matches mb-6 of real search */}
+        {/* Search bar — matches real search bar exactly */}
         <div className="mb-6 flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
-          <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
-          <span className="text-sm text-neutral-300 dark:text-white/20">Search friends…</span>
+          <Search className="h-4 w-4 shrink-0 text-neutral-400 dark:text-white/25" />
+          <div className="w-[30%] h-5 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
         </div>
 
         {/* Pending section */}
@@ -494,7 +494,7 @@ export default function FriendsPage() {
             "flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
             "focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 focus-within:bg-white dark:focus-within:bg-white/[0.06]"
           )}>
-            <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
+            <Search className="h-4 w-4 shrink-0 text-neutral-400 dark:text-white/25" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
