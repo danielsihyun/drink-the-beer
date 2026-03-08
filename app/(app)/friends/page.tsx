@@ -10,17 +10,6 @@ import { cn } from "@/lib/utils"
 
 type FriendSort = "name_asc" | "name_desc" | "since_new" | "since_old"
 
-type PendingIncomingRow = {
-  friendshipId: string
-  requesterId: string
-  createdAt: string
-  username: string
-  display_name: string
-  avatar_path: string | null
-  friend_count: number
-  drink_count: number
-}
-
 type UiPerson = {
   id: string
   username: string
@@ -29,7 +18,7 @@ type UiPerson = {
   friendCount: number
   drinkCount: number
   cheersCount: number
-  friendshipCreatedAt?: string
+  friendshipCreatedAt?: string | null
 }
 
 type UiPending = {
@@ -61,8 +50,8 @@ function OverlayPage({
   onClose: () => void
 }) {
   React.useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
   }, [])
 
   return (
@@ -84,7 +73,6 @@ function OverlayPage({
             <X className="h-4 w-4" />
           </button>
         </div>
-
         <div className="max-h-[80vh] overflow-y-auto px-5 py-6">{children}</div>
       </div>
     </div>
@@ -134,7 +122,6 @@ function PersonCard({
           <div className="flex-1 min-w-0 space-y-0.5">
             <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</div>
             <div className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{username}</div>
-
             <div className="flex gap-4 text-[13px]">
               <div>
                 <span className="font-semibold text-neutral-900 dark:text-white">{friendCount}</span>{" "}
@@ -168,6 +155,7 @@ export default function FriendsPage() {
   const [error, setError] = React.useState<string | null>(null)
 
   const [meId, setMeId] = React.useState<string | null>(null)
+  const tokenRef = React.useRef<string | null>(null)
 
   const [pending, setPending] = React.useState<UiPending[]>([])
   const [pendingBusyId, setPendingBusyId] = React.useState<string | null>(null)
@@ -194,127 +182,35 @@ export default function FriendsPage() {
     }
   }, [])
 
+  /* ── Load ─────────────────────────────────────────────────────── */
+
   const loadFriends = React.useCallback(async () => {
     setError(null)
     setLoading(true)
 
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      const user = userRes.user
-      if (!user) {
-        router.replace("/login?redirectTo=%2Ffeed")
+      // Single auth call — getSession gives us user + token together
+      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+      if (sessErr) throw sessErr
+      if (!sessRes.session?.user) {
+        router.replace("/login?redirectTo=%2Ffriends")
         return
       }
 
-      setMeId(user.id)
+      const userId = sessRes.session.user.id
+      const token = sessRes.session.access_token
+      setMeId(userId)
+      tokenRef.current = token
 
-      const { data: friendships, error: fErr } = await supabase
-        .from("friendships")
-        .select("id, requester_id, addressee_id, created_at")
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .eq("status", "accepted")
-        .limit(500)
-
-      if (fErr) throw fErr
-
-      const friendIds = (friendships ?? []).map((f: any) =>
-        f.requester_id === user.id ? f.addressee_id : f.requester_id
-      )
-
-      const friendshipMap = new Map(
-        (friendships ?? []).map((f: any) => {
-          const friendId = f.requester_id === user.id ? f.addressee_id : f.requester_id
-          return [friendId, f.created_at]
-        })
-      )
-
-      if (friendIds.length === 0) {
-        setFriends([])
-      } else {
-        const { data: profiles, error: pErr } = await supabase
-          .from("profile_public_stats")
-          .select("id, username, display_name, avatar_path, friend_count, drink_count")
-          .in("id", friendIds)
-
-        if (pErr) throw pErr
-
-        const avatarPaths = (profiles ?? []).map((p: any) => p.avatar_path)
-        const avatarUrls = await Promise.all(
-          avatarPaths.map((path: string | null) =>
-            path
-              ? supabase.storage.from("profile-photos").createSignedUrl(path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null)
-          )
-        )
-
-        // Fetch cheers counts for each friend
-        const cheersCounts = await Promise.all(
-          (profiles ?? []).map(async (p: any) => {
-            const { data: logIds } = await supabase
-              .from("drink_logs")
-              .select("id")
-              .eq("user_id", p.id)
-            const ids = (logIds ?? []).map((r: any) => r.id)
-            if (ids.length === 0) return 0
-            const { count } = await supabase
-              .from("drink_cheers")
-              .select("*", { count: "exact", head: true })
-              .in("drink_log_id", ids)
-            return count ?? 0
-          })
-        )
-
-        const mappedFriends: UiPerson[] = (profiles ?? []).map((r: any, i: number) => ({
-          id: r.id,
-          username: r.username,
-          displayName: r.display_name,
-          avatarUrl: avatarUrls[i],
-          friendCount: r.friend_count ?? 0,
-          drinkCount: r.drink_count ?? 0,
-          cheersCount: cheersCounts[i],
-          friendshipCreatedAt: friendshipMap.get(r.id),
-        }))
-
-        setFriends(mappedFriends)
-      }
-
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and back in.")
-
-      const pendingRes = await fetch("/api/friends/pending-incoming", {
-        method: "GET",
+      // Single API call — friends + pending + cheers counts all in one
+      const res = await fetch("/api/friends", {
         headers: { Authorization: `Bearer ${token}` },
       })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error ?? "Could not load friends.")
 
-      const pendingJson = await pendingRes.json().catch(() => ({}))
-      if (!pendingRes.ok) throw new Error(pendingJson?.error ?? "Could not load pending requests.")
-
-      const pendingRows = (pendingJson?.items ?? []) as PendingIncomingRow[]
-
-      const pendingAvatarUrls = await Promise.all(
-        pendingRows.map((p) =>
-          p.avatar_path
-            ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-            : Promise.resolve(null)
-        )
-      )
-
-      const mappedPending: UiPending[] = pendingRows.map((p, i) => ({
-        friendshipId: p.friendshipId,
-        requesterId: p.requesterId,
-        createdAt: p.createdAt,
-        username: p.username,
-        displayName: p.display_name,
-        avatarUrl: pendingAvatarUrls[i],
-        friendCount: p.friend_count ?? 0,
-        drinkCount: p.drink_count ?? 0,
-        cheersCount: 0,
-      }))
-
-      setPending(mappedPending)
+      setFriends(json.friends ?? [])
+      setPending(json.pending ?? [])
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your friends.")
     } finally {
@@ -322,9 +218,9 @@ export default function FriendsPage() {
     }
   }, [router, supabase])
 
-  React.useEffect(() => {
-    loadFriends()
-  }, [loadFriends])
+  React.useEffect(() => { loadFriends() }, [loadFriends])
+
+  /* ── Sort menu click-outside ──────────────────────────────────── */
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -332,15 +228,11 @@ export default function FriendsPage() {
         setShowSortMenu(false)
       }
     }
-
-    if (showSortMenu) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    if (showSortMenu) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showSortMenu])
+
+  /* ── Realtime subscription ────────────────────────────────────── */
 
   React.useEffect(() => {
     if (!meId) return
@@ -352,98 +244,61 @@ export default function FriendsPage() {
         .from("friendships")
         .select("id")
         .or(`requester_id.eq.${meId},addressee_id.eq.${meId}`)
-
       myFriendshipIds = new Set((data ?? []).map((r) => r.id))
     }
-
     fetchMyFriendshipIds()
 
-    const friendshipsChannel = supabase
+    const channel = supabase
       .channel("friends-page-friendships")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "friendships",
-        },
-        (payload) => {
-          const newRow = payload.new as any
-          const oldRow = payload.old as any
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, (payload) => {
+        const newRow = payload.new as any
+        const oldRow = payload.old as any
+        let shouldReload = false
 
-          let shouldReload = false
-
-          if (payload.eventType === "DELETE") {
-            const deletedId = oldRow?.id
-            if (deletedId && myFriendshipIds.has(deletedId)) {
-              shouldReload = true
-            }
-          } else {
-            const involvesMe =
-              newRow?.requester_id === meId ||
-              newRow?.addressee_id === meId ||
-              oldRow?.requester_id === meId ||
-              oldRow?.addressee_id === meId
-
-            if (involvesMe) {
-              shouldReload = true
-              if (payload.eventType === "INSERT" && newRow?.id) {
-                myFriendshipIds.add(newRow.id)
-              }
-            }
-          }
-
-          if (shouldReload) {
-            loadFriends().then(() => {
-              fetchMyFriendshipIds()
-            })
+        if (payload.eventType === "DELETE") {
+          if (oldRow?.id && myFriendshipIds.has(oldRow.id)) shouldReload = true
+        } else {
+          const involvesMe =
+            newRow?.requester_id === meId ||
+            newRow?.addressee_id === meId ||
+            oldRow?.requester_id === meId ||
+            oldRow?.addressee_id === meId
+          if (involvesMe) {
+            shouldReload = true
+            if (payload.eventType === "INSERT" && newRow?.id) myFriendshipIds.add(newRow.id)
           }
         }
-      )
+
+        if (shouldReload) {
+          loadFriends().then(() => fetchMyFriendshipIds())
+        }
+      })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(friendshipsChannel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [meId, supabase, loadFriends])
 
-  function sortedFriends(list: UiPerson[]) {
-    const copy = [...list]
-    if (sort === "name_asc") copy.sort((a, b) => a.username.localeCompare(b.username))
-    else if (sort === "name_desc") copy.sort((a, b) => b.username.localeCompare(a.username))
-    else if (sort === "since_new")
-      copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
-    else if (sort === "since_old")
-      copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
-    return copy
+  /* ── Actions ──────────────────────────────────────────────────── */
+
+  function getToken(): string {
+    const token = tokenRef.current
+    if (!token) throw new Error("Missing session token. Please log out and back in.")
+    return token
   }
 
   async function respondToRequest(requestId: string, action: "accepted" | "rejected") {
     setError(null)
     setPendingBusyId(requestId)
-
     try {
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and back in.")
-
       const res = await fetch("/api/friends/respond", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ requestId, action }),
       })
-
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not update request.")
-
       showToast(action === "accepted" ? "Friend added!" : "Request rejected")
-
       await loadFriends()
-
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setError(e?.message ?? "Could not update request.")
@@ -467,30 +322,18 @@ export default function FriendsPage() {
     if (!removeTarget) return
     setRemoveError(null)
     setRemoveBusy(true)
-
     try {
-      const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-      if (sessErr) throw sessErr
-      const token = sessRes.session?.access_token
-      if (!token) throw new Error("Missing session token. Please log out and back in.")
-
       const res = await fetch("/api/friends/remove", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ friendId: removeTarget.id }),
       })
-
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Could not remove friend.")
-
       setRemoveOpen(false)
       setRemoveTarget(null)
       showToast("Friend removed.")
       await loadFriends()
-
       window.dispatchEvent(new Event("refresh-nav-badges"))
     } catch (e: any) {
       setRemoveError(e?.message ?? "Could not remove friend.")
@@ -499,7 +342,19 @@ export default function FriendsPage() {
     }
   }
 
-  // --- Skeleton Loading ---
+  /* ── Derived data ─────────────────────────────────────────────── */
+
+  function sortedFriends(list: UiPerson[]) {
+    const copy = [...list]
+    if (sort === "name_asc") copy.sort((a, b) => a.username.localeCompare(b.username))
+    else if (sort === "name_desc") copy.sort((a, b) => b.username.localeCompare(a.username))
+    else if (sort === "since_new") copy.sort((a, b) => (b.friendshipCreatedAt ?? "").localeCompare(a.friendshipCreatedAt ?? ""))
+    else if (sort === "since_old") copy.sort((a, b) => (a.friendshipCreatedAt ?? "").localeCompare(b.friendshipCreatedAt ?? ""))
+    return copy
+  }
+
+  /* ── Skeleton ─────────────────────────────────────────────────── */
+
   if (loading) {
     return (
       <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
@@ -510,7 +365,6 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        {/* Search skeleton */}
         <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
           <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
           <span className="text-sm text-neutral-300 dark:text-white/20">Search friends…</span>
@@ -554,23 +408,21 @@ export default function FriendsPage() {
   }
 
   const friendsSorted = sortedFriends(friends)
-
-  // Client-side search filter
   const q = searchQuery.trim().toLowerCase()
   const friendsFiltered = q.length > 0
     ? friendsSorted.filter(
-        (f) =>
-          f.username.toLowerCase().includes(q) ||
-          f.displayName.toLowerCase().includes(q)
+        (f) => f.username.toLowerCase().includes(q) || f.displayName.toLowerCase().includes(q)
       )
     : friendsSorted
+
+  /* ── Render ───────────────────────────────────────────────────── */
 
   return (
     <>
       <div className="container max-w-md mx-auto px-0 py-4 pb-24">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-end">
 
+        {/* Sort button */}
+        <div className="mb-6 flex items-center justify-end">
           <div ref={sortMenuRef} className="relative">
             <button
               type="button"
@@ -600,10 +452,7 @@ export default function FriendsPage() {
                     <button
                       key={opt.key}
                       type="button"
-                      onClick={() => {
-                        setSort(opt.key)
-                        setShowSortMenu(false)
-                      }}
+                      onClick={() => { setSort(opt.key); setShowSortMenu(false) }}
                       className={cn(
                         "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
                         sort === opt.key
@@ -621,7 +470,7 @@ export default function FriendsPage() {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search */}
         <div className="mb-6">
           <div className={cn(
             "flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3 transition-all duration-200",
@@ -661,7 +510,7 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {/* Pending Requests — hidden when searching */}
+        {/* Pending Requests */}
         {q.length === 0 && (
           <div className="space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
@@ -783,7 +632,9 @@ export default function FriendsPage() {
           )}
 
           <p className="mb-6 text-neutral-600 dark:text-white/55">
-            Are you sure you want to remove <span className="font-semibold text-neutral-900 dark:text-white">@{removeTarget.username}</span> from your friends? You can always add them back later.
+            Are you sure you want to remove{" "}
+            <span className="font-semibold text-neutral-900 dark:text-white">@{removeTarget.username}</span>{" "}
+            from your friends? You can always add them back later.
           </p>
 
           <div className="flex gap-3">
@@ -795,17 +646,16 @@ export default function FriendsPage() {
                 setRemoveError(null)
                 setRemoveTarget(null)
               }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neutral-100 dark:bg-white/10 px-4 py-3 text-sm font-medium text-neutral-900 dark:text-white transition-all active:scale-[0.98] hover:bg-neutral-200 dark:hover:bg-white/15"
               disabled={removeBusy}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neutral-100 dark:bg-white/10 px-4 py-3 text-sm font-medium text-neutral-900 dark:text-white transition-all active:scale-[0.98] hover:bg-neutral-200 dark:hover:bg-white/15"
             >
               Cancel
             </button>
-
             <button
               type="button"
               onClick={confirmRemoveFriend}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all active:scale-[0.98] hover:bg-red-600"
               disabled={removeBusy}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all active:scale-[0.98] hover:bg-red-600"
             >
               {removeBusy && <Loader2 className="h-4 w-4 animate-spin" />}
               Remove
