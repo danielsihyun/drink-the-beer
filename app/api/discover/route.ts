@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBatchSignedUrls } from "@/lib/signed-url-cache"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,6 @@ const supabaseAdmin = createClient(
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-/** Get today's date in EST as a unique integer (YYYYMMDD). */
 function getEstDayIndex(): number {
   const estNow = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
@@ -77,21 +77,17 @@ const COLLECTION_DEFINITIONS = [
   },
 ]
 
-// Word-boundary-aware matching for name keywords
-// Short keywords (<=4 chars) use word boundary; longer ones use includes
 function nameMatchesKeyword(drinkName: string, keyword: string): boolean {
   const nameLower = drinkName.toLowerCase()
   const kwLower = keyword.toLowerCase()
-  // Multi-word keywords or long keywords: use includes
   if (kwLower.includes(" ") || kwLower.length > 5) {
     return nameLower.includes(kwLower)
   }
-  // Short keywords: use word boundary regex to avoid partial matches
   const re = new RegExp(`\\b${kwLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")
   return re.test(drinkName)
 }
 
-// ── Main handler ────────────────────────────────────────────────────
+// ── Main handler ─────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   try {
@@ -111,26 +107,32 @@ export async function GET(req: NextRequest) {
 
     const userId = user.id
 
-    // ── Run all queries in parallel ──────────────────────────────
+    // Fetch friendships first — needed by both suggested and recommendations
+    const { data: friendships } = await supabaseAdmin
+      .from("friendships")
+      .select("requester_id, addressee_id")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+      .eq("status", "accepted")
+      .limit(500)
 
+    const friendIds = (friendships ?? []).map((r: { requester_id: string; addressee_id: string }) =>
+      r.requester_id === userId ? r.addressee_id : r.requester_id
+    )
+    const friendIdSet = new Set(friendIds)
+
+    // Run all sections in parallel
     const [
       trendingResult,
       drinkOfDayResult,
       collectionsResult,
       recommendationsResult,
-      userLogsResult,
+      suggestedResult,
     ] = await Promise.all([
       loadTrending(),
       loadDrinkOfTheDay(),
       loadCollections(),
       loadRecommendations(userId),
-      // For recommendations we need user's logged drink IDs
-      supabaseAdmin
-        .from("drink_logs")
-        .select("drink_id, drink_type")
-        .eq("user_id", userId)
-        .not("drink_id", "is", null)
-        .limit(500),
+      loadSuggested(userId, friendIdSet),
     ])
 
     return NextResponse.json({
@@ -138,6 +140,9 @@ export async function GET(req: NextRequest) {
       drinkOfTheDay: drinkOfDayResult,
       collections: collectionsResult,
       recommendations: recommendationsResult,
+      suggested: suggestedResult,
+      // Return friend IDs so the client doesn't need a separate friendships query
+      friendIds,
     })
   } catch (e: any) {
     console.error("Discover API error:", e)
@@ -145,14 +150,95 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── Trending: specific drink names, last 7 days vs prior 7 ──────────
+// ── Suggested people (friends of friends) ────────────────────────────
+
+async function loadSuggested(userId: string, friendIdSet: Set<string>) {
+  if (friendIdSet.size === 0) return []
+
+  const friendIdArray = Array.from(friendIdSet)
+
+  // Friends-of-friends
+  const { data: fofRows } = await supabaseAdmin
+    .from("friendships")
+    .select("requester_id, addressee_id")
+    .eq("status", "accepted")
+    .or(
+      friendIdArray.map((id) => `requester_id.eq.${id}`).join(",") +
+      "," +
+      friendIdArray.map((id) => `addressee_id.eq.${id}`).join(",")
+    )
+    .limit(500)
+
+  const mutualCounts: Record<string, number> = {}
+
+  for (const row of fofRows ?? []) {
+    const personA = row.requester_id
+    const personB = row.addressee_id
+
+    if (friendIdSet.has(personA) && personB !== userId && !friendIdSet.has(personB)) {
+      mutualCounts[personB] = (mutualCounts[personB] || 0) + 1
+    }
+    if (friendIdSet.has(personB) && personA !== userId && !friendIdSet.has(personA)) {
+      mutualCounts[personA] = (mutualCounts[personA] || 0) + 1
+    }
+  }
+
+  const topSuggestions = Object.entries(mutualCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+
+  if (topSuggestions.length === 0) return []
+
+  const suggestedIds = topSuggestions.map(([id]) => id)
+  const mutualMap = new Map(topSuggestions)
+
+  // Profiles + pending status in parallel
+  const [profilesRes, pendingRes] = await Promise.all([
+    supabaseAdmin
+      .from("profile_public_stats")
+      .select("id, username, display_name, avatar_path, friend_count, drink_count")
+      .in("id", suggestedIds),
+    supabaseAdmin
+      .from("friendships")
+      .select("addressee_id")
+      .eq("requester_id", userId)
+      .eq("status", "pending")
+      .in("addressee_id", suggestedIds),
+  ])
+
+  const profiles = profilesRes.data ?? []
+  const pendingOutIds = new Set((pendingRes.data ?? []).map((r: any) => r.addressee_id))
+
+  // Batch avatar signed URLs
+  const avatarPaths = profiles.map((p: any) => p.avatar_path).filter(Boolean) as string[]
+  const uniqueAvatarPaths = [...new Set(avatarPaths)]
+  const avatarUrls = await getBatchSignedUrls(supabaseAdmin, "profile-photos", uniqueAvatarPaths, 60 * 60)
+
+  const avatarUrlMap = new Map<string, string | null>()
+  for (let i = 0; i < uniqueAvatarPaths.length; i++) {
+    avatarUrlMap.set(uniqueAvatarPaths[i], avatarUrls[i])
+  }
+
+  return profiles.map((p: any) => ({
+    id: p.id,
+    username: p.username,
+    displayName: p.display_name,
+    avatarUrl: p.avatar_path ? (avatarUrlMap.get(p.avatar_path) ?? null) : null,
+    friendCount: p.friend_count ?? 0,
+    drinkCount: p.drink_count ?? 0,
+    cheersCount: 0,
+    mutualCount: mutualMap.get(p.id) ?? 0,
+    outgoingPending: pendingOutIds.has(p.id),
+  })).sort((a: any, b: any) => b.mutualCount - a.mutualCount)
+}
+
+// ── Trending ─────────────────────────────────────────────────────────
 
 async function loadTrending() {
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
-  // Get recent logs with drink names
   const { data: recentLogs } = await supabaseAdmin
     .from("drink_logs")
     .select("drink_id, drink_type, created_at")
@@ -162,10 +248,8 @@ async function loadTrending() {
 
   if (!recentLogs || recentLogs.length === 0) return []
 
-  // Count by drink_id (specific drinks) this week vs last week
   const thisWeekById: Record<string, number> = {}
   const lastWeekById: Record<string, number> = {}
-  // Fallback: count by category for logs without drink_id
   const thisWeekByCat: Record<string, number> = {}
   const lastWeekByCat: Record<string, number> = {}
 
@@ -182,7 +266,6 @@ async function loadTrending() {
     }
   }
 
-  // Get drink names for all referenced drink IDs
   const allDrinkIds = [...new Set([...Object.keys(thisWeekById), ...Object.keys(lastWeekById)])]
   let drinkNameMap = new Map<string, { name: string; category: string; image_url: string | null }>()
 
@@ -197,7 +280,6 @@ async function loadTrending() {
     )
   }
 
-  // Build trending list from specific drinks
   type TrendingItem = {
     id: string | null
     name: string
@@ -209,7 +291,6 @@ async function loadTrending() {
 
   const items: TrendingItem[] = []
 
-  // Specific drinks
   const allIds = new Set([...Object.keys(thisWeekById), ...Object.keys(lastWeekById)])
   for (const id of allIds) {
     const current = thisWeekById[id] || 0
@@ -230,7 +311,6 @@ async function loadTrending() {
     })
   }
 
-  // Category fallbacks (for logs without drink_id)
   const allCats = new Set([...Object.keys(thisWeekByCat), ...Object.keys(lastWeekByCat)])
   for (const cat of allCats) {
     const current = thisWeekByCat[cat] || 0
@@ -254,13 +334,11 @@ async function loadTrending() {
   return items.slice(0, 6)
 }
 
-// ── Drink of the Day: seeded deterministic pick, resets at midnight EST ──
+// ── Drink of the Day ─────────────────────────────────────────────────
 
 async function loadDrinkOfTheDay() {
-  // Use EST calendar day as seed so it resets at midnight Eastern
   const dayIndex = getEstDayIndex()
 
-  // Get cocktails with images (better for display)
   const { data: drinks } = await supabaseAdmin
     .from("drinks")
     .select("id, name, category, image_url, glass, instructions, ingredients")
@@ -273,7 +351,6 @@ async function loadDrinkOfTheDay() {
 
   const pick = drinks[dayIndex % drinks.length]
 
-  // Build a short description from ingredients
   const ingredients = (pick.ingredients as any[] ?? [])
     .slice(0, 3)
     .map((i: any) => i.name)
@@ -293,10 +370,9 @@ async function loadDrinkOfTheDay() {
   }
 }
 
-// ── Collections: real counts from drinks table ──────────────────────
+// ── Collections ──────────────────────────────────────────────────────
 
 async function loadCollections() {
-  // Get all drinks for matching (include ingredients for broader matching)
   const { data: drinks } = await supabaseAdmin
     .from("drinks")
     .select("id, name, category, ingredients")
@@ -308,20 +384,14 @@ async function loadCollections() {
     const matchedIds = new Set<string>()
 
     for (const d of drinks as any[]) {
-      // Match by category
       if (col.categories.length > 0 && col.categories.includes(d.category)) {
         matchedIds.add(d.id)
         continue
       }
-
-      // Match by drink name keywords
-      const nameLower = (d.name ?? "").toLowerCase()
       if (col.nameKeywords.some((kw) => nameMatchesKeyword(d.name ?? "", kw))) {
         matchedIds.add(d.id)
         continue
       }
-
-      // Match by ingredient keywords
       if (col.ingredientKeywords.length > 0) {
         const ings = (d.ingredients as any[] ?? []).map((i: any) => (i.name ?? "").toLowerCase())
         if (col.ingredientKeywords.some((kw) => ings.some((ing) => ing.includes(kw.toLowerCase())))) {
@@ -340,10 +410,9 @@ async function loadCollections() {
   })
 }
 
-// ── Recommendations: drinks similar to what user has logged ─────────
+// ── Recommendations ──────────────────────────────────────────────────
 
 async function loadRecommendations(userId: string) {
-  // Get user's logged drinks
   const { data: userLogs } = await supabaseAdmin
     .from("drink_logs")
     .select("drink_id, drink_type")
@@ -353,13 +422,11 @@ async function loadRecommendations(userId: string) {
     .limit(200)
 
   if (!userLogs || userLogs.length === 0) {
-    // Fallback: recommend popular drinks
     return loadPopularDrinksAsRecommendations()
   }
 
   const loggedDrinkIds = new Set(userLogs.map((l: any) => l.drink_id).filter(Boolean))
 
-  // Get details of logged drinks to find their categories and ingredients
   const { data: loggedDrinks } = await supabaseAdmin
     .from("drinks")
     .select("id, name, category, ingredients")
@@ -369,7 +436,6 @@ async function loadRecommendations(userId: string) {
     return loadPopularDrinksAsRecommendations()
   }
 
-  // Find most-logged categories
   const catCount: Record<string, number> = {}
   for (const log of userLogs) {
     catCount[log.drink_type] = (catCount[log.drink_type] || 0) + 1
@@ -379,7 +445,6 @@ async function loadRecommendations(userId: string) {
     .slice(0, 2)
     .map(([cat]) => cat)
 
-  // Collect ingredient names from logged drinks for similarity
   const ingredientFreq: Record<string, number> = {}
   for (const d of loggedDrinks) {
     const ings = (d.ingredients as any[] ?? [])
@@ -393,8 +458,6 @@ async function loadRecommendations(userId: string) {
     .slice(0, 5)
     .map(([name]) => name)
 
-  // Find drinks user hasn't tried, in their preferred categories
-  // Fetch all drinks (not limited) to avoid alphabetical bias from insertion order
   const { data: candidates } = await supabaseAdmin
     .from("drinks")
     .select("id, name, category, image_url, ingredients")
@@ -404,7 +467,6 @@ async function loadRecommendations(userId: string) {
     return loadPopularDrinksAsRecommendations()
   }
 
-  // Score candidates by ingredient overlap
   type ScoredDrink = {
     id: string
     name: string
@@ -417,7 +479,7 @@ async function loadRecommendations(userId: string) {
   const scored: ScoredDrink[] = []
 
   for (const d of candidates) {
-    if (loggedDrinkIds.has(d.id)) continue // skip already logged
+    if (loggedDrinkIds.has(d.id)) continue
 
     const ings = (d.ingredients as any[] ?? []).map((i: any) => (i.name ?? "").toLowerCase())
     let score = 0
@@ -431,7 +493,6 @@ async function loadRecommendations(userId: string) {
     }
 
     if (score > 0) {
-      // Build reason string from the best matching logged drink
       const loggedSimilar = loggedDrinks.find((ld: any) =>
         (ld.ingredients as any[] ?? []).some((i: any) =>
           matchedIngredients.includes((i.name ?? "").toLowerCase())
@@ -451,15 +512,12 @@ async function loadRecommendations(userId: string) {
     }
   }
 
-  // If ingredient matching produced too few results, add some category matches
   if (scored.length < 5) {
-    // Shuffle remaining unscored candidates from same categories
     const scoredIds = new Set(scored.map((s) => s.id))
     const remaining = candidates.filter(
       (d: any) => !loggedDrinkIds.has(d.id) && !scoredIds.has(d.id)
     )
 
-    // Deterministic daily shuffle using EST day so results are stable until midnight EST
     const daySeed = getEstDayIndex()
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = (daySeed * (i + 1) * 2654435761) % (i + 1)
@@ -491,7 +549,6 @@ async function loadRecommendations(userId: string) {
 }
 
 async function loadPopularDrinksAsRecommendations() {
-  // Count most-logged drinks globally
   const { data: logs } = await supabaseAdmin
     .from("drink_logs")
     .select("drink_id")
