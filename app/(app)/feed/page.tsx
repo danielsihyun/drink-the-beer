@@ -418,7 +418,7 @@ function FeedContent() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<FeedItem[]>([])
-  
+
   // Pagination
   const [nextCursor, setNextCursor] = React.useState<string | null>(null)
   const [loadingMore, setLoadingMore] = React.useState(false)
@@ -433,11 +433,11 @@ function FeedContent() {
   const [viewerId, setViewerId] = React.useState<string | null>(null)
   const [viewerAvatar, setViewerAvatar] = React.useState<string | null>(null)
 
-  // Keep refs in sync with state
   React.useEffect(() => { nextCursorRef.current = nextCursor }, [nextCursor])
   React.useEffect(() => { loadingMoreRef.current = loadingMore }, [loadingMore])
   React.useEffect(() => { viewerIdRef.current = viewerId }, [viewerId])
   React.useEffect(() => { viewerAvatarRef.current = viewerAvatar }, [viewerAvatar])
+
   const [postedBanner, setPostedBanner] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
@@ -469,6 +469,7 @@ function FeedContent() {
     avatarUrl: string | null
   } | null>(null)
 
+  const tokenRef = React.useRef<string | null>(null)
 
   const fetchQuest = React.useCallback(async () => {
     const token = tokenRef.current
@@ -480,11 +481,9 @@ function FeedContent() {
       if (!res.ok) return
       const data = await res.json()
       setQuestData((prev) => {
-        // Detect transition from incomplete → complete for auto-tracked quests
         const wasComplete = prev?.userQuest?.completed || prev?.userQuest?.xpAwarded || false
         const isNowComplete = data.userQuest.completed || data.userQuest.xpAwarded
         if (!wasComplete && isNowComplete && prev !== null) {
-          // Show celebration modal
           setQuestModal({
             questTitle: data.quest.title,
             questEmoji: data.quest.emoji,
@@ -517,7 +516,6 @@ function FeedContent() {
       })
       if (!res.ok) return
       const result = await res.json()
-      // Show celebration modal
       setQuestModal({
         questTitle: questData.quest.title,
         questEmoji: questData.quest.emoji,
@@ -525,7 +523,6 @@ function FeedContent() {
         totalXp: result.xp.total,
         avatarUrl: viewerAvatarRef.current,
       })
-      // Re-fetch quest data to update UI
       await fetchQuest()
     } catch (e) {
       console.error("Failed to honor-complete quest:", e)
@@ -534,14 +531,10 @@ function FeedContent() {
     }
   }, [questData, fetchQuest])
 
-  // Stable ref for token so we can use it in fetchPage without re-renders
-  const tokenRef = React.useRef<string | null>(null)
-
   React.useEffect(() => {
     if (searchParams.get("posted") === "1") {
       setPostedBanner(true)
       router.replace("/feed")
-      // Re-check quest progress after logging a drink
       fetchQuest()
     }
   }, [searchParams, router, fetchQuest])
@@ -559,7 +552,7 @@ function FeedContent() {
     token: string,
     userId: string,
     cursor: string | null,
-  ): Promise<{ mapped: FeedItem[]; nextCursor: string | null }> => {
+  ): Promise<{ mapped: FeedItem[]; nextCursor: string | null; viewerAvatarUrl?: string | null }> => {
     const params = new URLSearchParams()
     if (cursor) params.set("cursor", cursor)
     params.set("limit", "10")
@@ -581,7 +574,11 @@ function FeedContent() {
       cheeredByMe: it.cheeredByMe ?? false,
     }))
 
-    return { mapped, nextCursor: json?.nextCursor ?? null }
+    return {
+      mapped,
+      nextCursor: json?.nextCursor ?? null,
+      viewerAvatarUrl: json?.viewerAvatarUrl ?? null,
+    }
   }, [])
 
   /* ── Initial load ────────────────────────────────────────────── */
@@ -598,25 +595,17 @@ function FeedContent() {
       setViewerId(user.id)
       tokenRef.current = token
 
-      // Fetch viewer avatar
-      const { data: profileRow } = await supabase
-        .from("profile_public_stats")
-        .select("avatar_path")
-        .eq("id", user.id)
-        .single()
-      if (profileRow?.avatar_path) {
-        const { data: signedUrl } = await supabase.storage
-          .from("profile-photos")
-          .createSignedUrl(profileRow.avatar_path, 60 * 60)
-        setViewerAvatar(signedUrl?.signedUrl ?? null)
-      }
+      // Single fetch — feed items + viewer avatar come back together, no separate avatar calls
+      const { mapped, nextCursor: nc, viewerAvatarUrl } = await fetchPage(token, user.id, null)
 
-      const { mapped, nextCursor: nc } = await fetchPage(token, user.id, null)
+      if (viewerAvatarUrl !== undefined) {
+        setViewerAvatar(viewerAvatarUrl)
+      }
 
       setItems(mapped)
       setNextCursor(nc)
 
-      // Fetch today's quest
+      // Fire quest fetch in parallel (non-blocking — has its own loading state)
       fetchQuest()
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
@@ -705,7 +694,6 @@ function FeedContent() {
       const nextCaption = postCaption.trim()
       const { error: updErr } = await supabase.from("drink_logs").update({ drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null }).eq("id", active.id).eq("user_id", active.user_id)
       if (updErr) throw updErr
-
       setItems(prev => prev.map(p => p.id === active.id ? { ...p, drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null } : p))
       setEditOpen(false)
       setActive(null)
@@ -747,7 +735,6 @@ function FeedContent() {
       setItems(prev => prev.map(p => p.id === it.id ? { ...p, cheeredByMe: it.cheeredByMe, cheersCount: it.cheersCount } : p))
     } finally {
       setCheersBusy(p => ({ ...p, [it.id]: false }))
-      // Re-check quest progress (for cheers_given quests)
       fetchQuest()
     }
   }
@@ -843,7 +830,6 @@ function FeedContent() {
         {questLoading && !questData && (
           <div className="mb-5 relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl">
             <div className="px-4 pt-4 pb-3">
-              {/* Time skeleton — top right */}
               <div className="absolute top-4 right-4 h-3 w-12 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
               <div className="flex items-center gap-3 pr-14">
                 <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
@@ -877,8 +863,8 @@ function FeedContent() {
         ) : (
           <div className="space-y-5">
             {items.map((it) => (
-              <article 
-                key={it.id} 
+              <article
+                key={it.id}
                 className="group relative overflow-hidden rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
               >
                 {/* Card Header */}
@@ -908,7 +894,6 @@ function FeedContent() {
                     </div>
                   </Link>
 
-                  {/* Drink pill — specific name when available, category fallback */}
                   <span className="inline-flex items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3 py-1 text-xs font-medium text-neutral-500 dark:text-white/50 max-w-[160px] truncate">
                     {it.drink_name ?? it.drink_type}
                   </span>
@@ -933,8 +918,6 @@ function FeedContent() {
 
                 {/* Actions & Caption Area */}
                 <div className="flex flex-col gap-1 px-4 pt-4 pb-4">
-                  
-                  {/* Action Buttons Row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <button
@@ -945,12 +928,12 @@ function FeedContent() {
                           cheersAnimating[it.id] ? "scale-125" : "hover:scale-105"
                         )}
                       >
-                         {cheersAnimating[it.id] && (
-                           <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
-                         )}
+                        {cheersAnimating[it.id] && (
+                          <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+                        )}
                         <CheersIcon filled={it.cheeredByMe} className={cn("h-8 w-8", it.cheeredByMe ? "text-amber-500" : "text-neutral-800 dark:text-white/50")} />
                       </button>
-                      
+
                       {it.cheersCount > 0 && (
                         <button
                           onClick={() => setCheersListPost(it)}
@@ -961,7 +944,6 @@ function FeedContent() {
                       )}
                     </div>
 
-                    {/* Edit/Delete Buttons */}
                     {it.isMine && (
                       <div className="flex items-center gap-0.5">
                         <button
@@ -982,7 +964,6 @@ function FeedContent() {
                     )}
                   </div>
 
-                  {/* Caption */}
                   {it.caption && (
                     <div className="pl-1">
                       <p className="text-[15px] leading-relaxed text-neutral-800 dark:text-white/75">
@@ -1025,12 +1006,12 @@ function FeedContent() {
         >
           {postError && <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>}
           <div className="flex gap-4">
-             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/[0.06]">
-                <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
-             </div>
-             <div className="flex-1">
-               <EditDrinkTypeDropdown value={postDrinkType} onChange={setPostDrinkType} disabled={postBusy} />
-             </div>
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/[0.06]">
+              <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
+            </div>
+            <div className="flex-1">
+              <EditDrinkTypeDropdown value={postDrinkType} onChange={setPostDrinkType} disabled={postBusy} />
+            </div>
           </div>
           <div className="mt-4">
             <label className="mb-2 block text-sm font-medium text-neutral-500 dark:text-white/40">Caption</label>
@@ -1062,7 +1043,6 @@ function FeedContent() {
         </OverlayPage>
       )}
 
-      {/* Quest Complete Modal */}
       {questModal && (
         <QuestCompleteModal
           questTitle={questModal.questTitle}
