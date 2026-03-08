@@ -91,11 +91,6 @@ type DrinkOfTheDay = {
   instructions: string | null
 }
 
-
-
-
-
-
 /* ── Constants ─────────────────────────────────────────────────── */
 
 const DRINK_EMOJI: Record<string, string> = {
@@ -107,8 +102,6 @@ const DRINK_EMOJI: Record<string, string> = {
   Spirit: "🥃",
   Other: "🍹",
 }
-
-
 
 /* ── Section Header ────────────────────────────────────────────── */
 
@@ -222,8 +215,6 @@ function PersonCard({
   )
 }
 
-
-
 /* ── Collection Card ───────────────────────────────────────────── */
 
 function CollectionCard({ collection }: { collection: DrinkCollection }) {
@@ -298,19 +289,11 @@ export default function DiscoverPage() {
   const [searchResults, setSearchResults] = React.useState<UiPerson[]>([])
   const [outgoingPendingIds, setOutgoingPendingIds] = React.useState<Record<string, true>>({})
 
-  // Trending
+  // Content
   const [trending, setTrending] = React.useState<TrendingDrink[]>([])
-
-  // Suggested people (friends of friends)
   const [suggested, setSuggested] = React.useState<SuggestedPerson[]>([])
-
-  // Drink of the day
   const [drinkOfTheDay, setDrinkOfTheDay] = React.useState<DrinkOfTheDay | null>(null)
-
-  // Collections
   const [collections, setCollections] = React.useState<DrinkCollection[]>([])
-
-  // Recommendations
   const [recommendations, setRecommendations] = React.useState<RecommendedDrink[]>([])
 
   // Toast
@@ -337,55 +320,32 @@ export default function DiscoverPage() {
       setError(null)
 
       try {
-        const { data: userRes, error: userErr } = await supabase.auth.getUser()
-        if (userErr) throw userErr
-        if (!userRes.user) {
+        // Single auth call — getSession gives us both user and token
+        const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
+        if (sessErr) throw sessErr
+        if (!sessRes.session?.user) {
           router.replace("/login?redirectTo=%2Fdiscover")
           return
         }
 
-        const userId = userRes.user.id
+        const userId = sessRes.session.user.id
+        const token = sessRes.session.access_token
         setMeId(userId)
 
-        // Get current friend IDs
-        const { data: friendships } = await supabase
-          .from("friendships")
-          .select("requester_id, addressee_id")
-          .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
-          .eq("status", "accepted")
+        // Single API call — suggested people now computed server-side
+        const res = await fetch("/api/discover", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error("Failed to load discover data")
+        const data = await res.json()
 
-        const myFriendIds = new Set(
-          (friendships ?? []).map((f: any) =>
-            f.requester_id === userId ? f.addressee_id : f.requester_id
-          )
-        )
-        setFriendIds(myFriendIds)
-
-        // Load discover data & suggested in parallel
-        const { data: sessRes, error: sessErr } = await supabase.auth.getSession()
-        if (sessErr) throw sessErr
-        const token = sessRes.session?.access_token
-
-        await Promise.all([
-          // Discover API: trending, drinkOfTheDay, collections, recommendations
-          (async () => {
-            if (!token) return
-            try {
-              const res = await fetch("/api/discover", {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              if (!res.ok) throw new Error("Discover API failed")
-              const data = await res.json()
-              setTrending(data.trending ?? [])
-              setDrinkOfTheDay(data.drinkOfTheDay ?? null)
-              setCollections(data.collections ?? [])
-              setRecommendations(data.recommendations ?? [])
-            } catch (e) {
-              console.error("Failed to load discover data:", e)
-            }
-          })(),
-          loadSuggested(userId, myFriendIds),
-        ])
+        setTrending(data.trending ?? [])
+        setDrinkOfTheDay(data.drinkOfTheDay ?? null)
+        setCollections(data.collections ?? [])
+        setRecommendations(data.recommendations ?? [])
+        setSuggested(data.suggested ?? [])
+        // Seed friendIds from API response — no separate client-side friendships query
+        setFriendIds(new Set(data.friendIds ?? []))
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
       } finally {
@@ -395,95 +355,6 @@ export default function DiscoverPage() {
 
     load()
   }, [supabase, router])
-
-  /* ── Suggested people (friends of friends) ────────────────────── */
-
-  async function loadSuggested(userId: string, myFriendIds: Set<string>) {
-    try {
-      if (myFriendIds.size === 0) {
-        setSuggested([])
-        return
-      }
-
-      const friendIdArray = Array.from(myFriendIds)
-
-      const { data: fofRows } = await supabase
-        .from("friendships")
-        .select("requester_id, addressee_id")
-        .eq("status", "accepted")
-        .or(
-          friendIdArray.map(id => `requester_id.eq.${id}`).join(",") +
-          "," +
-          friendIdArray.map(id => `addressee_id.eq.${id}`).join(",")
-        )
-        .limit(500)
-
-      const mutualCounts: Record<string, number> = {}
-
-      for (const row of fofRows ?? []) {
-        const personA = row.requester_id
-        const personB = row.addressee_id
-
-        if (myFriendIds.has(personA) && personB !== userId && !myFriendIds.has(personB)) {
-          mutualCounts[personB] = (mutualCounts[personB] || 0) + 1
-        }
-        if (myFriendIds.has(personB) && personA !== userId && !myFriendIds.has(personA)) {
-          mutualCounts[personA] = (mutualCounts[personA] || 0) + 1
-        }
-      }
-
-      const topSuggestions = Object.entries(mutualCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-
-      if (topSuggestions.length === 0) {
-        setSuggested([])
-        return
-      }
-
-      const suggestedIds = topSuggestions.map(([id]) => id)
-      const mutualMap = new Map(topSuggestions)
-
-      const { data: profiles } = await supabase
-        .from("profile_public_stats")
-        .select("id, username, display_name, avatar_path, friend_count, drink_count")
-        .in("id", suggestedIds)
-
-      const avatarUrls = await Promise.all(
-        (profiles ?? []).map((p: any) =>
-          p.avatar_path
-            ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-            : Promise.resolve(null)
-        )
-      )
-
-      const { data: pendingOut } = await supabase
-        .from("friendships")
-        .select("addressee_id")
-        .eq("requester_id", userId)
-        .eq("status", "pending")
-        .in("addressee_id", suggestedIds)
-
-      const pendingOutIds = new Set((pendingOut ?? []).map((r: any) => r.addressee_id))
-
-      const mapped: SuggestedPerson[] = (profiles ?? []).map((p: any, i: number) => ({
-        id: p.id,
-        username: p.username,
-        displayName: p.display_name,
-        avatarUrl: avatarUrls[i],
-        friendCount: p.friend_count ?? 0,
-        drinkCount: p.drink_count ?? 0,
-        cheersCount: 0,
-        mutualCount: mutualMap.get(p.id) ?? 0,
-        outgoingPending: pendingOutIds.has(p.id),
-      }))
-
-      mapped.sort((a, b) => b.mutualCount - a.mutualCount)
-      setSuggested(mapped)
-    } catch (e) {
-      console.error("Failed to load suggestions:", e)
-    }
-  }
 
   /* ── Search ───────────────────────────────────────────────────── */
 
@@ -517,7 +388,6 @@ export default function DiscoverPage() {
 
         const base = (json?.items ?? []) as SearchProfileRow[]
         const filtered = base.filter((p) => p.id !== meId)
-
         const filteredIds = filtered.map((p) => p.id)
 
         const [avatarUrls, cheersCountMap] = await Promise.all([
@@ -528,10 +398,8 @@ export default function DiscoverPage() {
                 : Promise.resolve(null)
             )
           ),
-          // Batch fetch cheers received for each user
           (async () => {
             if (filteredIds.length === 0) return new Map<string, number>()
-            // Get all drink log IDs grouped by user
             const { data: logRows } = await supabase
               .from("drink_logs")
               .select("id, user_id")
@@ -548,7 +416,6 @@ export default function DiscoverPage() {
               .from("drink_cheers")
               .select("drink_log_id")
               .in("drink_log_id", allLogIds)
-            // Count cheers per user
             const countMap = new Map<string, number>()
             for (const c of (cheersRows ?? []) as { drink_log_id: string }[]) {
               for (const [uid, logs] of logsByUser) {
@@ -655,8 +522,6 @@ export default function DiscoverPage() {
     )
   }
 
-
-
   /* ── Skeleton ─────────────────────────────────────────────────── */
 
   if (loading) {
@@ -753,10 +618,9 @@ export default function DiscoverPage() {
     )
   }
 
-  /* ── Whether search is active ─────────────────────────────────── */
-  const isSearchActive = query.trim().length > 0
-
   /* ── Render ───────────────────────────────────────────────────── */
+
+  const isSearchActive = query.trim().length > 0
 
   return (
     <div className="container max-w-md mx-auto px-0 py-4 pb-24">
@@ -792,7 +656,7 @@ export default function DiscoverPage() {
         </div>
       </div>
 
-      {/* Search Results (replaces rest of page when active) */}
+      {/* Search Results */}
       {isSearchActive ? (
         <div className="space-y-3">
           <SectionHeader label="Search results" />
@@ -927,7 +791,7 @@ export default function DiscoverPage() {
             </div>
           )}
 
-          {/* ── Empty state if nothing to show ────────────────── */}
+          {/* ── Empty state ───────────────────────────────────── */}
           {trending.length === 0 && suggested.length === 0 && (
             <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-neutral-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.04]">
