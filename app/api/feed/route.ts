@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { getCachedSignedUrl, getBatchSignedUrls } from "@/lib/signed-url-cache"
+import { getBatchSignedUrls } from "@/lib/signed-url-cache"
 
 const DEFAULT_LIMIT = 25
 
@@ -21,9 +21,8 @@ export async function GET(req: Request) {
       auth: { persistSession: false },
     })
 
-    // Parse pagination params
     const reqUrl = new URL(req.url)
-    const cursor = reqUrl.searchParams.get("cursor") // ISO timestamp of last item
+    const cursor = reqUrl.searchParams.get("cursor")
     const limit = Math.min(Number(reqUrl.searchParams.get("limit")) || DEFAULT_LIMIT, 50)
 
     const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token)
@@ -48,7 +47,6 @@ export async function GET(req: Request) {
     const feedUserIds = Array.from(new Set([user.id, ...friendIds]))
 
     // Get logs with cursor-based pagination
-    // Fetch limit + 1 to know if there's a next page
     let query = supabaseAdmin
       .from("drink_logs")
       .select("id,user_id,photo_path,drink_type,drink_id,caption,created_at")
@@ -61,7 +59,6 @@ export async function GET(req: Request) {
     }
 
     const { data: logs, error: logsErr } = await query
-
     if (logsErr) throw logsErr
 
     const allRows = (logs ?? []) as Array<{
@@ -74,17 +71,12 @@ export async function GET(req: Request) {
       created_at: string
     }>
 
-    // Determine if there's a next page
     const hasMore = allRows.length > limit
     const rows = hasMore ? allRows.slice(0, limit) : allRows
     const nextCursor = hasMore ? rows[rows.length - 1].created_at : null
 
-    if (rows.length === 0) {
-      return NextResponse.json({ items: [], nextCursor: null }, { status: 200 })
-    }
-
-    // Fetch profiles and drink names in parallel
-    const userIdsInFeed = Array.from(new Set(rows.map((r) => r.user_id)))
+    // Always fetch profiles (needed for viewerAvatarUrl even if feed is empty)
+    const userIdsInFeed = Array.from(new Set([user.id, ...rows.map((r) => r.user_id)]))
     const drinkIds = [...new Set(rows.map((r) => r.drink_id).filter(Boolean))] as string[]
     const postIds = rows.map((r) => r.id)
 
@@ -94,13 +86,11 @@ export async function GET(req: Request) {
         .select("id,username,avatar_path")
         .in("id", userIdsInFeed),
       drinkIds.length > 0
-        ? supabaseAdmin
-            .from("drinks")
-            .select("id,name")
-            .in("id", drinkIds)
+        ? supabaseAdmin.from("drinks").select("id,name").in("id", drinkIds)
         : Promise.resolve({ data: [], error: null }),
-      // Cheers: counts + whether viewer cheered each post
-      supabaseAdmin.rpc("get_cheers_state", { post_ids: postIds, viewer_id: user.id }),
+      postIds.length > 0
+        ? supabaseAdmin.rpc("get_cheers_state", { post_ids: postIds, viewer_id: user.id })
+        : Promise.resolve({ data: [], error: null }),
     ])
 
     if (profsRes.error) throw profsRes.error
@@ -114,7 +104,6 @@ export async function GET(req: Request) {
       profs.map((p: { id: string; username: string; avatar_path: string | null }) => [p.id, p])
     )
 
-    // Build cheers lookup: postId -> { count, cheered }
     const cheersById = new Map<string, { count: number; cheered: boolean }>()
     for (const r of (cheersRes.data ?? []) as any[]) {
       cheersById.set(r.drink_log_id, {
@@ -123,13 +112,17 @@ export async function GET(req: Request) {
       })
     }
 
-    // Batch fetch all signed URLs in parallel
+    // Batch all signed URLs in one shot
     const photoPaths = rows.map((r) => r.photo_path)
-    const avatarPaths = [...new Set((profs ?? []).map((p: any) => p.avatar_path).filter(Boolean))]
+    const avatarPaths = [...new Set(profs.map((p: any) => p.avatar_path).filter(Boolean))] as string[]
 
     const [photoUrls, avatarUrls] = await Promise.all([
-      getBatchSignedUrls(supabaseAdmin, "drink-photos", photoPaths, 60 * 60),
-      getBatchSignedUrls(supabaseAdmin, "profile-photos", avatarPaths, 60 * 60),
+      photoPaths.length > 0
+        ? getBatchSignedUrls(supabaseAdmin, "drink-photos", photoPaths, 60 * 60)
+        : Promise.resolve([]),
+      avatarPaths.length > 0
+        ? getBatchSignedUrls(supabaseAdmin, "profile-photos", avatarPaths, 60 * 60)
+        : Promise.resolve([]),
     ])
 
     const photoUrlMap = new Map<string, string | null>()
@@ -142,10 +135,18 @@ export async function GET(req: Request) {
       avatarUrlMap.set(avatarPaths[i], avatarUrls[i])
     }
 
-    // Build response items
+    // Viewer's avatar — resolved from the same batch, no extra round-trip
+    const viewerProfile = profileById.get(user.id)
+    const viewerAvatarUrl = viewerProfile?.avatar_path
+      ? (avatarUrlMap.get(viewerProfile.avatar_path) ?? null)
+      : null
+
+    if (rows.length === 0) {
+      return NextResponse.json({ items: [], nextCursor: null, viewerAvatarUrl }, { status: 200 })
+    }
+
     const items = rows.map((row) => {
       const prof = profileById.get(row.user_id)
-      const username = prof?.username ?? "user"
       const avatarPath = prof?.avatar_path ?? null
       const cheers = cheersById.get(row.id)
 
@@ -157,7 +158,7 @@ export async function GET(req: Request) {
         drink_name: row.drink_id ? drinkNameById.get(row.drink_id) ?? null : null,
         caption: row.caption,
         created_at: row.created_at,
-        username,
+        username: prof?.username ?? "user",
         avatarUrl: avatarPath ? avatarUrlMap.get(avatarPath) ?? null : null,
         photoUrl: photoUrlMap.get(row.photo_path) ?? null,
         cheersCount: cheers?.count ?? 0,
@@ -165,7 +166,7 @@ export async function GET(req: Request) {
       }
     })
 
-    return NextResponse.json({ items, nextCursor }, { status: 200 })
+    return NextResponse.json({ items, nextCursor, viewerAvatarUrl }, { status: 200 })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Could not load feed." }, { status: 500 })
   }
