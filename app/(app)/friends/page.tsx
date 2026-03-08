@@ -357,48 +357,66 @@ export default function FriendsPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-md mx-auto px-0 py-4 space-y-5">
-        <div className="flex items-center justify-end">
+      <div className="container max-w-md mx-auto px-0 py-4 pb-24">
+
+        {/* Sort button — matches mb-6 of real header */}
+        <div className="mb-6 flex items-center justify-end">
           <div className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] dark:bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-neutral-500 dark:text-white/50">
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortLabel(sort)}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+        {/* Search bar — matches mb-6 of real search */}
+        <div className="mb-6 flex items-center gap-3 rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl px-4 py-3">
           <Search className="h-4 w-4 text-neutral-400 dark:text-white/25" />
           <span className="text-sm text-neutral-300 dark:text-white/20">Search friends…</span>
         </div>
 
+        {/* Pending section */}
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Pending requests</div>
+          {/* One pending card — p-4, avatar h-11 w-11, 3 content lines, two h-9 w-9 action buttons */}
           <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-              <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="h-3.5 w-32 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                 <div className="h-3 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                <div className="flex gap-4">
+                  <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                </div>
               </div>
-              <div className="h-9 w-20 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              {/* Two separate accept/reject buttons matching real h-9 w-9 gap-1.5 */}
+              <div className="shrink-0 flex items-center gap-1.5">
+                <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                <div className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3 pb-24">
+        {/* Friends section — mt-6 matches real mt-6 between sections */}
+        <div className="mt-6 space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Your friends</div>
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
-                <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                {/* space-y-0.5 matches PersonCard inner content spacing */}
+                <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="h-3.5 w-36 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                   <div className="h-3 w-24 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                  <div className="flex gap-4 pt-1">
-                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
-                    <div className="h-3 w-16 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                  {/* 3 stat pills: friends · drinks · cheers */}
+                  <div className="flex gap-4">
+                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-14 rounded-full bg-neutral-100 dark:bg-white/[0.06] animate-pulse" />
                   </div>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
+                {/* Remove button: h-8 w-8 matches real X button */}
+                <div className="h-8 w-8 shrink-0 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
               </div>
             </div>
           ))}
