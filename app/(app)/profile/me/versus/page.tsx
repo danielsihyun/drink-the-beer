@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ArrowLeft, Calendar, X, Swords, Clock, Trophy, ChevronRight, UserPlus, Search } from "lucide-react"
+import { ArrowLeft, Calendar, X, Swords, Clock, Trophy, UserPlus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -305,7 +305,6 @@ function FriendPickerModal({ open, onClose, friends, onSelect }: { open: boolean
             <X className="h-5 w-5 text-neutral-400" />
           </button>
         </div>
-
         <div className="px-5 pb-3 shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -315,7 +314,6 @@ function FriendPickerModal({ open, onClose, friends, onSelect }: { open: boolean
             />
           </div>
         </div>
-
         <div className="overflow-y-auto flex-1 px-2 pb-4">
           {filtered.length === 0 ? (
             <p className="text-center text-sm text-neutral-400 dark:text-white/30 py-8">No friends found</p>
@@ -416,7 +414,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={(e) => { if (e.target === backdropRef.current) onClose() }}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative w-full max-w-md mx-4 mb-4 sm:mb-0 max-h-[80vh] rounded-[1.5rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
             <Swords className="h-5 w-5 text-neutral-600 dark:text-white/60" />
@@ -425,7 +422,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
           <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-neutral-100 dark:hover:bg-white/[0.08] transition-colors"><X className="h-5 w-5 text-neutral-400" /></button>
         </div>
 
-        {/* Tabs */}
         <div className="flex mx-5 mb-3 rounded-xl bg-neutral-100 dark:bg-white/[0.06] p-1 shrink-0">
           {tabs.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
@@ -446,7 +442,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
           ))}
         </div>
 
-        {/* Content */}
         <div className="overflow-y-auto px-5 pb-5 flex-1">
           {loading ? (
             <div className="space-y-3">
@@ -464,7 +459,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
             </div>
           ) : (
             <>
-              {/* Active tab */}
               {tab === "active" && (
                 active.length > 0 ? (
                   <div className="space-y-2.5">{active.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
@@ -477,7 +471,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                 )
               )}
 
-              {/* Requests tab */}
               {tab === "requests" && (
                 pendingIncoming.length === 0 && pendingOutgoing.length === 0 ? (
                   <div className="text-center py-10">
@@ -503,11 +496,9 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                 )
               )}
 
-              {/* Completed tab */}
               {tab === "completed" && (
                 completed.length > 0 ? (
                   <div>
-                    {/* W-L Record */}
                     <div className="flex items-center justify-center gap-3 mb-4 py-3 rounded-2xl bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200/60 dark:border-white/[0.06]">
                       <div className="text-center px-4">
                         <div className="text-[20px] font-bold text-green-600 dark:text-green-400 tabular-nums">{wins}</div>
@@ -528,8 +519,6 @@ function MyDuelsSheet({ open, onClose, duels, userId, loading, onAccept, onDecli
                         </>
                       )}
                     </div>
-
-                    {/* Duel log */}
                     <div className="space-y-2.5">{completed.map((d) => <DuelCard key={d.id} duel={d} userId={userId} />)}</div>
                   </div>
                 ) : (
@@ -700,6 +689,9 @@ export default function MyVersusPage() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [animated, setAnimated] = React.useState(false)
 
+  // Token stored once — reused for all subsequent fetches
+  const tokenRef = React.useRef<string | null>(null)
+
   // Data
   const [myProfile, setMyProfile] = React.useState<any>(null)
   const [myLogs, setMyLogs] = React.useState<any[]>([])
@@ -725,92 +717,64 @@ export default function MyVersusPage() {
   // Duels
   const [duelsOpen, setDuelsOpen] = React.useState(false)
   const [duels, setDuels] = React.useState<Duel[]>([])
-  const [duelsLoading, setDuelsLoading] = React.useState(true)
+  const [duelsLoading, setDuelsLoading] = React.useState(false)
   const [accepting, setAccepting] = React.useState<string | null>(null)
   const pendingCount = duels.filter((d) =>
-    // Incoming challenges waiting for my response
     (d.status === "pending" && !d.amChallenger) ||
-    // Duels I sent that got accepted (unseen)
     (d.status === "active" && d.amChallenger && d.challenger_seen_active === false)
   ).length
 
-  // --- Load my profile + friends ---
+  // --- Load all three in parallel ---
   React.useEffect(() => {
     async function load() {
-      setError(null); setLoading(true)
+      setError(null)
+      setLoading(true)
       try {
         const { data: sessRes } = await supabase.auth.getSession()
         const token = sessRes.session?.access_token
         const uid = sessRes.session?.user.id
         if (!token || !uid) { router.replace("/login"); return }
+
         setUserId(uid)
+        tokenRef.current = token
 
-        const res = await fetch("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
-        if (!res.ok) throw new Error("Failed to load profile")
-        const json = await res.json()
-        setMyProfile(json.profile); setMyRawJson(json); setMyLogs(json.logs ?? []); setMyAchievements(json.userAchievements ?? [])
+        const headers = { Authorization: `Bearer ${token}` }
 
-        // Load friends list - try API first, fallback to Supabase direct
-        let friendsList: Friend[] = []
-        try {
-          const friendsRes = await fetch("/api/friends", { headers: { Authorization: `Bearer ${token}` } })
-          console.log("[Versus] /api/friends status:", friendsRes.status)
-          if (friendsRes.ok) {
-            const friendsJson = await friendsRes.json()
-            console.log("[Versus] /api/friends response keys:", Object.keys(friendsJson))
-            const raw = friendsJson.friends ?? friendsJson.data ?? friendsJson ?? []
-            const arr = Array.isArray(raw) ? raw : []
-            friendsList = arr.map((f: any) => ({
-              id: f.id, username: f.username, displayName: f.displayName ?? f.display_name ?? f.username, avatarUrl: f.avatarUrl ?? f.avatar_url ?? null,
+        // All three fetches in parallel — no sequential waiting
+        const [profileRes, friendsRes, duelsRes] = await Promise.all([
+          fetch("/api/profile/me", { headers }),
+          fetch("/api/friends", { headers }),
+          fetch("/api/duels", { headers }),
+        ])
+
+        const [profileJson, friendsJson, duelsJson] = await Promise.all([
+          profileRes.json().catch(() => ({})),
+          friendsRes.json().catch(() => ({})),
+          duelsRes.json().catch(() => ({})),
+        ])
+
+        if (!profileRes.ok) throw new Error(profileJson?.error ?? "Failed to load profile")
+
+        setMyProfile(profileJson.profile)
+        setMyRawJson(profileJson)
+        setMyLogs(profileJson.logs ?? [])
+        setMyAchievements(profileJson.userAchievements ?? [])
+
+        if (friendsRes.ok) {
+          const raw = friendsJson.friends ?? []
+          setFriends(
+            (Array.isArray(raw) ? raw : []).map((f: any) => ({
+              id: f.id,
+              username: f.username,
+              displayName: f.displayName ?? f.display_name ?? f.username,
+              avatarUrl: f.avatarUrl ?? f.avatar_url ?? null,
             }))
-            console.log("[Versus] friends from API:", friendsList.length)
-          }
-        } catch (e) {
-          console.log("[Versus] /api/friends failed:", e)
+          )
         }
 
-        // Fallback: query Supabase directly with multiple table name attempts
-        if (friendsList.length === 0) {
-          console.log("[Versus] Trying Supabase direct friends query...")
-          try {
-            const { data, error: qErr } = await supabase
-              .from("friendships")
-              .select("*")
-              .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)
-              .eq("status", "accepted")
-              .limit(50)
-
-            console.log(`[Versus] friendships query:`, { count: data?.length, error: qErr?.message })
-
-            if (data && data.length > 0) {
-              const friendIds = data.map((f: any) => f.requester_id === uid ? f.addressee_id : f.requester_id)
-              const { data: profiles } = await supabase
-                .from("profiles")
-                .select("id, username, display_name, avatar_path")
-                .in("id", friendIds)
-
-              if (profiles) {
-                for (const p of profiles) {
-                  let avatarUrl = null
-                  if (p.avatar_path) {
-                    const { data: urlData } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 3600)
-                    avatarUrl = urlData?.signedUrl ?? null
-                  }
-                  friendsList.push({ id: p.id, username: p.username, displayName: p.display_name || p.username, avatarUrl })
-                }
-              }
-              console.log(`[Versus] Got ${friendsList.length} friends from friendships`)
-            }
-          } catch (e) {
-            console.error("[Versus] friendships query failed:", e)
-          }
+        if (duelsRes.ok) {
+          setDuels(duelsJson.duels ?? [])
         }
-
-        setFriends(friendsList)
-        console.log("[Versus] Final friends count:", friendsList.length)
-
-        // Load duels
-        await loadDuels(uid)
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
       } finally {
@@ -820,18 +784,22 @@ export default function MyVersusPage() {
     load()
   }, [router, supabase])
 
-  // --- Load opponent data ---
+  // --- Load opponent — uses stored token, no getSession() call ---
   async function loadOpponent(friend: Friend) {
-    setOpponentLoading(true); setAnimated(false)
+    setOpponentLoading(true)
+    setAnimated(false)
     try {
-      const { data: sessRes } = await supabase.auth.getSession()
-      const token = sessRes.session?.access_token
+      const token = tokenRef.current
       if (!token) return
-
-      const res = await fetch(`/api/profile/${encodeURIComponent(friend.username)}`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`/api/profile/${encodeURIComponent(friend.username)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       if (!res.ok) throw new Error("Failed to load opponent")
       const json = await res.json()
-      setTheirProfile(json.profile); setTheirRawJson(json); setTheirLogs(json.logs ?? []); setTheirAchievements(json.userAchievements ?? [])
+      setTheirProfile(json.profile)
+      setTheirRawJson(json)
+      setTheirLogs(json.logs ?? [])
+      setTheirAchievements(json.userAchievements ?? [])
     } catch (e: any) {
       setError(e?.message ?? "Failed to load opponent.")
     } finally {
@@ -844,44 +812,21 @@ export default function MyVersusPage() {
     loadOpponent(f)
   }
 
-  // --- Load duels ---
-  async function loadDuels(uid: string) {
+  // --- Reload duels — calls /api/duels, no client-side waterfalls ---
+  const loadDuels = React.useCallback(async () => {
+    const token = tokenRef.current
+    if (!token) return
     setDuelsLoading(true)
     try {
-      // Complete any expired duels and recompute active scores
-      await supabase.rpc("complete_expired_duels")
-      await supabase.rpc("update_user_duel_scores", { p_user_id: uid })
-
-      const { data, error: err } = await supabase.from("duels").select("*").or(`challenger_id.eq.${uid},challenged_id.eq.${uid}`).order("created_at", { ascending: false })
-      if (err) throw err
-      const raw = data ?? []
-
-      const oppIds = new Set<string>()
-      raw.forEach((d) => oppIds.add(d.challenger_id === uid ? d.challenged_id : d.challenger_id))
-
-      const profileMap: Record<string, Friend> = {}
-      if (oppIds.size > 0) {
-        const { data: profiles } = await supabase.from("profiles").select("id, username, display_name, avatar_path").in("id", Array.from(oppIds))
-        if (profiles) {
-          for (const p of profiles) {
-            let avatarUrl = null
-            if (p.avatar_path) {
-              const { data: urlData } = await supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 3600)
-              avatarUrl = urlData?.signedUrl ?? null
-            }
-            profileMap[p.id] = { id: p.id, username: p.username, displayName: p.display_name || p.username, avatarUrl }
-          }
-        }
-      }
-
-      setDuels(raw.map((d) => {
-        const am = d.challenger_id === uid
-        const oppId = am ? d.challenged_id : d.challenger_id
-        return { ...d, opponent: profileMap[oppId] ?? { id: oppId, username: "unknown", displayName: "Unknown", avatarUrl: null }, amChallenger: am }
-      }))
-    } catch (e) { console.error("Failed to load duels:", e) }
-    finally { setDuelsLoading(false) }
-  }
+      const res = await fetch("/api/duels", { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) setDuels(json.duels ?? [])
+    } catch (e) {
+      console.error("Failed to reload duels:", e)
+    } finally {
+      setDuelsLoading(false)
+    }
+  }, [])
 
   async function handleAccept(duelId: string) {
     if (!userId) return
@@ -892,15 +837,14 @@ export default function MyVersusPage() {
       const now = new Date()
       const ms = duel.duration === "3D" ? 3 * 86400000 : duel.duration === "1W" ? 7 * 86400000 : 86400000
       await supabase.from("duels").update({ status: "active", start_date: now.toISOString(), end_date: new Date(now.getTime() + ms).toISOString() }).eq("id", duelId)
-      await loadDuels(userId)
+      await loadDuels()
     } catch (e) { console.error(e) }
     finally { setAccepting(null) }
   }
 
   async function handleDecline(duelId: string) {
-    if (!userId) return
     await supabase.from("duels").update({ status: "declined" }).eq("id", duelId)
-    await loadDuels(userId)
+    await loadDuels()
   }
 
   async function handleSendChallenge(category: string, duration: string) {
@@ -909,9 +853,10 @@ export default function MyVersusPage() {
     try {
       const { error: err } = await supabase.from("duels").insert({ challenger_id: myStats.id, challenged_id: theirStats.id, category, duration, status: "pending" })
       if (err) throw err
-      setChallengeOpen(false); setChallengeSent(true)
+      setChallengeOpen(false)
+      setChallengeSent(true)
       setTimeout(() => setChallengeSent(false), 3000)
-      if (userId) await loadDuels(userId)
+      await loadDuels()
     } catch (e: any) { console.error(e) }
     finally { setSending(false) }
   }
@@ -975,7 +920,6 @@ export default function MyVersusPage() {
         <div className="flex items-center gap-2">
           <button type="button" onClick={async () => {
               setDuelsOpen(true)
-              // Mark unseen accepted duels as seen
               if (userId) {
                 await supabase.from("duels").update({ challenger_seen_active: true }).eq("challenger_id", userId).eq("status", "active").eq("challenger_seen_active", false)
                 setDuels((prev) => prev.map((d) =>
@@ -1008,7 +952,6 @@ export default function MyVersusPage() {
         <LoadingSkeleton />
       ) : (
         <div className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
-          {/* Header: avatars + score */}
           <div className="px-5 pt-6 pb-4">
             <div className="flex items-center justify-between">
               {/* Me */}
@@ -1048,7 +991,7 @@ export default function MyVersusPage() {
                 )}
               </div>
 
-              {/* Opponent (tappable to switch) */}
+              {/* Opponent */}
               <div className="flex flex-col items-center flex-1">
                 {hasOpponent ? (
                   <button type="button" onClick={() => setPickerOpen(true)} className="transition-all hover:scale-105 active:scale-95">
@@ -1085,7 +1028,6 @@ export default function MyVersusPage() {
 
           <div className="mx-5 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
 
-          {/* Stat rows */}
           <div className="px-5 py-5 flex flex-col gap-5">
             {ROWS.map((row, i) => (
               <StatRow key={row.key} label={row.label}
