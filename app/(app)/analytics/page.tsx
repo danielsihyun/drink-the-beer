@@ -138,7 +138,6 @@ const STACKED_COLORS: Record<string, string> = {
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-// Card IDs for reordering
 type CardId = "drinkChart" | "cheersStats" | "activityGrid" | "dayOfWeek" | "breakdown" | "typeTrend"
 const DEFAULT_CARD_ORDER: CardId[] = ["drinkChart", "cheersStats", "activityGrid", "dayOfWeek", "breakdown", "typeTrend"]
 
@@ -180,14 +179,7 @@ function transformDrinkLogs(logs: DrinkLogRow[]): DrinkEntry[] {
   }
 
   return Object.entries(byDate)
-    .map(([date, data]) => ({
-      date,
-      count: data.count,
-      types: data.types,
-      hours: data.hours,
-      drinkIds: data.drinkIds,
-      captions: data.captions,
-    }))
+    .map(([date, data]) => ({ date, count: data.count, types: data.types, hours: data.hours, drinkIds: data.drinkIds, captions: data.captions }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
@@ -197,55 +189,25 @@ function getTimeRangeLabel(value: TimeRange): string {
 
 function formatTooltipDate(dateStr: string): string {
   const date = parseLocalDateString(dateStr)
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
 }
 
 function formatAxisDate(dateStr: string): string {
   const date = parseLocalDateString(dateStr)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-function formatShortDate(dateStr: string): string {
-  const date = parseLocalDateString(dateStr)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
 function getDateRangeForTimeRange(timeRange: TimeRange, now: Date): { start: Date; end: Date } {
   let startDate: Date
 
   switch (timeRange) {
-    case "1W":
-      startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
-      break
-    case "1M":
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-      break
-    case "3M":
-      startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-      break
-    case "6M":
-      startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
-      break
-    case "1Y":
-      startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-      break
-    case "YTD":
-      startDate = new Date(now.getFullYear(), 0, 1)
-      break
-    default:
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+    case "1W": startDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000); break
+    case "1M": startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); break
+    case "3M": startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()); break
+    case "6M": startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()); break
+    case "1Y": startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()); break
+    case "YTD": startDate = new Date(now.getFullYear(), 0, 1); break
+    default: startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
   }
   startDate.setHours(0, 0, 0, 0)
 
@@ -270,13 +232,7 @@ function useDragContext() {
   return context
 }
 
-function DraggableCard({
-  id,
-  children,
-}: {
-  id: CardId
-  children: React.ReactNode
-}) {
+function DraggableCard({ id, children }: { id: CardId; children: React.ReactNode }) {
   const { draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions } = useDragContext()
   const isDragging = draggedId === id
   const ref = React.useRef<HTMLDivElement>(null)
@@ -284,27 +240,19 @@ function DraggableCard({
   React.useLayoutEffect(() => {
     const el = ref.current
     const prevRect = positionMapRef.current.get(id)
-    
     if (el && prevRect) {
       const newRect = el.getBoundingClientRect()
       const deltaY = prevRect.top - newRect.top
-      
       if (Math.abs(deltaY) > 1) {
         el.style.transform = `translateY(${deltaY}px)`
-        el.style.transition = 'none'
+        el.style.transition = "none"
         el.offsetHeight
-        el.style.transition = 'transform 200ms ease-out'
-        el.style.transform = ''
+        el.style.transition = "transform 200ms ease-out"
+        el.style.transform = ""
       }
-      
       positionMapRef.current.delete(id)
     }
   })
-
-  const handleDragOverWithCapture = (e: React.DragEvent) => {
-    capturePositions()
-    handleDragOver(id, e)
-  }
 
   return (
     <div
@@ -313,16 +261,10 @@ function DraggableCard({
       draggable
       onDragStart={(e) => handleDragStart(id, e)}
       onDragEnd={handleDragEnd}
-      onDragOver={handleDragOverWithCapture}
-      className={cn(
-        "relative",
-        isDragging && "opacity-50 scale-[0.98]"
-      )}
+      onDragOver={(e) => { capturePositions(); handleDragOver(id, e) }}
+      className={cn("relative", isDragging && "opacity-50 scale-[0.98]")}
     >
-      <div
-        className="absolute top-3 right-3 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="absolute top-3 right-3 p-1.5 rounded-md cursor-grab active:cursor-grabbing hover:bg-foreground/10 transition-colors touch-none" onMouseDown={(e) => e.stopPropagation()}>
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </div>
       {children}
@@ -330,148 +272,68 @@ function DraggableCard({
   )
 }
 
-function TimeRangeSelector({
-  value,
-  onChange,
-}: {
-  value: TimeRange
-  onChange: (value: TimeRange) => void
-}) {
+function TimeRangeSelector({ value, onChange }: { value: TimeRange; onChange: (value: TimeRange) => void }) {
   const [showMenu, setShowMenu] = React.useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false)
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowMenu(false)
     }
-
-    if (showMenu) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    if (showMenu) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showMenu])
 
   return (
     <div ref={menuRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setShowMenu(!showMenu)}
-        className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium"
-      >
+      <button type="button" onClick={() => setShowMenu(!showMenu)} className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium">
         <Calendar className="h-4 w-4" />
         {getTimeRangeLabel(value)}
       </button>
-
-      {showMenu ? (
+      {showMenu && (
         <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-xl border bg-background shadow-lg">
           {timeRangeOptions.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => {
-                onChange(opt.key)
-                setShowMenu(false)
-              }}
-              className={cn(
-                "w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5",
-                value === opt.key ? "font-semibold" : ""
-              )}
-            >
+            <button key={opt.key} type="button" onClick={() => { onChange(opt.key); setShowMenu(false) }}
+              className={cn("w-full px-4 py-3 text-left text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-foreground/5", value === opt.key ? "font-semibold" : "")}>
               {opt.label}
             </button>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
 
-function KpiCards({
-  data,
-}: {
-  data: {
-    totalDrinks: number
-    avgPerDay: number
-    mostInADay: number
-    mostCommon: string
-    longestStreak: number
-    daysSinceLastDrink: number
-  }
-}) {
+function KpiCards({ data }: { data: { totalDrinks: number; avgPerDay: number; mostInADay: number; mostCommon: string; longestStreak: number; daysSinceLastDrink: number } }) {
   const mostCommonRef = React.useRef<HTMLParagraphElement>(null)
   const [fontSize, setFontSize] = React.useState<number | null>(null)
 
-  React.useLayoutEffect(() => {
-    setFontSize(null)
-  }, [data.mostCommon])
+  React.useLayoutEffect(() => { setFontSize(null) }, [data.mostCommon])
 
   React.useEffect(() => {
     if (mostCommonRef.current && fontSize === null) {
       const element = mostCommonRef.current
-      
       if (element.scrollWidth > element.clientWidth) {
         const ratio = element.clientWidth / element.scrollWidth
-        const baseSize = 24
-        const newSize = Math.floor(baseSize * ratio)
-        setFontSize(Math.max(newSize, 12))
+        setFontSize(Math.max(Math.floor(24 * ratio), 12))
       }
     }
   }, [data.mostCommon, fontSize])
 
   const cards = [
-    {
-      label: "Total Drinks",
-      value: data.totalDrinks.toString(),
-      suffix: data.mostInADay === 1 ? "drink" : "drinks",
-      icon: GlassWater,
-      color: "text-chart-1",
-    },
-    {
-      label: "Avg per Day",
-      value: data.avgPerDay.toFixed(2),
-      suffix: "drinks",
-      icon: TrendingUp,
-      color: "text-chart-2",
-    },
-    {
-      label: "Best Day",
-      value: data.mostInADay.toString(),
-      suffix: data.mostInADay === 1 ? "drink" : "drinks",
-      icon: Trophy,
-      color: "text-chart-3",
-    },
-    {
-      label: "Favorite Drink",
-      value: data.mostCommon,
-      icon: Star,
-      color: "text-chart-4",
-    },
-    {
-      label: "Longest Streak",
-      value: data.longestStreak.toString(),
-      suffix: data.longestStreak === 1 ? "day" : "days",
-      icon: Flame,
-      color: "text-orange-500",
-    },
-    {
-      label: "Since Last Drink",
-      value: data.daysSinceLastDrink.toString(),
-      suffix: data.daysSinceLastDrink === 1 ? "day" : "days",
-      icon: CalendarDays,
-      color: "text-green-500",
-    },
+    { label: "Total Drinks", value: data.totalDrinks.toString(), suffix: data.mostInADay === 1 ? "drink" : "drinks", icon: GlassWater, color: "text-chart-1" },
+    { label: "Avg per Day", value: data.avgPerDay.toFixed(2), suffix: "drinks", icon: TrendingUp, color: "text-chart-2" },
+    { label: "Best Day", value: data.mostInADay.toString(), suffix: data.mostInADay === 1 ? "drink" : "drinks", icon: Trophy, color: "text-chart-3" },
+    { label: "Favorite Drink", value: data.mostCommon, icon: Star, color: "text-chart-4" },
+    { label: "Longest Streak", value: data.longestStreak.toString(), suffix: data.longestStreak === 1 ? "day" : "days", icon: Flame, color: "text-orange-500" },
+    { label: "Since Last Drink", value: data.daysSinceLastDrink.toString(), suffix: data.daysSinceLastDrink === 1 ? "day" : "days", icon: CalendarDays, color: "text-green-500" },
   ]
 
   return (
     <div className="grid grid-cols-2 gap-4">
       {cards.map((card) => {
-        const isMostCommon = card.label === "Most Common"
-        const hasSuffix = 'suffix' in card && card.suffix
+        const isMostCommon = card.label === "Favorite Drink"
+        const hasSuffix = "suffix" in card && card.suffix
         return (
           <Card key={card.label} className="bg-card border-border px-3 pt-3 pb-2 shadow-none">
             <div className="flex items-center gap-2">
@@ -480,9 +342,7 @@ function KpiCards({
             </div>
             {hasSuffix ? (
               <div className="-mt-4 h-9 flex items-baseline gap-1.5">
-                <p className="font-semibold text-foreground text-2xl">
-                  {card.value}
-                </p>
+                <p className="font-semibold text-foreground text-2xl">{card.value}</p>
                 <span className="text-xs text-muted-foreground">{card.suffix}</span>
               </div>
             ) : (
@@ -504,15 +364,8 @@ function KpiCards({
 function DrinkChart({ data }: { data: DrinkEntry[] }) {
   const totalDrinks = data.reduce((sum, d) => sum + d.count, 0)
   const maxCount = Math.max(...data.map((d) => d.count), 1)
-
-  const chartData = data.map((entry) => ({
-    date: entry.date,
-    count: entry.count,
-    displayDate: formatTooltipDate(entry.date),
-  }))
-
+  const chartData = data.map((entry) => ({ date: entry.date, count: entry.count, displayDate: formatTooltipDate(entry.date) }))
   const primaryColor = "#4ade80"
-
   const startDate = data.length > 0 ? data[0].date : ""
   const endDate = data.length > 0 ? data[data.length - 1].date : ""
 
@@ -522,75 +375,36 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
         <p className="text-2xl font-semibold text-foreground">{totalDrinks}</p>
         <span className="text-xs text-muted-foreground">{totalDrinks === 1 ? "drink" : "drinks"}</span>
       </div>
-
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-          >
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={primaryColor} stopOpacity={0.3} />
                 <stop offset="100%" stopColor={primaryColor} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis
-              dataKey="date"
-              axisLine={false}
-              tickLine={false}
-              ticks={[startDate, endDate]}
-              interval={0}
+            <XAxis dataKey="date" axisLine={false} tickLine={false} ticks={[startDate, endDate]} interval={0}
               tick={({ x, y, payload }) => {
                 const isFirst = payload.value === startDate
-                return (
-                  <text
-                    x={x}
-                    y={y + 12}
-                    fill="#666"
-                    fontSize={12}
-                    textAnchor={isFirst ? "start" : "end"}
-                  >
-                    {formatAxisDate(payload.value)}
-                  </text>
-                )
-              }}
-            />
+                return <text x={x} y={y + 12} fill="#666" fontSize={12} textAnchor={isFirst ? "start" : "end"}>{formatAxisDate(payload.value)}</text>
+              }} />
             <YAxis hide domain={[0, maxCount]} />
-            <Tooltip
-              position={{ y: -44 }}
-              wrapperStyle={{ pointerEvents: 'none' }}
+            <Tooltip position={{ y: -44 }} wrapperStyle={{ pointerEvents: "none" }}
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
                   const count = payload[0].payload.count
                   return (
                     <div className="bg-popover border border-border rounded-lg px-2.5 py-1.5">
-                      <p className="text-xs font-medium text-foreground">
-                        {count} {count === 1 ? "drink" : "drinks"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {payload[0].payload.displayDate}
-                      </p>
+                      <p className="text-xs font-medium text-foreground">{count} {count === 1 ? "drink" : "drinks"}</p>
+                      <p className="text-[10px] text-muted-foreground">{payload[0].payload.displayDate}</p>
                     </div>
                   )
                 }
                 return null
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke={primaryColor}
-              strokeWidth={2}
-              fill="url(#colorCount)"
-              dot={false}
-              activeDot={{
-                r: 6,
-                fill: primaryColor,
-                stroke: "#1a1a2e",
-                strokeWidth: 2,
-              }}
-            />
+              }} />
+            <Area type="monotone" dataKey="count" stroke={primaryColor} strokeWidth={2} fill="url(#colorCount)" dot={false}
+              activeDot={{ r: 6, fill: primaryColor, stroke: "#1a1a2e", strokeWidth: 2 }} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -598,7 +412,6 @@ function DrinkChart({ data }: { data: DrinkEntry[] }) {
   )
 }
 
-// Auto-scrolling legend for charts
 function MarqueeLegend({ children, className }: { children: React.ReactNode; className?: string }) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
@@ -607,14 +420,12 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
   const [isScrolling, setIsScrolling] = React.useState(false)
   const [scrollDistance, setScrollDistance] = React.useState(0)
   const [scrollDuration, setScrollDuration] = React.useState(0)
-
   const SCROLL_SPEED = 40
 
   React.useEffect(() => {
     const container = containerRef.current
     const content = contentRef.current
     if (!container || !content) return
-
     const checkOverflow = () => {
       const isOverflowing = content.scrollWidth > container.clientWidth
       setShouldScroll(isOverflowing)
@@ -624,63 +435,41 @@ function MarqueeLegend({ children, className }: { children: React.ReactNode; cla
         setScrollDuration(distance / SCROLL_SPEED)
       }
     }
-
     checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
+    window.addEventListener("resize", checkOverflow)
+    return () => window.removeEventListener("resize", checkOverflow)
   }, [children])
 
   React.useEffect(() => {
     const container = containerRef.current
     if (!container) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting)
-        if (!entry.isIntersecting) {
-          setIsScrolling(false)
-        }
-      },
-      { threshold: 0.5 }
-    )
-
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsVisible(entry.isIntersecting)
+      if (!entry.isIntersecting) setIsScrolling(false)
+    }, { threshold: 0.5 })
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
 
   React.useEffect(() => {
     if (!shouldScroll || !isVisible) return
-
-    const startTimer = setTimeout(() => {
-      setIsScrolling(true)
-    }, 2000)
-
-    return () => clearTimeout(startTimer)
+    const t = setTimeout(() => setIsScrolling(true), 2000)
+    return () => clearTimeout(t)
   }, [shouldScroll, isVisible])
 
   React.useEffect(() => {
     if (!isScrolling || !shouldScroll || !isVisible || scrollDuration === 0) return
-
-    const resetTimer = setTimeout(() => {
+    const t = setTimeout(() => {
       setIsScrolling(false)
-      setTimeout(() => {
-        if (isVisible) setIsScrolling(true)
-      }, 2000)
-    }, (scrollDuration * 1000) + 1500)
-
-    return () => clearTimeout(resetTimer)
+      setTimeout(() => { if (isVisible) setIsScrolling(true) }, 2000)
+    }, scrollDuration * 1000 + 1500)
+    return () => clearTimeout(t)
   }, [isScrolling, shouldScroll, isVisible, scrollDuration])
 
   return (
     <div ref={containerRef} className={cn("overflow-hidden", className)}>
-      <div
-        ref={contentRef}
-        className="flex gap-3 w-max"
-        style={{
-          transform: isScrolling ? `translateX(-${scrollDistance}px)` : 'translateX(0)',
-          transition: isScrolling ? `transform ${scrollDuration}s linear` : 'transform 0.3s ease-out',
-        }}
-      >
+      <div ref={contentRef} className="flex gap-3 w-max"
+        style={{ transform: isScrolling ? `translateX(-${scrollDistance}px)` : "translateX(0)", transition: isScrolling ? `transform ${scrollDuration}s linear` : "transform 0.3s ease-out" }}>
         {children}
       </div>
     </div>
@@ -697,8 +486,7 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
         const types: Record<string, number> = {}
         entry.types.forEach((t) => { types[t] = (types[t] || 0) + 1 })
         const d = parseLocalDateString(entry.date)
-        const label = d.toLocaleDateString("en-US", { weekday: "short" })
-        return { date: entry.date, label, ...types }
+        return { date: entry.date, label: d.toLocaleDateString("en-US", { weekday: "short" }), ...types }
       })
     }
 
@@ -706,14 +494,12 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
       const numWeeks = timeRange === "1M" ? 4 : 12
       const todayEnd = new Date(today)
       todayEnd.setHours(23, 59, 59, 999)
-
       const weekBuckets = Array.from({ length: numWeeks }, (_, i) => {
         const weekEnd = new Date(todayEnd.getTime() - (numWeeks - 1 - i) * 7 * 24 * 60 * 60 * 1000)
         const weekStart = new Date(weekEnd.getTime() - 6 * 24 * 60 * 60 * 1000)
         weekStart.setHours(0, 0, 0, 0)
         return { start: weekStart, end: weekEnd, label: `W${i + 1}`, types: {} as Record<string, number> }
       })
-
       for (const entry of data) {
         const entryDate = parseLocalDateString(entry.date)
         for (const bucket of weekBuckets) {
@@ -723,7 +509,6 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
           }
         }
       }
-
       return weekBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
     }
 
@@ -734,14 +519,8 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
 
     const monthBuckets = Array.from({ length: numMonths }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - (numMonths - 1 - i), 1)
-      return {
-        year: d.getFullYear(),
-        month: d.getMonth(),
-        label: MONTH_LABELS[d.getMonth()],
-        types: {} as Record<string, number>,
-      }
+      return { year: d.getFullYear(), month: d.getMonth(), label: MONTH_LABELS[d.getMonth()], types: {} as Record<string, number> }
     })
-
     for (const entry of data) {
       const entryDate = parseLocalDateString(entry.date)
       for (const bucket of monthBuckets) {
@@ -751,44 +530,26 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
         }
       }
     }
-
     return monthBuckets.map(b => ({ date: "", label: b.label, ...b.types }))
   }, [data, timeRange])
 
   const allTypes = React.useMemo(() => {
     const typeTotals: Record<string, number> = {}
-    data.forEach((entry) => entry.types.forEach((t) => {
-      typeTotals[t] = (typeTotals[t] || 0) + 1
-    }))
-    
-    return Object.entries(typeTotals)
-      .sort((a, b) => b[1] - a[1])
-      .map(([type]) => type)
+    data.forEach((entry) => entry.types.forEach((t) => { typeTotals[t] = (typeTotals[t] || 0) + 1 }))
+    return Object.entries(typeTotals).sort((a, b) => b[1] - a[1]).map(([type]) => type)
   }, [data])
 
   const RoundedTopBar = React.useCallback((props: any) => {
     const { x, y, width, height, fill, dataKey, payload } = props
-    
     if (!height || height <= 0) return null
-    
     const typeIndex = allTypes.indexOf(dataKey)
     const typesAbove = allTypes.slice(typeIndex + 1)
     const isTopmost = typesAbove.every(type => !payload[type] || payload[type] === 0)
-    
     if (isTopmost) {
       const radius = 4
-      const path = `
-        M ${x},${y + height}
-        L ${x},${y + radius}
-        Q ${x},${y} ${x + radius},${y}
-        L ${x + width - radius},${y}
-        Q ${x + width},${y} ${x + width},${y + radius}
-        L ${x + width},${y + height}
-        Z
-      `
+      const path = `M ${x},${y + height} L ${x},${y + radius} Q ${x},${y} ${x + radius},${y} L ${x + width - radius},${y} Q ${x + width},${y} ${x + width},${y + radius} L ${x + width},${y + height} Z`
       return <path d={path} fill={fill} />
     }
-    
     return <rect x={x} y={y} width={width} height={height} fill={fill} />
   }, [allTypes])
 
@@ -807,16 +568,10 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: -15, right: 10, left: 10, bottom: 0 }}>
-            <XAxis
-              dataKey="label"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 10, fill: '#888' }}
-            />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#888" }} />
             <YAxis hide />
-            <Tooltip
-              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-              content={({ active, payload, label }) => {
+            <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              content={({ active, payload }) => {
                 if (active && payload?.length) {
                   const total = payload.reduce((sum: number, p: any) => sum + (p.value || 0), 0)
                   return (
@@ -832,21 +587,13 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
                   )
                 }
                 return null
-              }}
-            />
+              }} />
             {allTypes.map((type) => (
-              <Bar
-                key={type}
-                dataKey={type}
-                stackId="1"
-                fill={STACKED_COLORS[type] || "#6b7280"}
-                shape={RoundedTopBar as any}
-              />
+              <Bar key={type} dataKey={type} stackId="1" fill={STACKED_COLORS[type] || "#6b7280"} shape={RoundedTopBar as any} />
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
-      
       <MarqueeLegend className="-mt-5">
         {allTypes.map((type) => (
           <div key={type} className="flex items-center gap-1.5 shrink-0">
@@ -862,7 +609,6 @@ function TypeTrendChart({ data, timeRange }: { data: DrinkEntry[]; timeRange: Ti
 function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
   const dayData = React.useMemo(() => {
     const counts = [0, 0, 0, 0, 0, 0, 0]
-    
     data.forEach((entry) => {
       if (entry.count > 0) {
         const date = parseLocalDateString(entry.date)
@@ -870,11 +616,7 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
         counts[dayOfWeek] += entry.count
       }
     })
-
-    return DAY_NAMES.map((name, i) => ({
-      day: name,
-      drinks: counts[i],
-    }))
+    return DAY_NAMES.map((name, i) => ({ day: name, drinks: counts[i] }))
   }, [data])
 
   const maxDrinks = Math.max(...dayData.map((d) => d.drinks), 1)
@@ -885,39 +627,22 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
       <div className="h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dayData} margin={{ top: 17, right: 0, left: 0, bottom: 0 }}>
-            <XAxis 
-              dataKey="day" 
-              axisLine={false} 
-              tickLine={false}
-              tick={{ fontSize: 12, fill: '#888' }}
-            />
+            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#888" }} />
             <YAxis hide domain={[0, maxDrinks]} />
-            <Tooltip
-              position={{ y: -36 }}
-              wrapperStyle={{ pointerEvents: 'none' }}
-              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+            <Tooltip position={{ y: -36 }} wrapperStyle={{ pointerEvents: "none" }} cursor={{ fill: "rgba(255,255,255,0.05)" }}
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
                   const count = payload[0].payload.drinks
                   return (
                     <div className="bg-popover border border-border rounded-lg px-2.5 py-1.5">
-                      <p className="text-xs font-medium text-foreground">
-                        {count} {count === 1 ? "drink" : "drinks"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {payload[0].payload.day}
-                      </p>
+                      <p className="text-xs font-medium text-foreground">{count} {count === 1 ? "drink" : "drinks"}</p>
+                      <p className="text-[10px] text-muted-foreground">{payload[0].payload.day}</p>
                     </div>
                   )
                 }
                 return null
-              }}
-            />
-            <Bar 
-              dataKey="drinks" 
-              fill="#60a5fa" 
-              radius={[4, 4, 0, 0]}
-            />
+              }} />
+            <Bar dataKey="drinks" fill="#60a5fa" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -927,7 +652,6 @@ function DayOfWeekChart({ data }: { data: DrinkEntry[] }) {
 
 function CheersStatsCard({ stats }: { stats: CheersStats }) {
   const [expandedSection, setExpandedSection] = React.useState<"received" | "given" | null>(null)
-
   const toggleSection = (section: "received" | "given") => {
     setExpandedSection(expandedSection === section ? null : section)
   }
@@ -938,29 +662,14 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
         <CheersIcon filled className="h-5 w-5" />
         <h3 className="text-sm font-medium text-muted-foreground">Cheers</h3>
       </div>
-
       <div className="grid grid-cols-3 gap-4">
-        <button
-          type="button"
-          onClick={() => stats.topCheerersToMe.length > 0 && toggleSection("received")}
-          className={cn(
-            "text-center rounded-lg py-2 transition-colors",
-            stats.topCheerersToMe.length > 0 && "hover:bg-foreground/5 cursor-pointer",
-            expandedSection === "received" && "bg-foreground/5"
-          )}
-        >
+        <button type="button" onClick={() => stats.topCheerersToMe.length > 0 && toggleSection("received")}
+          className={cn("text-center rounded-lg py-2 transition-colors", stats.topCheerersToMe.length > 0 && "hover:bg-foreground/5 cursor-pointer", expandedSection === "received" && "bg-foreground/5")}>
           <p className="text-2xl font-semibold">{stats.totalReceived}</p>
           <p className="text-xs text-muted-foreground">Received</p>
         </button>
-        <button
-          type="button"
-          onClick={() => stats.topCheeredByMe.length > 0 && toggleSection("given")}
-          className={cn(
-            "text-center rounded-lg py-2 transition-colors",
-            stats.topCheeredByMe.length > 0 && "hover:bg-foreground/5 cursor-pointer",
-            expandedSection === "given" && "bg-foreground/5"
-          )}
-        >
+        <button type="button" onClick={() => stats.topCheeredByMe.length > 0 && toggleSection("given")}
+          className={cn("text-center rounded-lg py-2 transition-colors", stats.topCheeredByMe.length > 0 && "hover:bg-foreground/5 cursor-pointer", expandedSection === "given" && "bg-foreground/5")}>
           <p className="text-2xl font-semibold">{stats.totalGiven}</p>
           <p className="text-xs text-muted-foreground">Given</p>
         </button>
@@ -975,11 +684,8 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
           <p className="text-xs text-muted-foreground mb-2">Top fans (cheered you most)</p>
           <div className="space-y-2">
             {stats.topCheerersToMe.slice(0, 3).map((user) => (
-              <Link
-                key={user.oderId}
-                href={`/profile/${user.username}`}
-                className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors"
-              >
+              <Link key={user.oderId} href={`/profile/${user.username}`}
+                className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors">
                 {user.avatarUrl ? (
                   <div className="relative h-8 w-8 overflow-hidden rounded-full">
                     <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
@@ -1007,11 +713,8 @@ function CheersStatsCard({ stats }: { stats: CheersStats }) {
           <p className="text-xs text-muted-foreground mb-2">You cheered most</p>
           <div className="space-y-2">
             {stats.topCheeredByMe.slice(0, 3).map((user) => (
-              <Link
-                key={user.oderId}
-                href={`/profile/${user.username}`}
-                className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors"
-              >
+              <Link key={user.oderId} href={`/profile/${user.username}`}
+                className="flex items-center gap-2 hover:bg-foreground/5 rounded-lg p-1 -m-1 transition-colors">
                 {user.avatarUrl ? (
                   <div className="relative h-8 w-8 overflow-hidden rounded-full">
                     <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
@@ -1054,62 +757,38 @@ function DrinkBreakdown({ data }: { data: { name: string; value: number }[] }) {
         <div className="w-full md:w-1/2 h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
+              <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
+                {data.map((_, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload?.[0]) {
-                    const item = payload[0].payload
-                    const percentage = ((item.value / total) * 100).toFixed(1)
-                    return (
-                      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-                        <p className="text-sm font-medium text-foreground">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.value} ({percentage}%)
-                        </p>
-                      </div>
-                    )
-                  }
-                  return null
-                }}
-              />
+              <Tooltip content={({ active, payload }) => {
+                if (active && payload?.[0]) {
+                  const item = payload[0].payload
+                  const percentage = ((item.value / total) * 100).toFixed(1)
+                  return (
+                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                      <p className="text-sm font-medium text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.value} ({percentage}%)</p>
+                    </div>
+                  )
+                }
+                return null
+              }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
-
         <div className="w-full md:w-1/2 space-y-3 mb-1 max-h-[140px] overflow-y-auto">
           {data.map((item, index) => {
             const percentage = ((item.value / total) * 100).toFixed(1)
             return (
               <div key={item.name} className="flex items-center gap-3">
-                <div
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                />
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-foreground truncate">{item.name}</span>
                     <span className="text-sm text-muted-foreground ml-2">{percentage}%</span>
                   </div>
-                  <div className="h-1.5 bg-secondary rounded-full mt-1 overflow-hidden outline-none">
-                    <div
-                      className="h-full rounded-full transition-all duration-500 outline-none"
-                      style={{
-                        width: `${percentage}%`,
-                        backgroundColor: PIE_COLORS[index % PIE_COLORS.length],
-                      }}
-                    />
+                  <div className="h-1.5 bg-secondary rounded-full mt-1 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${percentage}%`, backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
                   </div>
                 </div>
               </div>
@@ -1128,39 +807,23 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
 
   const dataByDate = React.useMemo(() => {
     const map = new Map<string, number>()
-    for (const entry of data) {
-      map.set(entry.date, entry.count)
-    }
+    for (const entry of data) map.set(entry.date, entry.count)
     return map
   }, [data])
 
   const gridData = React.useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
     let startDate: Date
 
     switch (timeRange) {
-      case "1W":
-        startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
-        break
-      case "1M":
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
-        break
-      case "3M":
-        startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
-        break
-      case "6M":
-        startDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate())
-        break
-      case "1Y":
-        startDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
-        break
-      case "YTD":
-        startDate = new Date(today.getFullYear(), 0, 1)
-        break
-      default:
-        startDate = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
+      case "1W": startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000); break
+      case "1M": startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()); break
+      case "3M": startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000); break
+      case "6M": startDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate()); break
+      case "1Y": startDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()); break
+      case "YTD": startDate = new Date(today.getFullYear(), 0, 1); break
+      default: startDate = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
     }
     startDate.setHours(0, 0, 0, 0)
 
@@ -1178,126 +841,85 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
       const dateStr = getLocalDateString(current)
       const count = dataByDate.get(dateStr) ?? 0
       const mondayBasedDay = (current.getDay() + 6) % 7
-
-      days.push({
-        date: dateStr,
-        count,
-        dayOfWeek: mondayBasedDay,
-        weekIndex,
-      })
-
+      days.push({ date: dateStr, count, dayOfWeek: mondayBasedDay, weekIndex })
       current.setDate(current.getDate() + 1)
-      if (current.getDay() === 1) {
-        weekIndex++
-      }
+      if (current.getDay() === 1) weekIndex++
     }
-
     return days
   }, [dataByDate, timeRange])
 
   const weeks = React.useMemo(() => {
     const weekMap = new Map<number, typeof gridData>()
-
     for (const day of gridData) {
-      if (!weekMap.has(day.weekIndex)) {
-        weekMap.set(day.weekIndex, [])
-      }
+      if (!weekMap.has(day.weekIndex)) weekMap.set(day.weekIndex, [])
       weekMap.get(day.weekIndex)!.push(day)
     }
-
-    return Array.from(weekMap.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([, days]) => days)
+    return Array.from(weekMap.entries()).sort((a, b) => a[0] - b[0]).map(([, days]) => days)
   }, [gridData])
 
   const monthLabels = React.useMemo(() => {
     const monthWeeks = new Map<string, { month: number; weekIndices: number[] }>()
-    
     for (const day of gridData) {
       const date = parseLocalDateString(day.date)
-      const month = date.getMonth()
-      const year = date.getFullYear()
-      const key = `${year}-${month}`
-      
-      if (!monthWeeks.has(key)) {
-        monthWeeks.set(key, { month, weekIndices: [] })
-      }
+      const key = `${date.getFullYear()}-${date.getMonth()}`
+      if (!monthWeeks.has(key)) monthWeeks.set(key, { month: date.getMonth(), weekIndices: [] })
       const entry = monthWeeks.get(key)!
-      if (!entry.weekIndices.includes(day.weekIndex)) {
-        entry.weekIndices.push(day.weekIndex)
-      }
+      if (!entry.weekIndices.includes(day.weekIndex)) entry.weekIndices.push(day.weekIndex)
     }
-    
     const labels: { month: string; weekIndex: number }[] = []
-    const sortedMonths = Array.from(monthWeeks.entries()).sort((a, b) => {
-      return (a[1].weekIndices[0] ?? 0) - (b[1].weekIndices[0] ?? 0)
-    })
-    
+    const sortedMonths = Array.from(monthWeeks.entries()).sort((a, b) => (a[1].weekIndices[0] ?? 0) - (b[1].weekIndices[0] ?? 0))
     for (const [, { month, weekIndices }] of sortedMonths) {
       if (weekIndices.length > 0) {
         weekIndices.sort((a, b) => a - b)
-        const middleIdx = Math.floor(weekIndices.length / 2)
-        labels.push({
-          month: MONTH_LABELS[month],
-          weekIndex: weekIndices[middleIdx],
-        })
+        labels.push({ month: MONTH_LABELS[month], weekIndex: weekIndices[Math.floor(weekIndices.length / 2)] })
       }
     }
-
     return labels
   }, [gridData])
 
-  const activeDays = React.useMemo(() => {
-    return gridData.filter((d) => d.count > 0).length
-  }, [gridData])
+  const activeDays = React.useMemo(() => gridData.filter((d) => d.count > 0).length, [gridData])
 
-  const [tooltip, setTooltip] = React.useState<{
-    date: string
-    count: number
-    x: number
-    y: number
-  } | null>(null)
+  const [tooltip, setTooltip] = React.useState<{ date: string; count: number; x: number; y: number } | null>(null)
 
   const formatActivityTooltipDate = (dateStr: string) => {
     const date = parseLocalDateString(dateStr)
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
   }
 
-  const gap = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
+  const gap = timeRange === "1W" || timeRange === "1M" ? 6 : 3
 
   React.useEffect(() => {
     const calculateSize = () => {
       if (!containerRef.current) return
-
       const containerWidth = containerRef.current.offsetWidth
-
       if (timeRange === "1W" || timeRange === "1M") {
-        const numCells = 7
-        const totalGap = (numCells - 1) * gap
-        const size = Math.floor((containerWidth - totalGap) / numCells)
+        const size = Math.floor((containerWidth - (7 - 1) * gap) / 7)
         setCellSize(size)
       } else {
         const dayLabelWidth = 24
         const referenceWeeks = 14
-        const availableWidth = containerWidth - dayLabelWidth
-        const totalGap = (referenceWeeks - 1) * gap
-        const size = Math.floor((availableWidth - totalGap) / referenceWeeks)
+        const size = Math.floor((containerWidth - dayLabelWidth - (referenceWeeks - 1) * gap) / referenceWeeks)
         setCellSize(Math.max(size, 8))
       }
     }
-
     calculateSize()
     window.addEventListener("resize", calculateSize)
     return () => window.removeEventListener("resize", calculateSize)
   }, [timeRange, weeks.length, gap])
 
-  const todayStr = getLocalDateString(new Date())
-  const rounded = (timeRange === "1W" || timeRange === "1M") ? 6 : 3
+  const rounded = timeRange === "1W" || timeRange === "1M" ? 6 : 3
+
+  const CellEl = ({ day }: { day: (typeof gridData)[0] }) => (
+    <div
+      className="cursor-pointer transition-all hover:ring-1 hover:ring-foreground/50"
+      style={{ width: cellSize!, height: cellSize!, borderRadius: rounded, backgroundColor: day.count > 0 ? primaryColor : "rgba(128,128,128,0.2)" }}
+      onMouseEnter={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        setTooltip({ date: day.date, count: day.count, x: rect.left + rect.width / 2, y: rect.top })
+      }}
+      onMouseLeave={() => setTooltip(null)}
+    />
+  )
 
   if (cellSize === null) {
     return (
@@ -1311,6 +933,14 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
     )
   }
 
+  const TooltipEl = () => tooltip ? (
+    <div className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
+      style={{ left: tooltip.x, top: tooltip.y - 8, transform: "translate(-50%, -100%)" }}>
+      <p className="text-sm font-medium text-foreground">{tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}</p>
+      <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
+    </div>
+  ) : null
+
   if (timeRange === "1W") {
     return (
       <Card className="bg-card border-border p-4 shadow-none">
@@ -1318,68 +948,15 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
           <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
         </div>
-
         <div ref={containerRef}>
           <div className="flex mb-2" style={{ gap }}>
-            {gridData.map((day) => (
-              <div
-                key={`label-${day.date}`}
-                className="text-xs text-muted-foreground text-center"
-                style={{ width: cellSize }}
-              >
-                {DAY_NAMES[day.dayOfWeek][0]}
-              </div>
-            ))}
+            {gridData.map((day) => <div key={`label-${day.date}`} className="text-xs text-muted-foreground text-center" style={{ width: cellSize }}>{DAY_NAMES[day.dayOfWeek][0]}</div>)}
           </div>
-
           <div className="flex" style={{ gap }}>
-            {gridData.map((day) => {
-              const hasActivity = day.count > 0
-
-              return (
-                <div
-                  key={day.date}
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    "hover:ring-1 hover:ring-foreground/50"
-                  )}
-                  style={{
-                    width: cellSize,
-                    height: cellSize,
-                    borderRadius: rounded,
-                    backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
-                  }}
-                  onMouseEnter={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setTooltip({
-                      date: day.date,
-                      count: day.count,
-                      x: rect.left + rect.width / 2,
-                      y: rect.top,
-                    })
-                  }}
-                  onMouseLeave={() => setTooltip(null)}
-                />
-              )
-            })}
+            {gridData.map((day) => <CellEl key={day.date} day={day} />)}
           </div>
         </div>
-
-        {tooltip && (
-          <div
-            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
-            style={{
-              left: tooltip.x,
-              top: tooltip.y - 8,
-              transform: "translate(-50%, -100%)",
-            }}
-          >
-            <p className="text-sm font-medium text-foreground">
-              {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
-            </p>
-            <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
-          </div>
-        )}
+        <TooltipEl />
       </Card>
     )
   }
@@ -1391,86 +968,23 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
           <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
           <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
         </div>
-
         <div ref={containerRef}>
           <div className="flex mb-2" style={{ gap }}>
-            {DAY_NAMES.map((day) => (
-              <div
-                key={day}
-                className="text-xs text-muted-foreground text-center"
-                style={{ width: cellSize }}
-              >
-                {day[0]}
-              </div>
-            ))}
+            {DAY_NAMES.map((day) => <div key={day} className="text-xs text-muted-foreground text-center" style={{ width: cellSize }}>{day[0]}</div>)}
           </div>
-
           <div className="flex flex-col" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex" style={{ gap }}>
                 {Array.from({ length: 7 }).map((_, dayIdx) => {
                   const day = week.find((d) => d.dayOfWeek === dayIdx)
-
-                  if (!day) {
-                    return (
-                      <div
-                        key={`empty-${weekIdx}-${dayIdx}`}
-                        style={{
-                          width: cellSize,
-                          height: cellSize,
-                        }}
-                      />
-                    )
-                  }
-
-                  const hasActivity = day.count > 0
-
-                  return (
-                    <div
-                      key={day.date}
-                      className={cn(
-                        "cursor-pointer transition-all",
-                        "hover:ring-1 hover:ring-foreground/50"
-                      )}
-                      style={{
-                        width: cellSize,
-                        height: cellSize,
-                        borderRadius: rounded,
-                        backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
-                      }}
-                      onMouseEnter={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setTooltip({
-                          date: day.date,
-                          count: day.count,
-                          x: rect.left + rect.width / 2,
-                          y: rect.top,
-                        })
-                      }}
-                      onMouseLeave={() => setTooltip(null)}
-                    />
-                  )
+                  if (!day) return <div key={`empty-${weekIdx}-${dayIdx}`} style={{ width: cellSize, height: cellSize }} />
+                  return <CellEl key={day.date} day={day} />
                 })}
               </div>
             ))}
           </div>
         </div>
-
-        {tooltip && (
-          <div
-            className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
-            style={{
-              left: tooltip.x,
-              top: tooltip.y - 8,
-              transform: "translate(-50%, -100%)",
-            }}
-          >
-            <p className="text-sm font-medium text-foreground">
-              {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
-            </p>
-            <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
-          </div>
-        )}
+        <TooltipEl />
       </Card>
     )
   }
@@ -1482,108 +996,37 @@ function ActivityGrid({ data, timeRange }: { data: DrinkEntry[]; timeRange: Time
         <p className="text-2xl font-semibold text-foreground">{activeDays}</p>
         <span className="text-xs text-muted-foreground">active {activeDays === 1 ? "day" : "days"}</span>
       </div>
-
       <div ref={containerRef} className="overflow-x-auto">
         <div className="relative h-4 mb-1" style={{ marginLeft: dayLabelWidth + 8 }}>
           {monthLabels.map((label, i) => (
-            <div
-              key={`${label.month}-${i}`}
-              className="text-xs text-muted-foreground absolute"
-              style={{
-                left: label.weekIndex * (cellSize + gap),
-              }}
-            >
-              {label.month}
-            </div>
+            <div key={`${label.month}-${i}`} className="text-xs text-muted-foreground absolute" style={{ left: label.weekIndex * (cellSize + gap) }}>{label.month}</div>
           ))}
         </div>
-
         <div className="flex">
           <div className="flex flex-col mr-2" style={{ gap, width: dayLabelWidth }}>
             {DAY_NAMES.map((day, i) => (
-              <div
-                key={day}
-                className={cn(
-                  "text-xs text-muted-foreground flex items-center",
-                  i % 2 === 1 ? "opacity-0" : ""
-                )}
-                style={{ height: cellSize }}
-              >
-                {day[0]}
-              </div>
+              <div key={day} className={cn("text-xs text-muted-foreground flex items-center", i % 2 === 1 ? "opacity-0" : "")} style={{ height: cellSize }}>{day[0]}</div>
             ))}
           </div>
-
           <div className="flex" style={{ gap }}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col" style={{ gap }}>
                 {Array.from({ length: 7 }).map((_, dayIdx) => {
                   const day = week.find((d) => d.dayOfWeek === dayIdx)
-
-                  if (!day) {
-                    return (
-                      <div
-                        key={`empty-${weekIdx}-${dayIdx}`}
-                        style={{
-                          width: cellSize,
-                          height: cellSize,
-                        }}
-                      />
-                    )
-                  }
-
-                  const hasActivity = day.count > 0
-
-                  return (
-                    <div
-                      key={day.date}
-                      className={cn(
-                        "cursor-pointer transition-all",
-                        "hover:ring-1 hover:ring-foreground/50"
-                      )}
-                      style={{
-                        width: cellSize,
-                        height: cellSize,
-                        borderRadius: rounded,
-                        backgroundColor: hasActivity ? primaryColor : "rgba(128, 128, 128, 0.2)",
-                      }}
-                      onMouseEnter={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setTooltip({
-                          date: day.date,
-                          count: day.count,
-                          x: rect.left + rect.width / 2,
-                          y: rect.top,
-                        })
-                      }}
-                      onMouseLeave={() => setTooltip(null)}
-                    />
-                  )
+                  if (!day) return <div key={`empty-${weekIdx}-${dayIdx}`} style={{ width: cellSize, height: cellSize }} />
+                  return <CellEl key={day.date} day={day} />
                 })}
               </div>
             ))}
           </div>
         </div>
       </div>
-
-      {tooltip && (
-        <div
-          className="fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y - 8,
-            transform: "translate(-50%, -100%)",
-          }}
-        >
-          <p className="text-sm font-medium text-foreground">
-            {tooltip.count} {tooltip.count === 1 ? "drink" : "drinks"}
-          </p>
-          <p className="text-xs text-muted-foreground">{formatActivityTooltipDate(tooltip.date)}</p>
-        </div>
-      )}
+      <TooltipEl />
     </Card>
   )
 }
+
+// --- Main Page ---
 
 export default function AnalyticsPage() {
   const supabase = createClient()
@@ -1591,42 +1034,39 @@ export default function AnalyticsPage() {
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [allData, setAllData] = React.useState<DrinkEntry[]>([])
-  const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
-  const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
   const [userId, setUserId] = React.useState<string | null>(null)
+  const [timeRange, setTimeRange] = React.useState<TimeRange>("1M")
 
-  // Raw cheers data — fetched once, filtered reactively by time range
+  // Raw data — set once from API, filtered reactively via useMemo
+  const [allLogs, setAllLogs] = React.useState<DrinkLogRow[]>([])
+  const [allData, setAllData] = React.useState<DrinkEntry[]>([])
   const [rawReceivedCheers, setRawReceivedCheers] = React.useState<{ drink_log_id: string; user_id: string }[]>([])
   const [rawGivenCheers, setRawGivenCheers] = React.useState<{ drink_log_id: string; user_id: string; created_at: string }[]>([])
   const [cheeredPostOwners, setCheeredPostOwners] = React.useState<Record<string, string>>({})
   const [cheersProfiles, setCheersProfiles] = React.useState<Record<string, { username: string; displayName: string; avatarUrl: string | null }>>({})
 
+  // Card ordering
   const [cardOrder, setCardOrder] = React.useState<CardId[]>(DEFAULT_CARD_ORDER)
   const [draggedId, setDraggedId] = React.useState<CardId | null>(null)
   const positionMapRef = React.useRef<Map<CardId, DOMRect>>(new Map())
 
+  // Token stored once for card order saves
+  const tokenRef = React.useRef<string | null>(null)
+
   const saveCardOrderToDb = React.useCallback(async (order: CardId[]) => {
     if (!userId) return
-    
     try {
-      await supabase
-        .from("profiles")
-        .update({ analytics_card_order: order })
-        .eq("id", userId)
+      await supabase.from("profiles").update({ analytics_card_order: order }).eq("id", userId)
     } catch (e) {
       console.error("Failed to save card order:", e)
     }
   }, [userId, supabase])
 
   const capturePositions = React.useCallback(() => {
-    const cards = document.querySelectorAll('[data-card-id]')
-    cards.forEach((card) => {
+    document.querySelectorAll("[data-card-id]").forEach((card) => {
       const el = card as HTMLElement
       const cardId = el.dataset.cardId as CardId
-      if (cardId) {
-        positionMapRef.current.set(cardId, el.getBoundingClientRect())
-      }
+      if (cardId) positionMapRef.current.set(cardId, el.getBoundingClientRect())
     })
   }, [])
 
@@ -1637,210 +1077,97 @@ export default function AnalyticsPage() {
   }, [])
 
   const handleDragEnd = React.useCallback(() => {
-    if (draggedId) {
-      saveCardOrderToDb(cardOrder)
-    }
+    if (draggedId) saveCardOrderToDb(cardOrder)
     setDraggedId(null)
   }, [draggedId, cardOrder, saveCardOrderToDb])
 
   const handleDragOver = React.useCallback((targetId: CardId, e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = "move"
-    
     if (!draggedId || draggedId === targetId) return
-
-    setCardOrder(prev => {
-      const draggedIndex = prev.indexOf(draggedId)
-      const targetIndex = prev.indexOf(targetId)
-      
-      if (draggedIndex === -1 || targetIndex === -1) return prev
-      if (draggedIndex === targetIndex) return prev
-      
-      const newOrder = [...prev]
-      newOrder.splice(draggedIndex, 1)
-      newOrder.splice(targetIndex, 0, draggedId)
-      
-      return newOrder
+    setCardOrder((prev) => {
+      const di = prev.indexOf(draggedId)
+      const ti = prev.indexOf(targetId)
+      if (di === -1 || ti === -1 || di === ti) return prev
+      const next = [...prev]
+      next.splice(di, 1)
+      next.splice(ti, 0, draggedId)
+      return next
     })
   }, [draggedId])
 
+  // ── Single fetch replaces 8+ sequential round trips ─────────────────────
   React.useEffect(() => {
     async function load() {
       setError(null)
       setLoading(true)
-
       try {
-        const { data: userRes, error: userErr } = await supabase.auth.getUser()
-        if (userErr) throw userErr
-        if (!userRes.user) {
+        const { data: sessRes } = await supabase.auth.getSession()
+        const token = sessRes.session?.access_token
+        const uid = sessRes.session?.user.id
+        if (!token || !uid) {
           router.replace("/login?redirectTo=%2Fanalytics")
           return
         }
 
-        const currentUserId = userRes.user.id
-        setUserId(currentUserId)
+        setUserId(uid)
+        tokenRef.current = token
 
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("analytics_card_order")
-          .eq("id", currentUserId)
-          .single()
+        const res = await fetch("/api/analytics", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json?.error ?? "Could not load analytics.")
 
-        if (profileData?.analytics_card_order && isValidCardOrder(profileData.analytics_card_order)) {
-          setCardOrder(profileData.analytics_card_order)
+        const logs = (json.logs ?? []) as DrinkLogRow[]
+        setAllLogs(logs)
+        setAllData(transformDrinkLogs(logs))
+        setRawReceivedCheers(json.receivedCheers ?? [])
+        setRawGivenCheers(json.givenCheers ?? [])
+        setCheeredPostOwners(json.cheeredPostOwners ?? {})
+        setCheersProfiles(json.cheersProfiles ?? {})
+
+        if (json.analyticsCardOrder && isValidCardOrder(json.analyticsCardOrder)) {
+          setCardOrder(json.analyticsCardOrder)
         }
-
-        const { data: logs, error: logsErr } = await supabase
-          .from("drink_logs")
-          .select("id, drink_type, created_at, caption")
-          .eq("user_id", currentUserId)
-          .order("created_at", { ascending: true })
-
-        if (logsErr) throw logsErr
-
-        const typedLogs = (logs ?? []) as DrinkLogRow[]
-        setAllLogs(typedLogs)
-        const transformed = transformDrinkLogs(typedLogs)
-        setAllData(transformed)
-
-        // Fetch all cheers data once (filtered reactively via useMemo)
-        await loadCheersData(currentUserId, typedLogs)
       } catch (e: any) {
         setError(e?.message ?? "Could not load analytics.")
       } finally {
         setLoading(false)
       }
     }
-
-    async function loadCheersData(currentUserId: string, logs: DrinkLogRow[]) {
-      try {
-        const myDrinkIds = logs.map(l => l.id)
-
-        // Fetch all cheers received on my posts
-        const { data: receivedData } = await supabase
-          .from("drink_cheers")
-          .select("drink_log_id, user_id")
-          .in("drink_log_id", myDrinkIds.length > 0 ? myDrinkIds : [""])
-
-        // Fetch all cheers I gave (with created_at for time-range filtering)
-        const { data: givenData } = await supabase
-          .from("drink_cheers")
-          .select("drink_log_id, user_id, created_at")
-          .eq("user_id", currentUserId)
-
-        const receivedList = (receivedData ?? []) as { drink_log_id: string; user_id: string }[]
-        const givenList = (givenData ?? []) as { drink_log_id: string; user_id: string; created_at: string }[]
-
-        setRawReceivedCheers(receivedList)
-        setRawGivenCheers(givenList)
-
-        // Look up owners of posts I cheered (for "top cheered by me")
-        const postOwnerMap: Record<string, string> = {}
-        if (givenList.length > 0) {
-          const cheeredPostIds = givenList.map((c) => c.drink_log_id)
-          const { data: cheeredPosts } = await supabase
-            .from("drink_logs")
-            .select("id, user_id")
-            .in("id", cheeredPostIds)
-
-          cheeredPosts?.forEach((post: any) => {
-            postOwnerMap[post.id] = post.user_id
-          })
-        }
-        setCheeredPostOwners(postOwnerMap)
-
-        // Collect all unique user IDs we need profiles for
-        const profileUserIds = new Set<string>()
-        receivedList.forEach((c) => {
-          if (c.user_id !== currentUserId) profileUserIds.add(c.user_id)
-        })
-        Object.values(postOwnerMap).forEach((ownerId) => {
-          if (ownerId !== currentUserId) profileUserIds.add(ownerId)
-        })
-
-        const allUserIds = Array.from(profileUserIds)
-        const profileMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {}
-
-        if (allUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profile_public_stats")
-            .select("id, username, display_name, avatar_path")
-            .in("id", allUserIds)
-
-          if (profiles) {
-            for (const p of profiles) {
-              let avatarUrl = null
-              if (p.avatar_path) {
-                const { data: urlData } = await supabase.storage
-                  .from("profile-photos")
-                  .createSignedUrl(p.avatar_path, 60 * 60)
-                avatarUrl = urlData?.signedUrl ?? null
-              }
-              profileMap[p.id] = {
-                username: p.username,
-                displayName: p.display_name || p.username,
-                avatarUrl,
-              }
-            }
-          }
-        }
-        setCheersProfiles(profileMap)
-      } catch (e) {
-        console.error("Failed to load cheers data:", e)
-      }
-    }
-
     load()
   }, [router, supabase])
+
+  // ── All reactive computation stays client-side (unchanged) ───────────────
 
   const filteredData = React.useMemo(() => {
     const now = new Date()
     const { start: startDate } = getDateRangeForTimeRange(timeRange, now)
     const todayStr = getLocalDateString(now)
-
     const dataByDate = new Map<string, DrinkEntry>()
-    for (const entry of allData) {
-      dataByDate.set(entry.date, entry)
-    }
+    for (const entry of allData) dataByDate.set(entry.date, entry)
 
     const result: DrinkEntry[] = []
     const current = new Date(startDate)
-
     while (getLocalDateString(current) <= todayStr) {
       const dateStr = getLocalDateString(current)
-      const existing = dataByDate.get(dateStr)
-
-      if (existing) {
-        result.push(existing)
-      } else {
-        result.push({ date: dateStr, count: 0, types: [], hours: [], drinkIds: [], captions: [] })
-      }
-
+      result.push(dataByDate.get(dateStr) ?? { date: dateStr, count: 0, types: [], hours: [], drinkIds: [], captions: [] })
       current.setDate(current.getDate() + 1)
     }
-
     return result
   }, [allData, timeRange])
 
-  // Cheers stats — computed reactively from raw data + current time range
   const cheersStats = React.useMemo<CheersStats>(() => {
     const now = new Date()
     const { start: rangeStart } = getDateRangeForTimeRange(timeRange, now)
-
-    // Drink IDs that fall within the selected time range
     const filteredDrinkIds = new Set(filteredData.flatMap((d) => d.drinkIds))
 
-    // Filter received cheers to only those on posts in the time range
     const received = rawReceivedCheers.filter((c) => filteredDrinkIds.has(c.drink_log_id))
-
-    // Filter given cheers to those made during the time range (by cheer timestamp)
     const given = rawGivenCheers.filter((c) => new Date(c.created_at) >= rangeStart)
 
-    // Cheers per post (for most-cheered calculation)
     const cheersPerPost: Record<string, number> = {}
-    received.forEach((c) => {
-      cheersPerPost[c.drink_log_id] = (cheersPerPost[c.drink_log_id] || 0) + 1
-    })
+    received.forEach((c) => { cheersPerPost[c.drink_log_id] = (cheersPerPost[c.drink_log_id] || 0) + 1 })
 
     let mostCheeredPost: CheersStats["mostCheeredPost"] = null
     let maxCheers = 0
@@ -1848,135 +1175,66 @@ export default function AnalyticsPage() {
       if (count > maxCheers) {
         maxCheers = count
         const log = allLogs.find((l) => l.id === postId)
-        mostCheeredPost = {
-          id: postId,
-          count,
-          caption: log?.caption ?? null,
-          date: log ? getLocalDateString(new Date(log.created_at)) : "",
-        }
+        mostCheeredPost = { id: postId, count, caption: log?.caption ?? null, date: log ? getLocalDateString(new Date(log.created_at)) : "" }
       }
     })
 
-    // Who cheered me most (within time range)
     const cheererCounts: Record<string, number> = {}
-    received.forEach((c) => {
-      if (c.user_id !== userId) {
-        cheererCounts[c.user_id] = (cheererCounts[c.user_id] || 0) + 1
-      }
-    })
+    received.forEach((c) => { if (c.user_id !== userId) cheererCounts[c.user_id] = (cheererCounts[c.user_id] || 0) + 1 })
 
-    // Who I cheered most (within time range)
     const cheeredByMeCounts: Record<string, number> = {}
     given.forEach((c) => {
       const postOwner = cheeredPostOwners[c.drink_log_id]
-      if (postOwner && postOwner !== userId) {
-        cheeredByMeCounts[postOwner] = (cheeredByMeCounts[postOwner] || 0) + 1
-      }
+      if (postOwner && postOwner !== userId) cheeredByMeCounts[postOwner] = (cheeredByMeCounts[postOwner] || 0) + 1
     })
 
-    const topCheerersToMe = Object.entries(cheererCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => ({
-        oderId: id,
-        username: cheersProfiles[id]?.username ?? "Unknown",
-        displayName: cheersProfiles[id]?.displayName ?? "Unknown",
-        avatarUrl: cheersProfiles[id]?.avatarUrl ?? null,
-        count,
-      }))
+    const topCheerersToMe = Object.entries(cheererCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, count]) => ({
+      oderId: id, username: cheersProfiles[id]?.username ?? "Unknown", displayName: cheersProfiles[id]?.displayName ?? "Unknown", avatarUrl: cheersProfiles[id]?.avatarUrl ?? null, count,
+    }))
 
-    const topCheeredByMe = Object.entries(cheeredByMeCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => ({
-        oderId: id,
-        username: cheersProfiles[id]?.username ?? "Unknown",
-        displayName: cheersProfiles[id]?.displayName ?? "Unknown",
-        avatarUrl: cheersProfiles[id]?.avatarUrl ?? null,
-        count,
-      }))
+    const topCheeredByMe = Object.entries(cheeredByMeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, count]) => ({
+      oderId: id, username: cheersProfiles[id]?.username ?? "Unknown", displayName: cheersProfiles[id]?.displayName ?? "Unknown", avatarUrl: cheersProfiles[id]?.avatarUrl ?? null, count,
+    }))
 
     const totalReceived = received.length
     const totalGiven = given.length
-    const postsInRange = filteredDrinkIds.size
-    const avgPerPost = postsInRange > 0 ? totalReceived / postsInRange : 0
+    const avgPerPost = filteredDrinkIds.size > 0 ? totalReceived / filteredDrinkIds.size : 0
 
-    return {
-      totalReceived,
-      totalGiven,
-      avgPerPost,
-      mostCheeredPost,
-      topCheerersToMe,
-      topCheeredByMe,
-    }
+    return { totalReceived, totalGiven, avgPerPost, mostCheeredPost, topCheerersToMe, topCheeredByMe }
   }, [filteredData, rawReceivedCheers, rawGivenCheers, cheeredPostOwners, cheersProfiles, timeRange, userId, allLogs])
 
   const kpiData = React.useMemo(() => {
     const totalDrinks = filteredData.reduce((sum, day) => sum + day.count, 0)
     const avgPerDay = filteredData.length > 0 ? totalDrinks / filteredData.length : 0
     const mostInADay = Math.max(...filteredData.map((d) => d.count), 0)
-
     const typeCounts: Record<string, number> = {}
-    filteredData.forEach((day) => {
-      day.types.forEach((type) => {
-        typeCounts[type] = (typeCounts[type] || 0) + 1
-      })
-    })
-
+    filteredData.forEach((day) => day.types.forEach((type) => { typeCounts[type] = (typeCounts[type] || 0) + 1 }))
     const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
     const topCount = sortedTypes[0]?.[1] ?? 0
     const tiedTypes = sortedTypes.filter(([, count]) => count === topCount).map(([name]) => name)
     const mostCommon = tiedTypes.length > 0 ? tiedTypes.join("/") : "N/A"
-
     return { totalDrinks, avgPerDay, mostInADay, mostCommon }
   }, [filteredData])
 
   const streakData = React.useMemo(() => {
-    let longestStreak = 0
-    let tempStreak = 0
-    let daysSinceLastDrink = 0
-
-    for (let i = 0; i < filteredData.length; i++) {
-      const entry = filteredData[i]
-      
-      if (entry.count > 0) {
-        tempStreak++
-        longestStreak = Math.max(longestStreak, tempStreak)
-      } else {
-        tempStreak = 0
-      }
+    let longestStreak = 0, tempStreak = 0, daysSinceLastDrink = 0
+    for (const entry of filteredData) {
+      if (entry.count > 0) { tempStreak++; longestStreak = Math.max(longestStreak, tempStreak) }
+      else tempStreak = 0
     }
-
     let foundLastDrink = false
     for (let i = filteredData.length - 1; i >= 0; i--) {
-      if (filteredData[i].count > 0) {
-        foundLastDrink = true
-        break
-      }
+      if (filteredData[i].count > 0) { foundLastDrink = true; break }
       daysSinceLastDrink++
     }
-
-    if (!foundLastDrink) {
-      daysSinceLastDrink = filteredData.length
-    }
-
-    return {
-      longestStreak,
-      daysSinceLastDrink,
-    }
+    if (!foundLastDrink) daysSinceLastDrink = filteredData.length
+    return { longestStreak, daysSinceLastDrink }
   }, [filteredData])
 
   const breakdownData = React.useMemo(() => {
     const typeCounts: Record<string, number> = {}
-    filteredData.forEach((day) => {
-      day.types.forEach((type) => {
-        typeCounts[type] = (typeCounts[type] || 0) + 1
-      })
-    })
-
-    return Object.entries(typeCounts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+    filteredData.forEach((day) => day.types.forEach((type) => { typeCounts[type] = (typeCounts[type] || 0) + 1 }))
+    return Object.entries(typeCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   }, [filteredData])
 
   const cardComponents: Record<CardId, React.ReactNode> = {
@@ -1988,23 +1246,19 @@ export default function AnalyticsPage() {
     typeTrend: <TypeTrendChart data={filteredData} timeRange={timeRange} />,
   }
 
+  const header = (
+    <div className="mb-4 flex items-center justify-between">
+      <button type="button" onClick={() => router.back()} className="inline-flex items-center justify-center rounded-full border p-2" aria-label="Go back">
+        <ArrowLeft className="h-5 w-5" />
+      </button>
+      <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-        </div>
-
+        {header}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -2024,22 +1278,8 @@ export default function AnalyticsPage() {
   if (error) {
     return (
       <div className="container max-w-2xl px-3 py-1.5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-        </div>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
-        </div>
+        {header}
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
       </div>
     )
   }
@@ -2047,27 +1287,11 @@ export default function AnalyticsPage() {
   return (
     <DragContext.Provider value={{ draggedId, handleDragStart, handleDragEnd, handleDragOver, positionMapRef, capturePositions }}>
       <div className="container max-w-2xl px-3 py-1.5 pb-20">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border p-2"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-        </div>
-
+        {header}
         <div className="space-y-4">
           <KpiCards data={{ ...kpiData, ...streakData }} />
-          
           {cardOrder.map((cardId) => (
-            <DraggableCard key={cardId} id={cardId}>
-              {cardComponents[cardId]}
-            </DraggableCard>
+            <DraggableCard key={cardId} id={cardId}>{cardComponents[cardId]}</DraggableCard>
           ))}
         </div>
       </div>
