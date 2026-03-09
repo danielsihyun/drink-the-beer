@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBatchSignedUrls } from "@/lib/signed-url-cache"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +29,6 @@ export async function GET(req: NextRequest) {
     const startDate = url.searchParams.get("start_date") ?? new Date(0).toISOString()
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 100)
 
-    // Single RPC call for leaderboard data
     const { data, error: rpcErr } = await supabaseAdmin.rpc("get_leaderboard", {
       p_viewer_id: user.id,
       p_scope: scope,
@@ -40,26 +40,25 @@ export async function GET(req: NextRequest) {
 
     const rows = (data ?? []) as any[]
 
-    // Resolve all avatar URLs in parallel server-side
-    const avatarUrls = await Promise.all(
-      rows.map((r) =>
-        r.avatar_path
-          ? supabaseAdmin.storage
-              .from("profile-photos")
-              .createSignedUrl(r.avatar_path, 60 * 60)
-              .then((res) => res.data?.signedUrl ?? null)
-          : Promise.resolve(null)
-      )
-    )
+    // Batch all avatar signed URLs in one shot instead of N individual calls
+    const avatarPaths = [...new Set(rows.map((r) => r.avatar_path).filter(Boolean))] as string[]
+    const avatarUrls = avatarPaths.length > 0
+      ? await getBatchSignedUrls(supabaseAdmin, "profile-photos", avatarPaths, 60 * 60)
+      : []
 
-    const entries = rows.map((r, i) => ({
+    const avatarUrlMap = new Map<string, string | null>()
+    for (let i = 0; i < avatarPaths.length; i++) {
+      avatarUrlMap.set(avatarPaths[i], avatarUrls[i])
+    }
+
+    const entries = rows.map((r) => ({
       user_id: r.user_id,
       username: r.username,
       display_name: r.display_name,
       drink_count: r.drink_count,
       rank: r.rank,
       is_viewer: r.is_viewer,
-      avatarUrl: avatarUrls[i],
+      avatarUrl: r.avatar_path ? (avatarUrlMap.get(r.avatar_path) ?? null) : null,
     }))
 
     return NextResponse.json({ viewerId: user.id, entries })
