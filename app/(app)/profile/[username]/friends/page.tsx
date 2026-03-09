@@ -58,7 +58,6 @@ function PersonCard({
           <div className="flex-1 min-w-0 space-y-0.5">
             <div className="text-[15px] font-semibold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</div>
             <div className="text-[13px] text-neutral-500 dark:text-white/40 font-medium truncate">@{username}</div>
-
             <div className="flex gap-4 text-[13px]">
               <div>
                 <span className="font-semibold text-neutral-900 dark:text-white">{friendCount}</span>{" "}
@@ -80,64 +79,6 @@ function PersonCard({
   )
 }
 
-function ResponsiveTitle({ text }: { text: string }) {
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const [fontSize, setFontSize] = React.useState(24)
-  const baseSize = 24
-  const minSize = 16
-
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const calculateSize = () => {
-      const containerWidth = container.clientWidth
-      if (containerWidth === 0) return
-
-      const measureSpan = document.createElement('span')
-      measureSpan.style.cssText = `
-        position: absolute;
-        visibility: hidden;
-        white-space: nowrap;
-        font-size: ${baseSize}px;
-        font-weight: 700;
-        font-family: inherit;
-      `
-      measureSpan.textContent = text
-      document.body.appendChild(measureSpan)
-      
-      const textWidth = measureSpan.offsetWidth
-      document.body.removeChild(measureSpan)
-
-      if (textWidth > containerWidth) {
-        const ratio = containerWidth / textWidth
-        const newSize = Math.max(Math.floor(baseSize * ratio * 0.95), minSize)
-        setFontSize(newSize)
-      } else {
-        setFontSize(baseSize)
-      }
-    }
-
-    calculateSize()
-
-    const resizeObserver = new ResizeObserver(calculateSize)
-    resizeObserver.observe(container)
-
-    return () => resizeObserver.disconnect()
-  }, [text])
-
-  return (
-    <div ref={containerRef} className="min-w-0 flex-1 overflow-hidden">
-      <h2
-        className="font-bold whitespace-nowrap"
-        style={{ fontSize: `${fontSize}px`, lineHeight: '1.25' }}
-      >
-        {text}
-      </h2>
-    </div>
-  )
-}
-
 export default function UserFriendsPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -155,104 +96,28 @@ export default function UserFriendsPage() {
       setError(null)
 
       try {
-        // Get current user
-        const { data: userRes, error: userErr } = await supabase.auth.getUser()
-        if (userErr) throw userErr
-        if (!userRes.user) {
+        const { data: sessRes } = await supabase.auth.getSession()
+        const token = sessRes.session?.access_token
+        if (!token) {
           router.replace("/login")
           return
         }
 
-        // Get the profile for this username
-        const { data: prof, error: profErr } = await supabase
-          .from("profile_public_stats")
-          .select("id, username, display_name")
-          .eq("username", username)
-          .single()
+        const res = await fetch(`/api/profile/${encodeURIComponent(username)}/friends`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const json = await res.json().catch(() => ({}))
 
-        if (profErr) {
-          if (profErr.code === "PGRST116") {
+        if (!res.ok) {
+          if (res.status === 404) {
             setError("User not found")
-            setLoading(false)
             return
           }
-          throw profErr
+          throw new Error(json?.error ?? "Failed to load friends")
         }
 
-        setDisplayName(prof.display_name || prof.username)
-
-        const targetUserId = prof.id
-
-        // Fetch accepted friendships for the target user
-        const { data: friendships, error: fErr } = await supabase
-          .from("friendships")
-          .select("requester_id, addressee_id")
-          .or(`requester_id.eq.${targetUserId},addressee_id.eq.${targetUserId}`)
-          .eq("status", "accepted")
-
-        if (fErr) throw fErr
-
-        if (!friendships || friendships.length === 0) {
-          setFriends([])
-          setLoading(false)
-          return
-        }
-
-        // Get the friend IDs (the other side of each friendship)
-        const friendIds = friendships.map((f) =>
-          f.requester_id === targetUserId ? f.addressee_id : f.requester_id
-        )
-
-        // Fetch profiles for all friends
-        const { data: profiles, error: pErr } = await supabase
-          .from("profile_public_stats")
-          .select("id, username, display_name, avatar_path, friend_count, drink_count")
-          .in("id", friendIds)
-
-        if (pErr) throw pErr
-
-        // Get signed avatar URLs
-        const avatarUrls = await Promise.all(
-          (profiles ?? []).map((p: any) =>
-            p.avatar_path
-              ? supabase.storage.from("profile-photos").createSignedUrl(p.avatar_path, 60 * 60).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null)
-          )
-        )
-
-        // Fetch cheers counts for each friend
-        const cheersCounts = await Promise.all(
-          (profiles ?? []).map(async (p: any) => {
-            const { data: logIds } = await supabase
-              .from("drink_logs")
-              .select("id")
-              .eq("user_id", p.id)
-            const ids = (logIds ?? []).map((r: any) => r.id)
-            if (ids.length === 0) return 0
-            const { count } = await supabase
-              .from("drink_cheers")
-              .select("*", { count: "exact", head: true })
-              .in("drink_log_id", ids)
-            return count ?? 0
-          })
-        )
-
-        const friendProfiles: FriendProfile[] = (profiles ?? []).map((p: any, i: number) => ({
-          id: p.id,
-          username: p.username,
-          displayName: p.display_name || p.username,
-          avatarUrl: avatarUrls[i],
-          friendCount: p.friend_count ?? 0,
-          drinkCount: p.drink_count ?? 0,
-          cheersCount: cheersCounts[i],
-        }))
-
-        // Sort alphabetically by display name
-        friendProfiles.sort((a, b) =>
-          a.displayName.localeCompare(b.displayName)
-        )
-
-        setFriends(friendProfiles)
+        setFriends(json.friends ?? [])
+        setDisplayName(json.displayName ?? username)
       } catch (e: any) {
         setError(e?.message ?? "Something went wrong.")
       } finally {
@@ -265,7 +130,6 @@ export default function UserFriendsPage() {
 
   return (
     <div className="container max-w-md mx-auto px-0 py-4">
-      {/* Header */}
       <div className="mb-6 flex items-center gap-3 min-w-0">
         <button
           type="button"
@@ -288,14 +152,9 @@ export default function UserFriendsPage() {
 
       {loading ? (
         <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">
-            Friends
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-white/30">Friends</div>
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4"
-            >
+            <div key={i} className="rounded-[2rem] border border-neutral-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl p-4">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 rounded-full bg-neutral-100 dark:bg-white/[0.08] animate-pulse" />
                 <div className="flex-1 min-w-0 space-y-2">
@@ -313,9 +172,7 @@ export default function UserFriendsPage() {
         </div>
       ) : friends.length === 0 ? (
         <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
-          <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">
-            No friends yet
-          </h3>
+          <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-white">No friends yet</h3>
           <p className="max-w-sm text-sm text-neutral-500 dark:text-white/50">
             {displayName} hasn&apos;t added any friends yet.
           </p>
