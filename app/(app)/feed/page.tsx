@@ -4,7 +4,7 @@ import * as React from "react"
 import { Suspense } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Check, ChevronDown, FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
+import { Check, ChevronDown, Loader2, PenLine, Plus, Trash2, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -595,7 +595,6 @@ function FeedContent() {
       setViewerId(user.id)
       tokenRef.current = token
 
-      // Single fetch — feed items + viewer avatar come back together, no separate avatar calls
       const { mapped, nextCursor: nc, viewerAvatarUrl } = await fetchPage(token, user.id, null)
 
       if (viewerAvatarUrl !== undefined) {
@@ -605,7 +604,6 @@ function FeedContent() {
       setItems(mapped)
       setNextCursor(nc)
 
-      // Fire quest fetch in parallel (non-blocking — has its own loading state)
       fetchQuest()
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong loading your feed.")
@@ -951,7 +949,7 @@ function FeedContent() {
                           className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60"
                           aria-label="Edit post"
                         >
-                          <FilePenLine className="h-[18px] w-[18px]" />
+                          <PenLine className="h-[18px] w-[18px]" />
                         </button>
                         <button
                           onClick={() => openDelete(it)}
