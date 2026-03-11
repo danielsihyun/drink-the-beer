@@ -1035,7 +1035,7 @@ function FeedContent() {
           saveIconClassName="bg-red-500 hover:bg-red-600 text-white"
         >
           <p className="mb-6 text-neutral-600 dark:text-white/55">This action cannot be undone. The photo and cheers associated with this log will be removed permanently.</p>
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
+          <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
             <Image src={active.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
           </div>
         </OverlayPage>
