@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Cropper from "react-easy-crop"
-import { Camera, Check, ChevronDown, Loader2, Search, X } from "lucide-react"
+import { Camera, Check, Loader2, Search, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useAchievements } from "@/contexts/achievement-context"
@@ -79,8 +79,7 @@ async function getCroppedFile(imageSrc: string, crop: Area, outputMime: string) 
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
 
-  const file = new File([blob], `${uuid}.${ext}`, { type: outputMime })
-  return file
+  return new File([blob], `${uuid}.${ext}`, { type: outputMime })
 }
 
 /* ── Drink Search Picker ───────────────────────────────────────── */
@@ -98,6 +97,7 @@ function DrinkPicker({
   onClear: () => void
   disabled?: boolean
 }) {
+  const supabase = createClient()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<DrinkResult[]>([])
@@ -110,7 +110,6 @@ function DrinkPicker({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
-  // Close when clicking outside
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -122,7 +121,6 @@ function DrinkPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Search with debounce
   React.useEffect(() => {
     const q = query.trim()
     if (q.length < 1) {
@@ -131,7 +129,6 @@ function DrinkPicker({
       return
     }
 
-    // Show loading immediately so "no matches" doesn't flash
     setSearching(true)
 
     const t = setTimeout(async () => {
@@ -164,9 +161,9 @@ function DrinkPicker({
     if (!customName.trim()) return
     setCreating(true)
     try {
-      const supabase = createClient()
-      const { data: userRes } = await supabase.auth.getUser()
-      const userId = userRes.user?.id
+      // ✓ getSession() instead of getUser() — reads from local storage, no network call
+      const { data: sessRes } = await supabase.auth.getSession()
+      const userId = sessRes.session?.user.id
 
       const { data, error } = await supabase
         .from("drinks")
@@ -191,7 +188,6 @@ function DrinkPicker({
     }
   }
 
-  // If a drink is selected, show it as a pill
   if (selectedDrink) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-3.5">
@@ -210,9 +206,7 @@ function DrinkPicker({
         </div>
         <button
           type="button"
-          onClick={() => {
-            if (!disabled) onClear()
-          }}
+          onClick={() => { if (!disabled) onClear() }}
           disabled={disabled}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] text-neutral-500 dark:text-white/40 transition-colors hover:bg-neutral-200 dark:hover:bg-white/[0.12]"
           aria-label="Clear selection"
@@ -225,7 +219,6 @@ function DrinkPicker({
 
   return (
     <div className="relative" ref={containerRef}>
-      {/* Single search input — becomes active on focus */}
       <div
         className={cn(
           "flex w-full items-center gap-3 rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all",
@@ -264,14 +257,10 @@ function DrinkPicker({
         )}
       </div>
 
-      {/* Results dropdown */}
       {open && (query.trim().length > 0 || showCustom) && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
-
-          {/* Results */}
           <div className="max-h-[280px] overflow-y-auto">
             {showCustom ? (
-              /* Custom drink creation form */
               <div className="p-3 space-y-3 py-2">
                 <div>
                   <label className="block text-xs font-medium text-neutral-500 dark:text-white/40 mb-1.5">Drink name</label>
@@ -305,10 +294,7 @@ function DrinkPicker({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowCustom(false)
-                      setCustomName("")
-                    }}
+                    onClick={() => { setShowCustom(false); setCustomName("") }}
                     className="flex-1 rounded-xl py-2.5 text-sm font-medium bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-white/50 transition-all active:scale-[0.98]"
                   >
                     Back
@@ -336,7 +322,6 @@ function DrinkPicker({
                 </div>
               </div>
             ) : (
-              /* Search results + add custom row at bottom */
               <div className="p-1.5">
                 {searching && results.length === 0 ? (
                   <div className="flex items-center justify-center py-6">
@@ -371,7 +356,6 @@ function DrinkPicker({
                       </button>
                     ))}
 
-                    {/* Add custom option — only when no matches */}
                     {results.length === 0 && (
                       <button
                         type="button"
@@ -381,13 +365,13 @@ function DrinkPicker({
                         }}
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]"
                       >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
-                        <span className="text-lg">+</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Don't see it? Add "{query.trim()}"</div>
-                      </div>
-                    </button>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100/80 dark:bg-white/[0.06] text-neutral-400 dark:text-white/30">
+                          <span className="text-lg">+</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-neutral-600 dark:text-white/60">Don't see it? Add "{query.trim()}"</div>
+                        </div>
+                      </button>
                     )}
                   </>
                 )}
@@ -420,7 +404,6 @@ function LogDrinkContent() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Crop UI state
   const [cropOpen, setCropOpen] = React.useState(false)
   const [rawFile, setRawFile] = React.useState<File | null>(null)
   const [rawUrl, setRawUrl] = React.useState<string | null>(null)
@@ -430,7 +413,6 @@ function LogDrinkContent() {
   const [cropping, setCropping] = React.useState(false)
   const [cropObjectFit, setCropObjectFit] = React.useState<"horizontal-cover" | "vertical-cover">("horizontal-cover")
 
-  // Pre-fill drink from URL params (e.g. from Discover page)
   const prefillRan = React.useRef(false)
   React.useEffect(() => {
     if (prefillRan.current) return
@@ -442,19 +424,8 @@ function LogDrinkContent() {
     if (drinkId && drinkName && drinkCategory) {
       prefillRan.current = true
       const category = drinkCategory as string
-      const mappedType: DrinkType =
-        DRINK_TYPES.includes(category as DrinkType)
-          ? (category as DrinkType)
-          : "Cocktail"
-
-      setSelectedDrink({
-        id: drinkId,
-        name: drinkName,
-        category,
-        image_url: drinkImage || null,
-        glass: null,
-        ingredients: [],
-      })
+      const mappedType: DrinkType = DRINK_TYPES.includes(category as DrinkType) ? (category as DrinkType) : "Cocktail"
+      setSelectedDrink({ id: drinkId, name: drinkName, category, image_url: drinkImage || null, glass: null, ingredients: [] })
       setDrinkType(mappedType)
     }
   }, [searchParams])
@@ -492,23 +463,22 @@ function LogDrinkContent() {
 
     setSubmitting(true)
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser()
-      if (userErr) throw userErr
-      const user = userRes.user
-      if (!user) {
+      // ✓ getSession() instead of getUser() — reads from local storage, no network call
+      const { data: sessRes } = await supabase.auth.getSession()
+      const session = sessRes.session
+      if (!session) {
         router.replace("/login?redirectTo=%2Flog")
         return
       }
 
+      const user = session.user
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
-
       const uuid =
         typeof crypto !== "undefined" && "randomUUID" in crypto && typeof crypto.randomUUID === "function"
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
 
-      const filename = `${uuid}.${ext}`
-      const photoPath = `${user.id}/${filename}`
+      const photoPath = `${user.id}/${uuid}.${ext}`
 
       const { error: uploadErr } = await supabase.storage.from("drink-photos").upload(photoPath, file, {
         cacheControl: "3600",
@@ -528,13 +498,15 @@ function LogDrinkContent() {
       })
       if (insErr) throw insErr
 
-      await checkAchievements()
+      // ✓ Fire without await — achievement check runs in background while we redirect.
+      // The achievement context is global and will trigger modals on the feed page.
+      checkAchievements()
+
       resetForm()
       router.replace("/feed?posted=1")
     } catch (e: unknown) {
       console.error("Submit error:", e)
-      const message = e instanceof Error ? e.message : "Something went wrong. Please try again."
-      setError(message)
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.")
     } finally {
       setSubmitting(false)
     }
@@ -566,7 +538,6 @@ function LogDrinkContent() {
 
   async function onConfirmCrop() {
     if (!rawUrl || !croppedAreaPixels) return
-
     setCropping(true)
     try {
       const outputMime = rawFile?.type === "image/png" ? "image/png" : "image/jpeg"
@@ -577,8 +548,7 @@ function LogDrinkContent() {
       setRawFile(null)
       setCropOpen(false)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Could not crop image."
-      setError(message)
+      setError(e instanceof Error ? e.message : "Could not crop image.")
       if (rawUrl) URL.revokeObjectURL(rawUrl)
       setCropOpen(false)
       setRawFile(null)
@@ -602,29 +572,22 @@ function LogDrinkContent() {
   return (
     <>
       <div className="container max-w-2xl px-3 py-1.5">
-
-        {error ? (
+        {error && (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
           </div>
-        ) : null}
-        {success ? (
+        )}
+        {success && (
           <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             {success}
           </div>
-        ) : null}
+        )}
 
         {/* Photo */}
         <div className="relative">
           {previewUrl ? (
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border bg-background/50">
-              <Image
-                src={previewUrl}
-                alt="Drink preview"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <Image src={previewUrl} alt="Drink preview" fill className="object-cover" unoptimized />
               <button
                 type="button"
                 onClick={() => {
@@ -720,11 +683,7 @@ function LogDrinkContent() {
 
       {/* Crop Modal */}
       {cropOpen && rawUrl ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
           <div className="w-[344px] overflow-hidden rounded-2xl bg-background shadow-2xl">
             <div className="relative overflow-hidden">
               <div
@@ -756,7 +715,6 @@ function LogDrinkContent() {
                   disabled={cropping}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full"
                   aria-label="Cancel"
-                  title="Cancel"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -766,13 +724,8 @@ function LogDrinkContent() {
                   disabled={cropping}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full"
                   aria-label="Done"
-                  title="Done"
                 >
-                  {cropping ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Check className="h-5 w-5" />
-                  )}
+                  {cropping ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
                 </button>
               </div>
             </div>
