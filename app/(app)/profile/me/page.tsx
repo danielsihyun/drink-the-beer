@@ -4,7 +4,7 @@ import { Medal, BarChart3, Swords } from "lucide-react"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpDown, Check, ChevronDown, Edit2, FilePenLine, Loader2, LogOut, Plus, Trash2, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronDown, Edit2, Loader2, LogOut, PenLine, Plus, Trash2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -224,14 +224,15 @@ function EditDrinkTypeDropdown({
         disabled={disabled}
         className={cn(
           "flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-white/[0.1] bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm px-4 py-4 text-sm transition-all duration-200",
+          "active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/10",
           open ? "ring-2 ring-black/5 dark:ring-white/10 bg-white dark:bg-white/[0.08]" : "hover:bg-white dark:hover:bg-white/[0.08]",
           disabled ? "opacity-50 cursor-not-allowed" : ""
         )}
       >
-        <span className="text-neutral-900 dark:text-white">{value}</span>
+        <span className="font-medium text-neutral-900 dark:text-white">{value}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-neutral-400 dark:text-white/40 transition-transform duration-200",
+            "h-4 w-4 text-neutral-500 dark:text-white/40 transition-transform duration-300",
             open ? "rotate-180" : ""
           )}
         />
@@ -239,27 +240,27 @@ function EditDrinkTypeDropdown({
 
       {open && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-neutral-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-neutral-800/95 backdrop-blur-xl shadow-xl ring-1 ring-black/5 dark:ring-white/[0.06] animate-in fade-in zoom-in-95 duration-200">
-          {DRINK_TYPES.map((t, index) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                onChange(t)
-                setOpen(false)
-              }}
-              className={cn(
-                "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors",
-                "hover:bg-black/5 dark:hover:bg-white/[0.08] active:bg-black/10 dark:active:bg-white/[0.12]",
-                t === value
-                  ? "bg-black/5 dark:bg-white/[0.08] font-semibold text-black dark:text-white"
-                  : "text-neutral-700 dark:text-white/70",
-                index !== DRINK_TYPES.length - 1 ? "border-b border-black/5 dark:border-white/[0.06]" : ""
-              )}
-            >
-              <span>{t}</span>
-              {t === value && <Check className="h-4 w-4" />}
-            </button>
-          ))}
+          <div className="max-h-[240px] overflow-y-auto p-1">
+            {DRINK_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  onChange(t)
+                  setOpen(false)
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                  t === value
+                    ? "bg-black/5 dark:bg-white/[0.08] font-semibold text-black dark:text-white"
+                    : "text-neutral-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-black dark:hover:text-white"
+                )}
+              >
+                <span>{t}</span>
+                {t === value && <Check className="h-4 w-4 text-black dark:text-white" />}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -287,7 +288,7 @@ function CheersListModal({
     document.body.style.left = '0'
     document.body.style.right = '0'
     document.body.style.overflow = 'hidden'
-    
+
     return () => {
       document.body.style.position = ''
       document.body.style.top = ''
@@ -302,7 +303,6 @@ function CheersListModal({
     async function fetchCheers() {
       setLoading(true)
       setError(null)
-      
       try {
         const { data: cheersData, error: cheersErr } = await supabase
           .from("drink_cheers")
@@ -319,17 +319,13 @@ function CheersListModal({
         }
 
         const userIds = [...new Set(cheersData.map((c) => c.user_id))]
-
         const { data: profilesData, error: profilesErr } = await supabase
           .from("profile_public_stats")
           .select("id, username, display_name, avatar_path")
           .in("id", userIds)
 
         if (profilesErr) throw profilesErr
-
-        const profilesMap = new Map(
-          (profilesData ?? []).map((p: any) => [p.id, p])
-        )
+        const profilesMap = new Map((profilesData ?? []).map((p: any) => [p.id, p]))
 
         const avatarPaths = cheersData.map((cheer: any) => {
           const profile = profilesMap.get(cheer.user_id)
@@ -353,7 +349,6 @@ function CheersListModal({
             avatarUrl: avatarUrls[i],
           }
         })
-
         setUsers(cheersUsers)
       } catch (e: any) {
         setError(e?.message ?? "Failed to load cheers")
@@ -361,65 +356,43 @@ function CheersListModal({
         setLoading(false)
       }
     }
-
     fetchCheers()
   }, [drinkLogId, supabase])
 
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full max-w-[360px] overflow-hidden rounded-3xl border border-white/20 dark:border-white/[0.08] bg-white/90 dark:bg-neutral-900/90 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-300">
         <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] px-5 py-4">
-          <div className="text-base font-semibold text-neutral-900 dark:text-white">
-            Cheers {cheersCount > 0 && `(${cheersCount})`}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-black/5 dark:bg-white/10 p-1 transition-colors hover:bg-black/10 dark:hover:bg-white/15"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4 text-neutral-500 dark:text-white/60" />
+          <div className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">Cheers ({cheersCount})</div>
+          <button onClick={onClose} className="rounded-full bg-black/5 dark:bg-white/10 p-1 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
+            <X className="h-4 w-4 text-neutral-500 dark:text-white/50" />
           </button>
         </div>
 
-        <div className="max-h-[280px] overflow-y-auto">
+        <div className="max-h-[300px] overflow-y-auto p-2">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-neutral-400 dark:text-white/40" />
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-neutral-400 dark:text-white/30" />
             </div>
           ) : error ? (
-            <div className="px-5 py-6 text-center text-sm text-red-400">
-              {error}
-            </div>
+            <div className="py-8 text-center text-sm text-red-500 dark:text-red-400">{error}</div>
           ) : users.length === 0 ? (
-            <div className="px-5 py-6 text-center text-sm text-neutral-400 dark:text-white/40">
-              No cheers yet
-            </div>
+            <div className="py-8 text-center text-sm text-neutral-400 dark:text-white/40">No cheers yet</div>
           ) : (
-            <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
+            <div className="space-y-1">
               {users.map((user) => (
                 <Link
                   key={user.id}
                   href={`/profile/${user.username}`}
-                  className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                   onClick={onClose}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.06]"
                 >
                   {user.avatarUrl ? (
                     <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5 dark:ring-white/10">
-                      <Image
-                        src={user.avatarUrl}
-                        alt={user.username}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                      <Image src={user.avatarUrl} alt={user.username} fill className="object-cover" unoptimized />
                     </div>
                   ) : (
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10">
@@ -430,7 +403,7 @@ function CheersListModal({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{user.displayName}</p>
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{user.displayName}</p>
                     <p className="text-xs text-neutral-500 dark:text-white/40 truncate">@{user.username}</p>
                   </div>
                 </Link>
@@ -443,18 +416,23 @@ function CheersListModal({
   )
 }
 
+// Feed-style OverlayPage — supports saveIcon + saveIconClassName for delete modal
 function OverlayPage({
   title,
   children,
   onClose,
   onSave,
   saving,
+  saveIcon,
+  saveIconClassName,
 }: {
   title: string
   children: React.ReactNode
   onClose: () => void
   onSave?: () => void
   saving?: boolean
+  saveIcon?: React.ReactNode
+  saveIconClassName?: string
 }) {
   React.useEffect(() => {
     const scrollY = window.scrollY
@@ -463,7 +441,7 @@ function OverlayPage({
     document.body.style.left = '0'
     document.body.style.right = '0'
     document.body.style.overflow = 'hidden'
-    
+
     return () => {
       document.body.style.position = ''
       document.body.style.top = ''
@@ -477,43 +455,35 @@ function OverlayPage({
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full max-w-[400px] overflow-hidden rounded-[2rem] border border-white/20 dark:border-white/[0.08] bg-white dark:bg-neutral-900 shadow-2xl animate-in slide-in-from-bottom-12 zoom-in-95 duration-300">
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02] px-5 py-4 backdrop-blur-md">
-          <div className="text-base font-semibold text-neutral-900 dark:text-white">{title}</div>
-          <div className="flex items-center gap-1.5">
+          <div className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white">{title}</div>
+          <div className="flex items-center gap-2">
             <button
-              type="button"
               onClick={onClose}
               disabled={saving}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-white/50 transition-colors hover:bg-neutral-200 dark:hover:bg-white/15"
-              aria-label="Cancel"
             >
               <X className="h-4 w-4" />
             </button>
             {onSave && (
               <button
-                type="button"
                 onClick={onSave}
                 disabled={saving}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                  "flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-95",
                   saving ? "bg-neutral-100 dark:bg-white/10" : "bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100",
+                  saveIconClassName
                 )}
-                aria-label="Save"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin text-neutral-400 dark:text-white/30" /> : (saveIcon || <Check className="h-4 w-4" />)}
               </button>
             )}
           </div>
         </div>
-
-        <div className="max-h-[70vh] overflow-y-auto px-5 py-5">{children}</div>
+        <div className="max-h-[80vh] overflow-y-auto px-5 py-6">{children}</div>
       </div>
     </div>
   )
@@ -675,7 +645,7 @@ function DrinkLogCard({
           </div>
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => onEdit(log)} className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60" aria-label="Edit post">
-              <FilePenLine className="h-[18px] w-[18px]" />
+              <PenLine className="h-[18px] w-[18px]" />
             </button>
             <button type="button" onClick={() => onDelete(log)} className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400" aria-label="Delete post">
               <Trash2 className="h-[18px] w-[18px]" />
@@ -692,8 +662,8 @@ function DrinkLogCard({
   )
 }
 
-function GroupedDrinkCard({ 
-  group, 
+function GroupedDrinkCard({
+  group,
   profile,
   onEdit,
   onDelete,
@@ -701,7 +671,7 @@ function GroupedDrinkCard({
   onShowCheersList,
   cheersBusy,
   cheersAnimating,
-}: { 
+}: {
   group: GroupedDrinks
   profile: UiProfile
   onEdit: (log: DrinkLog) => void
@@ -792,7 +762,7 @@ function GroupedDrinkCard({
           </div>
           <div className="flex items-center gap-0.5">
             <button type="button" onClick={() => onEdit(currentDrink)} className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-white/25 transition-all duration-150 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] hover:text-neutral-700 dark:hover:text-white/60" aria-label="Edit post">
-              <FilePenLine className="h-[18px] w-[18px]" />
+              <PenLine className="h-[18px] w-[18px]" />
             </button>
             <button type="button" onClick={() => onDelete(currentDrink)} className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 dark:text-red-400/40 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400" aria-label="Delete post">
               <Trash2 className="h-[18px] w-[18px]" />
@@ -888,7 +858,6 @@ export default function ProfilePage() {
       const uid = sessRes.session!.user.id
       setUserId(uid)
 
-      // Single API call — now includes XP, duel badges, and friend badges
       const res = await fetch("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? "Failed to load profile")
@@ -1012,32 +981,63 @@ export default function ProfilePage() {
     try { await supabase.auth.signOut(); router.replace("/login") } finally { setLoggingOut(false) }
   }
 
-  function openEditPost(log: DrinkLog) { setActivePost(log); setPostDrinkType(log.drinkType); setPostCaption(log.caption ?? ""); setPostError(null); setEditPostOpen(true) }
-  function openDeletePost(log: DrinkLog) { setActivePost(log); setPostError(null); setDeletePostOpen(true) }
+  function openEditPost(log: DrinkLog) {
+    setActivePost(log)
+    setPostDrinkType(log.drinkType)
+    setPostCaption(log.caption ?? "")
+    setPostError(null)
+    setEditPostOpen(true)
+  }
+
+  function openDeletePost(log: DrinkLog) {
+    setActivePost(log)
+    setPostError(null)
+    setDeletePostOpen(true)
+  }
 
   async function savePostEdits() {
     if (!activePost || !userId) return setPostError("Not signed in.")
-    setPostError(null); setPostBusy(true)
+    setPostError(null)
+    setPostBusy(true)
     try {
       const nextCaption = postCaption.trim()
-      const { error: updErr } = await supabase.from("drink_logs").update({ drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null }).eq("id", activePost.id).eq("user_id", userId)
+      const { error: updErr } = await supabase
+        .from("drink_logs")
+        .update({ drink_type: postDrinkType, caption: nextCaption.length ? nextCaption : null })
+        .eq("id", activePost.id)
+        .eq("user_id", userId)
       if (updErr) throw updErr
       setLogs((prev) => prev.map((l) => l.id === activePost.id ? { ...l, drinkType: postDrinkType, caption: nextCaption.length ? nextCaption : undefined } : l))
-      setEditPostOpen(false); setActivePost(null)
-    } catch (e: any) { setPostError(e?.message ?? "Could not update post.") } finally { setPostBusy(false) }
+      setEditPostOpen(false)
+      setActivePost(null)
+    } catch (e: any) {
+      setPostError(e?.message ?? "Could not update post.")
+    } finally {
+      setPostBusy(false)
+    }
   }
 
   async function deletePostConfirmed() {
     if (!activePost || !userId) return setPostError("Not signed in.")
-    setPostError(null); setPostBusy(true)
+    setPostError(null)
+    setPostBusy(true)
     try {
-      const { error: delErr } = await supabase.from("drink_logs").delete().eq("id", activePost.id).eq("user_id", userId)
+      const { error: delErr } = await supabase
+        .from("drink_logs")
+        .delete()
+        .eq("id", activePost.id)
+        .eq("user_id", userId)
       if (delErr) throw delErr
       if (activePost.photoPath) await supabase.storage.from("drink-photos").remove([activePost.photoPath])
       setLogs((prev) => prev.filter((l) => l.id !== activePost.id))
       setProfile((p) => ({ ...p, drinkCount: Math.max(0, p.drinkCount - 1) }))
-      setDeletePostOpen(false); setActivePost(null)
-    } catch (e: any) { setPostError(e?.message ?? "Could not delete post.") } finally { setPostBusy(false) }
+      setDeletePostOpen(false)
+      setActivePost(null)
+    } catch (e: any) {
+      setPostError(e?.message ?? "Could not delete post.")
+    } finally {
+      setPostBusy(false)
+    }
   }
 
   const getGroupedDrinks = (): GroupedDrinks[] => {
@@ -1185,40 +1185,51 @@ export default function ProfilePage() {
         <CheersListModal drinkLogId={cheersListPost.id} cheersCount={cheersListPost.cheersCount} onClose={() => setCheersListPost(null)} />
       )}
 
+      {/* Feed-style Edit Modal */}
       {editPostOpen && activePost && (
-        <OverlayPage title="Edit Drink" onClose={() => { if (postBusy) return; setEditPostOpen(false); setActivePost(null); setPostError(null) }} onSave={savePostEdits} saving={postBusy}>
+        <OverlayPage
+          title="Edit Drink"
+          onClose={() => { if (!postBusy) { setEditPostOpen(false); setActivePost(null); setPostError(null) } }}
+          onSave={savePostEdits}
+          saving={postBusy}
+        >
           {postError && <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>}
           <div className="flex gap-4">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/[0.06]">
-              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized />
+              <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{activePost.timestampLabel}</p>
-              <p className="text-xs text-neutral-500 dark:text-white/40 mt-0.5">Change type or caption below</p>
+            <div className="flex-1">
+              <EditDrinkTypeDropdown value={postDrinkType} onChange={setPostDrinkType} disabled={postBusy} />
             </div>
           </div>
-          <EditDrinkTypeDropdown value={postDrinkType} onChange={setPostDrinkType} disabled={postBusy} />
-          <div className="relative mt-4">
-            <textarea value={postCaption} onChange={(e) => setPostCaption(e.target.value)} placeholder="Add a caption (optional)" className="h-28 w-full resize-none rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] p-4 text-base text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 focus:border-black/20 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/[0.06] focus:outline-none focus:ring-4 focus:ring-black/5 dark:focus:ring-white/10 transition-all" maxLength={200} disabled={postBusy} />
-            <div className="absolute bottom-4 right-4 text-xs text-neutral-400 dark:text-white/30">{postCaption.length}/200</div>
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-medium text-neutral-500 dark:text-white/40">Caption</label>
+            <textarea
+              value={postCaption}
+              onChange={(e) => setPostCaption(e.target.value)}
+              className="w-full resize-none rounded-2xl border border-neutral-200 dark:border-white/[0.1] bg-neutral-50 dark:bg-white/[0.04] p-4 text-base text-neutral-900 dark:text-white placeholder:text-neutral-300 dark:placeholder:text-white/20 focus:border-black/20 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/[0.06] focus:outline-none focus:ring-4 focus:ring-black/5 dark:focus:ring-white/10 transition-all"
+              rows={4}
+              maxLength={200}
+              disabled={postBusy}
+            />
           </div>
         </OverlayPage>
       )}
 
+      {/* Feed-style Delete Modal */}
       {deletePostOpen && activePost && (
-        <OverlayPage title="Delete Drink" onClose={() => { if (postBusy) return; setDeletePostOpen(false); setActivePost(null); setPostError(null) }} onSave={deletePostConfirmed} saving={postBusy}>
+        <OverlayPage
+          title="Delete Post?"
+          onClose={() => { if (!postBusy) { setDeletePostOpen(false); setActivePost(null); setPostError(null) } }}
+          onSave={deletePostConfirmed}
+          saving={postBusy}
+          saveIcon={<Trash2 className="h-4 w-4" />}
+          saveIconClassName="bg-red-500 hover:bg-red-600 text-white"
+        >
           {postError && <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-500 dark:text-red-400">{postError}</div>}
-          <div className="rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/50 dark:bg-red-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400"><Trash2 className="h-5 w-5" /></div>
-              <div className="flex-1">
-                <div className="text-base font-semibold text-neutral-900 dark:text-white">Are you sure?</div>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-white/50">This action cannot be undone.</p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 mx-auto w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
-            <div className="relative aspect-square w-full"><Image src={activePost.photoUrl || "/placeholder.svg"} alt="Post photo" fill className="object-cover" unoptimized /></div>
+          <p className="mb-6 text-neutral-600 dark:text-white/55">This action cannot be undone. The photo and cheers associated with this log will be removed permanently.</p>
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-white/[0.04] opacity-80 grayscale">
+            <Image src={activePost.photoUrl || "/placeholder.svg"} alt="Preview" fill className="object-cover" unoptimized />
           </div>
         </OverlayPage>
       )}
