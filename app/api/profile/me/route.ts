@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBatchSignedUrls } from "@/lib/signed-url-cache"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
         .select("achievement_id, unlocked_at")
         .eq("user_id", userId),
 
-      // Pending incoming friend requests (badge on Friends link)
+      // Pending incoming friend requests
       supabaseAdmin
         .from("friendships")
         .select("*", { count: "exact", head: true })
@@ -75,14 +76,14 @@ export async function GET(req: NextRequest) {
         .eq("user_id", userId)
         .maybeSingle(),
 
-      // Pending duel challenges (badge on Versus link)
+      // Pending duel challenges
       supabaseAdmin
         .from("duels")
         .select("*", { count: "exact", head: true })
         .eq("challenged_id", userId)
         .eq("status", "pending"),
 
-      // Duels challenger accepted but not yet seen (also badge on Versus)
+      // Duels challenger accepted but not yet seen
       supabaseAdmin
         .from("duels")
         .select("*", { count: "exact", head: true })
@@ -108,21 +109,26 @@ export async function GET(req: NextRequest) {
     const profile = profileRes.data as any
     const logs = (logsRes.data ?? []) as any[]
 
-    // ── Parallel batch 2: signed URLs, drink names, cheers state ──
+    // ── Parallel batch 2: signed URLs (batched), drink names, cheers state ──
     const drinkIds = [...new Set(logs.map((r) => r.drink_id).filter(Boolean))] as string[]
     const logIds = logs.map((r) => r.id)
+    const photoPaths = logs.map((r) => r.photo_path as string)
 
     const [
-      avatarRes,
+      photoUrls,
+      avatarUrlArr,
       drinkNamesRes,
       cheersStateRes,
-      ...photoUrlResults
     ] = await Promise.all([
+      // Batch all drink photo signed URLs in one shot (vs N serial calls before)
+      photoPaths.length > 0
+        ? getBatchSignedUrls(supabaseAdmin, "drink-photos", photoPaths, 60 * 60)
+        : Promise.resolve([] as (string | null)[]),
+
+      // Avatar — single path, still use batch helper for cache consistency
       profile.avatar_path
-        ? supabaseAdmin.storage
-            .from("profile-photos")
-            .createSignedUrl(profile.avatar_path, 60 * 60)
-        : Promise.resolve({ data: null }),
+        ? getBatchSignedUrls(supabaseAdmin, "profile-photos", [profile.avatar_path], 60 * 60)
+        : Promise.resolve([null] as (string | null)[]),
 
       drinkIds.length > 0
         ? supabaseAdmin.from("drinks").select("id, name").in("id", drinkIds)
@@ -134,16 +140,10 @@ export async function GET(req: NextRequest) {
             viewer_id: userId,
           })
         : Promise.resolve({ data: [] }),
-
-      ...logs.map((r) =>
-        supabaseAdmin.storage
-          .from("drink-photos")
-          .createSignedUrl(r.photo_path, 60 * 60)
-      ),
     ])
 
     // ── Assemble response ──────────────────────────────────────────
-    const avatarUrl = (avatarRes as any)?.data?.signedUrl ?? null
+    const avatarUrl = avatarUrlArr[0] ?? null
 
     const drinkNameById = new Map<string, string>(
       ((drinkNamesRes as any)?.data ?? []).map((d: any) => [d.id, d.name])
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
         id: r.id,
         userId: r.user_id,
         photoPath: r.photo_path,
-        photoUrl: (photoUrlResults[i] as any)?.data?.signedUrl ?? "",
+        photoUrl: photoUrls[i] ?? "",
         drinkType: r.drink_type,
         drinkName: r.drink_id ? drinkNameById.get(r.drink_id) ?? null : null,
         caption: r.caption ?? null,
@@ -196,7 +196,6 @@ export async function GET(req: NextRequest) {
       pendingFriendRequests: pendingFriendsRes?.count ?? 0,
       unseenCheersCount: unseenCheersRes?.data ?? 0,
       totalCheersReceived,
-      // Formerly separate client-side calls — now included here
       totalXp: userXpRes.data?.total_xp ?? 0,
       pendingDuelRequests: (pendingDuelsRes?.count ?? 0) + (unseenAcceptedDuelsRes?.count ?? 0),
       unseenAcceptedFriends: unseenAcceptedFriendsRes?.count ?? 0,
