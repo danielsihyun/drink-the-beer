@@ -10,6 +10,7 @@ private struct FeedScreen: View {
   @State private var message = "Sign in from Profile to load your private feed."
   @State private var loading = false
   @State private var loadingMore = false
+  @State private var mediaStore = FeedMediaStore()
   private let token = KeychainTokenStore()
   private var client: APIClient { APIClient(baseURL: URL(string: DrinkrConfiguration.apiURL)!, tokens: token) }
   var body: some View {
@@ -19,7 +20,7 @@ private struct FeedScreen: View {
         else if posts.isEmpty { ContentUnavailableView("Your feed", systemImage: "house", description: Text(message)) }
         else { List(posts) { post in
           VStack(alignment: .leading, spacing: 6) {
-            if let assetID = post.mediaAssetID { PrivateMediaImage(assetID: assetID, client: client) }
+            if let assetID = post.mediaAssetID { PrivateMediaImage(assetID: assetID, client: client, store: mediaStore) }
             Text(post.authorName).font(.headline)
             Text(post.drinkName)
             if let caption = post.caption { Text(caption).foregroundStyle(.secondary) }
@@ -28,7 +29,7 @@ private struct FeedScreen: View {
         }
         if nextCursor != nil { Button { Task { await loadMore() } } label: { loadingMore ? AnyView(ProgressView()) : AnyView(Text("Load more")) }.disabled(loadingMore) }
         }
-      }.navigationTitle("Feed").toolbar { Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") } }.task { await reload() }
+      }.navigationTitle("Feed").refreshable { await reload() }.task { await reload() }
     }
   }
   private func reload() async {
@@ -46,9 +47,15 @@ private struct FeedScreen: View {
 }
 
 private struct PrivateMediaImage: View {
-  let assetID: UUID; let client: APIClient
-  @State private var url: URL?
-  var body: some View { Group { if let url { AsyncImage(url: url) { phase in if let image = phase.image { image.resizable().scaledToFit() } else if phase.error != nil { Color.secondary.opacity(0.1).overlay(Image(systemName: "photo")) } else { ProgressView() } }.frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14)) } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) } }.task(id: assetID) { url = try? await client.mediaURL(assetID) } }
+  let assetID: UUID; let client: APIClient; let store: FeedMediaStore
+  var body: some View { Group { if let image = store.image(for: assetID) { rendered(image).resizable().scaledToFit().frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14)) } else if store.failed(assetID) { Color.secondary.opacity(0.1).frame(maxWidth: .infinity, minHeight: 180).overlay(Image(systemName: "photo")).clipShape(RoundedRectangle(cornerRadius: 14)) } else { ProgressView().frame(maxWidth: .infinity, minHeight: 180) } }.task(id: assetID) { await store.load(assetID: assetID, client: client) } }
+  private func rendered(_ image: FeedPlatformImage) -> Image {
+    #if canImport(UIKit)
+    Image(uiImage: image)
+    #else
+    Image(nsImage: image)
+    #endif
+  }
 }
 private struct ProgressScreen: View {
   @AppStorage("drinkr.apiURL") private var apiURL = ""
