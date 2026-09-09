@@ -48,7 +48,7 @@ private struct FeedScreen: View {
 private struct PrivateMediaImage: View {
   let assetID: UUID; let client: APIClient
   @State private var url: URL?
-  var body: some View { Group { if let url { AsyncImage(url: url) { phase in if let image = phase.image { image.resizable().scaledToFill() } else if phase.error != nil { Color.secondary.opacity(0.1).overlay(Image(systemName: "photo")) } else { ProgressView() } }.frame(maxWidth: .infinity).frame(height: 230).clipped().clipShape(RoundedRectangle(cornerRadius: 14)) } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) } }.task(id: assetID) { url = try? await client.mediaURL(assetID) } }
+  var body: some View { Group { if let url { AsyncImage(url: url) { phase in if let image = phase.image { image.resizable().scaledToFit() } else if phase.error != nil { Color.secondary.opacity(0.1).overlay(Image(systemName: "photo")) } else { ProgressView() } }.frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14)) } else { ProgressView().frame(maxWidth: .infinity, minHeight: 120) } }.task(id: assetID) { url = try? await client.mediaURL(assetID) } }
 }
 private struct ProgressScreen: View {
   @AppStorage("drinkr.apiURL") private var apiURL = ""
