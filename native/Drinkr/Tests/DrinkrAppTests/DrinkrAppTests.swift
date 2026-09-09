@@ -2,6 +2,7 @@ import XCTest
 @testable import DrinkrApp
 final class DrinkrAppTests:XCTestCase{
   func testCursorIsStable(){let c=Cursor(takenAt:Date(timeIntervalSince1970:1),id:UUID());XCTAssertFalse(c.encoded.isEmpty)}
+  func testCursorDecodesSupabaseOpaqueValue(){let id=UUID();let inner=Data("{\"takenAt\":\"2026-03-20T04:59:15.546848+00:00\",\"id\":\"\(id)\"}".utf8).base64EncodedString();let cursor=try! JSONDecoder.drinkr.decode(Cursor.self,from:Data("\"\(inner)\"".utf8));XCTAssertEqual(cursor.id,id)}
   func testDraftDefaultsToLocal(){XCTAssertEqual(Draft(imagePath:"a").state,.local)}
   func testDraftPersistsSelectedCatalogDrink(){let id=UUID();let draft=Draft(imagePath:"a",drinkID:id);let restored=try! JSONDecoder.drinkr.decode(Draft.self,from:JSONEncoder.drinkr.encode(draft));XCTAssertEqual(restored.drinkID,id)}
   func testFinalizeInputIncludesOptionalDrinkID(){let id=UUID();let data=try! JSONEncoder.drinkr.encode(FinalizePostInput(assetID:UUID(),drinkID:id,drinkType:"Beer",caption:"",takenAt:Date(timeIntervalSince1970:0),timezoneID:"UTC",timezoneOffsetMinutes:0));let json=String(data:data,encoding:.utf8)!;XCTAssertNotNil(json.range(of:id.uuidString,options:.caseInsensitive))}
