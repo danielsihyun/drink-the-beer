@@ -1,0 +1,19 @@
+name: Native integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+jobs:
+  authenticated-read-contracts:
+    # Secrets are optional: unconfigured repositories skip this job safely.
+    if: ${{ secrets.DRINKR_INTEGRATION_API_URL != '' && secrets.DRINKR_INTEGRATION_ACCESS_TOKEN != '' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run read-only native integration contracts
+        run: swift test --package-path native/Drinkr --filter LiveIntegrationTests
+        env:
+          DRINKR_INTEGRATION_API_URL: ${{ secrets.DRINKR_INTEGRATION_API_URL }}
+          DRINKR_INTEGRATION_ACCESS_TOKEN: ${{ secrets.DRINKR_INTEGRATION_ACCESS_TOKEN }}

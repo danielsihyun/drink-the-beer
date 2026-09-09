@@ -1,0 +1,5 @@
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { isV2Error, requestID, v2Context } from "@/lib/v2/auth"
+const schema=z.object({action:z.enum(["request","accept","decline","remove","block","unblock"])})
+export async function POST(request:NextRequest,{params}:{params:Promise<{target:string}>}) { const context=await v2Context(request); if(isV2Error(context)) return context; const {target}=await params,key=request.headers.get("idempotency-key"),body=schema.safeParse(await request.json().catch(()=>null)); if(!z.string().uuid().safeParse(target).success||!key||!z.string().uuid().safeParse(key).success||!body.success) return NextResponse.json({error:"Invalid relationship command",requestId:requestID(request)},{status:422}); const {data,error}=await context.db.rpc("transition_friendship",{p_target:target,p_action:body.data.action,p_key:key}); return error?NextResponse.json({error:"Unable to update relationship",requestId:requestID(request)},{status:409}):NextResponse.json(data,{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}}) }

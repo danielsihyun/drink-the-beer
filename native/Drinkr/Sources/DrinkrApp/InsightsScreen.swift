@@ -1,0 +1,17 @@
+#if canImport(SwiftUI)
+import SwiftUI
+
+struct InsightsScreen: View {
+  let client: APIClient?
+  @State private var snapshot: AnalyticsSnapshot?
+  @State private var error: String?
+  var body: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { if let snapshot { InsightHero(logs: snapshot.logs); DrinkBreakdown(logs: snapshot.logs) } else if let error { ContentUnavailableView("Insights unavailable", systemImage: "chart.bar", description: Text(error)) } else { ProgressView().frame(maxWidth: .infinity, minHeight: 200) } }.padding() }.navigationTitle("Insights").task { guard let client else { error = "Set the API base URL in Profile."; return }; do { snapshot = try await client.analytics() } catch { self.error = error.localizedDescription } } }
+}
+
+private struct InsightHero: View { let logs: [AnalyticsLog]; private var streak: Int { let days = Set(logs.map { Calendar.current.startOfDay(for: $0.createdAt) }); var result = 0; var day = Calendar.current.startOfDay(for: .now); while days.contains(day) { result += 1; day = Calendar.current.date(byAdding: .day, value: -1, to: day)! }; return result }; var body: some View { VStack(alignment: .leading, spacing: 12) { Text("Your drinking history").font(.title2.bold()); HStack { Metric(value: "\(logs.count)", label: "total logs"); Metric(value: "\(streak)", label: "day streak"); Metric(value: "\(Set(logs.map(\.drinkType)).count)", label: "types tried") } }.padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 20)) } }
+private struct Metric: View { let value: String; let label: String; var body: some View { VStack { Text(value).font(.title2.bold()).monospacedDigit(); Text(label).font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity) } }
+private struct DrinkBreakdown: View { let logs: [AnalyticsLog]; var body: some View { VStack(alignment: .leading, spacing: 10) { Text("By type").font(.headline); ForEach(logs.reduce(into: [String:Int]()) { $0[$1.drinkType, default: 0] += 1 }.sorted { $0.value > $1.value }, id: \.key) { item in HStack { Text(item.key); Spacer(); Text("\(item.value)").monospacedDigit().foregroundStyle(.secondary) } } }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
+
+struct LeaderboardScreen: View { let client: APIClient?; @State private var scope = "friends"; @State private var days = 0; @State private var entries: [LeaderboardEntry] = []; @State private var error: String?; var body: some View { List { Section { Picker("Group", selection: $scope) { Text("Friends").tag("friends"); Text("Global").tag("global") }.pickerStyle(.segmented); Picker("Period", selection: $days) { Text("All time").tag(0); Text("7 days").tag(7); Text("30 days").tag(30) }.pickerStyle(.segmented) }; if let error { Section { Text(error).foregroundStyle(.red) } }; Section { ForEach(entries) { entry in HStack { Text("#\(entry.rank)").font(.headline).foregroundStyle(entry.isViewer ? .orange : .secondary).frame(width: 42, alignment: .leading); VStack(alignment: .leading) { Text(entry.displayName ?? entry.username).font(entry.isViewer ? .headline : .body); Text("@\(entry.username)").font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(entry.drinkCount)").monospacedDigit() } } }.navigationTitle("Leaderboard") }.task(id: "\(scope)-\(days)") { guard let client else { error = "Set the API base URL in Profile."; return }; do { entries = try await client.leaderboard(scope: scope, days: days == 0 ? nil : days).entries; error = nil } catch { self.error = error.localizedDescription } } }
+}
+#endif

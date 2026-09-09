@@ -1,0 +1,5 @@
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { isV2Error, requestID, v2Context } from "@/lib/v2/auth"
+const schema=z.object({desired:z.boolean()})
+export async function PUT(request:NextRequest,{params}:{params:Promise<{id:string}>}) { const context=await v2Context(request); if(isV2Error(context)) return context; const {id}=await params,key=request.headers.get("idempotency-key"),body=schema.safeParse(await request.json().catch(()=>null)); if(!z.string().uuid().safeParse(id).success||!key||!z.string().uuid().safeParse(key).success||!body.success) return NextResponse.json({error:"Invalid cheer",requestId:requestID(request)},{status:422}); const {data,error}=await context.db.rpc("set_cheer",{p_post:id,p_desired:body.data.desired,p_key:key}); return error?NextResponse.json({error:"Unable to update cheer",requestId:requestID(request)},{status:409}):NextResponse.json(data,{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}}) }

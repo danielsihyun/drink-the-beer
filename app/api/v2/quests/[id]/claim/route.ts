@@ -1,0 +1,4 @@
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { isV2Error, requestID, v2Context } from "@/lib/v2/auth"
+export async function POST(request:NextRequest,{params}:{params:Promise<{id:string}>}) { const context=await v2Context(request);if(isV2Error(context))return context;const {id}=await params,key=request.headers.get("idempotency-key");if(!z.string().uuid().safeParse(id).success||!key||!z.string().uuid().safeParse(key).success)return NextResponse.json({error:"Invalid quest claim",requestId:requestID(request)},{status:422});const {data,error}=await context.db.rpc("claim_quest_v2",{p_user_quest:id,p_key:key});return error?NextResponse.json({error:"Unable to claim quest",requestId:requestID(request)},{status:409}):NextResponse.json(data,{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}})}

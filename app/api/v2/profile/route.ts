@@ -1,0 +1,6 @@
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { isV2Error, requestID, v2Context } from "@/lib/v2/auth"
+const input=z.object({username:z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),displayName:z.string().max(60).nullable().optional(),avatarPath:z.string().max(200).nullable().optional()})
+export async function GET(request:NextRequest){const c=await v2Context(request);if(isV2Error(c))return c;const {data,error}=await c.db.rpc("my_profile_v2",{p_viewer:c.user.id});return error?NextResponse.json({error:"Unable to load profile",requestId:requestID(request)},{status:404}):NextResponse.json(data,{headers:{"Cache-Control":"private, no-store"}})}
+export async function PATCH(request:NextRequest){const c=await v2Context(request);if(isV2Error(c))return c;const body=input.safeParse(await request.json().catch(()=>null));if(!body.success)return NextResponse.json({error:"Invalid profile",requestId:requestID(request)},{status:422});const {data,error}=await c.db.rpc("update_my_profile_v2",{p_username:body.data.username,p_display_name:body.data.displayName??null,p_avatar_path:body.data.avatarPath??null});return error?NextResponse.json({error:"Unable to update profile",requestId:requestID(request)},{status:409}):NextResponse.json(data,{headers:{"Cache-Control":"private, no-store"}})}

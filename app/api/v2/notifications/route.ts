@@ -1,0 +1,6 @@
+import { NextRequest,NextResponse } from "next/server"
+import { z } from "zod"
+import { isV2Error,requestID,v2Context } from "@/lib/v2/auth"
+const body=z.object({ids:z.array(z.string().uuid()).max(100).optional()})
+export async function GET(request:NextRequest){const c=await v2Context(request);if(isV2Error(c))return c;const limit=Math.min(Math.max(Number(request.nextUrl.searchParams.get("limit")??30),1),100);const {data,error}=await c.db.rpc("notifications_page_v2",{p_viewer:c.user.id,p_limit:limit});return error?NextResponse.json({error:"Unable to load notifications",requestId:requestID(request)},{status:500}):NextResponse.json({notifications:data},{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}})}
+export async function PATCH(request:NextRequest){const c=await v2Context(request);if(isV2Error(c))return c;const parsed=body.safeParse(await request.json().catch(()=>({})));if(!parsed.success)return NextResponse.json({error:"Invalid notification ids",requestId:requestID(request)},{status:422});const {data,error}=await c.db.rpc("mark_notifications_read_v2",{p_ids:parsed.data.ids??null});return error?NextResponse.json({error:"Unable to mark notifications read",requestId:requestID(request)},{status:409}):NextResponse.json({updated:data},{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}})}

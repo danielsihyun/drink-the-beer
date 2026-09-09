@@ -1,0 +1,3 @@
+import { NextRequest,NextResponse } from "next/server"
+import { isV2Error,requestID,v2Context } from "@/lib/v2/auth"
+export async function GET(request:NextRequest){const c=await v2Context(request);if(isV2Error(c))return c;const q=request.nextUrl.searchParams.get("q")??"",limit=Math.min(Math.max(Number(request.nextUrl.searchParams.get("limit")??20),1),20);const {data,error}=await c.db.rpc("search_drinks_v2",{p_viewer:c.user.id,p_query:q,p_limit:limit});return error?NextResponse.json({error:"Unable to search drinks",requestId:requestID(request)},{status:422}):NextResponse.json({drinks:data},{headers:{"Cache-Control":"private, no-store","X-Request-ID":requestID(request)}})}
