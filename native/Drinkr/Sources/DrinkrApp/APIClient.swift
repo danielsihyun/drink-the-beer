@@ -60,7 +60,7 @@ public struct MediaUploadAuthorization: Decodable, Sendable { public let assetID
 private struct AvatarUploadAuthorization: Decodable, Sendable { let path:String; let signedURL:URL; let token:String; enum CodingKeys:String,CodingKey { case path,signedURL="signedUrl",token } }
 public struct FinalizePostInput: Encodable, Sendable { public let assetID:UUID; public let drinkID:UUID?; public let drinkType:String; public let caption:String; public let takenAt:Date; public let timezoneID:String; public let timezoneOffsetMinutes:Int; public init(assetID:UUID,drinkID:UUID?=nil,drinkType:String,caption:String,takenAt:Date,timezoneID:String,timezoneOffsetMinutes:Int){self.assetID=assetID;self.drinkID=drinkID;self.drinkType=drinkType;self.caption=caption;self.takenAt=takenAt;self.timezoneID=timezoneID;self.timezoneOffsetMinutes=timezoneOffsetMinutes}; enum CodingKeys:String,CodingKey { case assetID="assetId",drinkID="drinkId",drinkType,caption,takenAt,timezoneID="timezoneId",timezoneOffsetMinutes } }
 private struct FinalizePostReply: Decodable { let id: UUID }
-private struct Page: Decodable { let posts: [FeedPost]; let nextCursor: Cursor? }
+private struct Page: Decodable { let posts: [FeedPost]; let nextCursor: Cursor?; enum CodingKeys: String, CodingKey { case posts, nextCursor }; init(from decoder: Decoder) throws { let c = try decoder.container(keyedBy: CodingKeys.self); posts = try c.decode([FeedPost].self, forKey: .posts); nextCursor = try? c.decodeIfPresent(Cursor.self, forKey: .nextCursor) } }
 private struct Empty: Decodable {}
 private struct DrinksResponse: Decodable { let drinks: [DrinkCatalogItem] }
 private struct CustomDrinkResponse: Decodable { let drink: DrinkCatalogItem }
